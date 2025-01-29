@@ -3,8 +3,8 @@ from pydantic import TypeAdapter
 from schemas.actions import t_Action
 from utils.mongo import MongoClient
 
-mongo_events_manager = MongoClient('mockau_events')
-mongo_actions_manager = MongoClient('mockau_actions')
+mongo_events_manager = MongoClient(collection='mockau_events')
+mongo_actions_manager = MongoClient(collection='mockau_actions')
 
 
 async def get_all_actions() -> list[t_Action]:
