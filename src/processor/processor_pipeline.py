@@ -2,9 +2,8 @@ from asyncio import create_task, gather
 from uuid import UUID
 
 from dependencies import get_all_actions
-from schemas import HttpRequest
-from schemas.actions import OverrideHttpRequestAction, t_Action
-from schemas.events import (
+from models.actions import OverrideHttpRequestAction, t_Action
+from models.events import (
     EventExternalHttpRequest,
     EventHttpRequestActionMatched,
     EventHttpRequestActionsMismatched,
@@ -12,6 +11,7 @@ from schemas.events import (
     EventReceivedHttpResponse,
     EventTransitHttpRequest,
 )
+from schemas import HttpRequest
 from schemas.http_response import HttpResponse
 
 
@@ -38,7 +38,7 @@ class HttpProcessorPipeline:
 
     async def execute_action(self, action: t_Action) -> HttpResponse:
         if isinstance(action, OverrideHttpRequestAction):
-            new_request = action.http_request_override.override_request(self.http_request)
+            new_request = action.http_request_override.override_http_request(self.http_request)
             await self.on_request_send(new_request)
             response = await new_request.send()
             await self.on_response_received(new_request.id, response)
@@ -55,7 +55,7 @@ class HttpProcessorPipeline:
         self.tasks.append(create_task(event.send_to_mongo()))
 
     async def search_action(self):
-        for action in await get_all_actions():
+        async for action in get_all_actions():
             if action.http_request.is_matched(self.http_request):
                 return action
 

@@ -4,8 +4,8 @@ from uuid import UUID
 from black.nodes import TypeVar
 from pydantic import computed_field
 
+from models.events import ChainOfEvents
 from schemas import BaseSchema, HttpRequest
-from schemas.events import ChainOfEvents
 from schemas.http_response import HttpResponse
 
 T_PaginatedItemType = TypeVar('T_PaginatedItemType')
@@ -31,7 +31,7 @@ class ChainsOfEventsListViewResponse(TimestampPaginatedResponse[ChainOfEvents]):
 
 class HttpRequestResponseViewResponse(BaseSchema):
     request: HttpRequest
-    response: HttpResponse
+    response: HttpResponse | None
 
 
 class HttpRequestResponsesListViewResponse(TimestampPaginatedResponse[HttpRequestResponseViewResponse]):

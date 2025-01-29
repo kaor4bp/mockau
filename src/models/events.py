@@ -7,7 +7,8 @@ import pytz
 from pydantic import Field, TypeAdapter, computed_field
 
 from dependencies import mongo_events_manager
-from schemas import BaseSchema, HttpRequest
+from models.base_model import BaseModel
+from schemas import HttpRequest
 from schemas.http_response import HttpResponse
 
 
@@ -33,7 +34,7 @@ class EventTypeGroup:
     ]
 
 
-class ChainOfEvents(BaseSchema):
+class ChainOfEvents(BaseModel):
     events: list['t_Event | ChainOfEvents']
 
     @property
@@ -88,7 +89,7 @@ class ChainOfEvents(BaseSchema):
             return 0
 
 
-class BaseEvent(BaseSchema):
+class BaseEvent(BaseModel):
     type_of: EventType
     # id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=pytz.UTC))
@@ -99,7 +100,7 @@ class BaseEvent(BaseSchema):
         return int(self.created_at.timestamp() * 1000000)
 
     async def send_to_mongo(self) -> None:
-        await mongo_events_manager.insert_one(self.model_dump(mode='json'))
+        await mongo_events_manager.insert_one(self.to_json_dict())
 
 
 class BaseHttpRequestEvent(BaseEvent):
@@ -122,7 +123,7 @@ class BaseHttpRequestEvent(BaseEvent):
         if event.http_request.id != self.track_http_request_id:
             return event
 
-    async def _get_children_http_request(self) -> Optional['t_HttpRequestEvent']:
+    async def _get_child_http_request(self) -> Optional['t_HttpRequestEvent']:
         query_result = await mongo_events_manager.find_one(
             filters={
                 'parent_http_request_id': str(self.http_request.id),
@@ -145,7 +146,11 @@ class BaseHttpRequestEvent(BaseEvent):
         query = mongo_events_manager.find(filters={'http_request_id': str(self.http_request.id)}).sort({'timestamp': 1})
         return [TypeAdapter(t_HttpRequestSubEvent).validate_python(e) for e in await query.to_list()]
 
-    async def get_http_response_event(self) -> Optional['EventReceivedHttpResponse']:
+    async def get_http_response_event(
+        self,
+        recursive: bool = True,
+        prefer_external_response: bool = False,
+    ) -> Optional['EventReceivedHttpResponse']:
         query_result = await mongo_events_manager.find_one(
             filters={
                 'http_request_id': str(self.http_request.id),
@@ -155,18 +160,33 @@ class BaseHttpRequestEvent(BaseEvent):
 
         if query_result:
             return TypeAdapter(EventReceivedHttpResponse).validate_python(query_result)
-        children_http_request = await self._get_children_http_request()
-        if children_http_request:
-            return await children_http_request.get_http_response_event()
+        if not recursive:
+            return None
+
+        children_http_request = await self._get_child_http_request()
+        if not children_http_request:
+            return None
+
+        if prefer_external_response:
+            tracked_request = await children_http_request._get_tracked_http_request()
+            if tracked_request:
+                tracked_response = await tracked_request.get_http_response_event(recursive=recursive)
+                if tracked_response:
+                    return tracked_response
+
+        return await children_http_request.get_http_response_event(recursive=recursive)
 
     async def get_root_http_request(self) -> 't_HttpRequestEvent':
         http_request = self
-        while True:
+
+        for _ in range(100):
             parent_http_request = await http_request._get_parent_http_request()
             if parent_http_request:
                 http_request = parent_http_request
             else:
                 break
+        else:
+            raise AssertionError('Too many recursions')
         return http_request
 
     async def build_events_chain(self) -> ChainOfEvents:
@@ -175,7 +195,7 @@ class BaseHttpRequestEvent(BaseEvent):
         events.append(self)
         events += await self._get_sub_events()
 
-        children_http_request = await self._get_children_http_request()
+        children_http_request = await self._get_child_http_request()
         if children_http_request:
             events.append(children_http_request)
             tracked_http_request = await children_http_request._get_tracked_http_request()

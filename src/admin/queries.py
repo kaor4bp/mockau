@@ -1,7 +1,7 @@
 from pydantic import TypeAdapter
 
 from dependencies import mongo_events_manager
-from schemas.events import EventTypeGroup, t_HttpRequestEvent
+from models.events import EventTypeGroup, t_HttpRequestEvent
 
 
 async def get_http_requests_by_timestamp(

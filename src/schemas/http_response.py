@@ -53,7 +53,6 @@ class HttpResponse(BaseSchema):
 
         return Response(
             content=self.content.to_binary(),
-            media_type=self.content.content_type,
             status_code=self.status_code,
             headers=headers,
         )

@@ -2,9 +2,9 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
-from schemas import BaseSchema
+from models.base_model import BaseModel
 
 
-class AbstractAction(BaseSchema):
+class AbstractAction(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     priority: int

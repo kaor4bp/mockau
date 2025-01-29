@@ -10,21 +10,24 @@ from admin.schemas import (
     HttpRequestResponseViewResponse,
 )
 from dependencies import mongo_actions_manager, mongo_events_manager
-from schemas.actions import t_Action
-from schemas.events import EventType, EventTypeGroup, t_HttpRequestEvent
+from models.actions import t_Action
+from models.events import EventType, EventTypeGroup, t_HttpRequestEvent
 from schemas.http_request_matcher.http_request_matcher import HttpRequestMatcher
 
 admin_router = APIRouter(prefix='/mockau/admin', tags=['Admin'])
 
 
-@admin_router.post('/create_action')
-async def create_action(action: t_Action):
+@admin_router.post(
+    '/create_action',
+    response_model=CreateActionResponse,
+)
+async def create_action(body: t_Action):
     await mongo_actions_manager.update_one(
-        filters={'id': str(action.id)}, update={'$set': action.model_dump(mode='json')}, upsert=True
+        filters={'id': str(body.id)}, update={'$set': body.to_json_dict()}, upsert=True
     )
 
     return Response(
-        content=CreateActionResponse(id=action.id).model_dump_json(indent=2),
+        content=CreateActionResponse(id=body.id).to_json(),
         media_type='application/json',
         status_code=200,
     )
@@ -48,7 +51,7 @@ async def get_last_events_chain():
     last_request_event = await last_request_event.get_root_http_request()
 
     chain_of_events = await last_request_event.build_events_chain()
-    return JSONResponse(content=chain_of_events.model_dump(mode='json'), status_code=200)
+    return JSONResponse(content=chain_of_events.to_json_dict(), status_code=200)
 
 
 @admin_router.get('/get_last_request_response')
@@ -69,8 +72,9 @@ async def get_last_request_response():
     http_response_event = await last_request_event.get_http_response_event()
     return JSONResponse(
         content=HttpRequestResponseViewResponse(
-            request=last_request_event.http_request, response=http_response_event.http_response
-        ).model_dump(mode='json'),
+            request=last_request_event.http_request,
+            response=http_response_event.http_response if http_response_event else None,
+        ).to_json_dict(),
         status_code=200,
     )
 
@@ -110,7 +114,7 @@ async def search_request_responses(
             new_items.append(
                 HttpRequestResponseViewResponse(
                     request=request_event.http_request,
-                    response=http_response_event.http_response,
+                    response=http_response_event.http_response if http_response_event else None,
                 )
             )
 
@@ -127,7 +131,7 @@ async def search_request_responses(
     if no_next_events:
         response.next_timestamp = None
 
-    return JSONResponse(content=response.model_dump(mode='json'), status_code=200)
+    return JSONResponse(content=response.to_json_dict(), status_code=200)
 
 
 @admin_router.get('/get_events_chain', operation_id='getEventsChain')
@@ -187,6 +191,6 @@ async def get_events_chain(from_: int, to: int | None = None, limit: int = 10, i
             chains.append(events_chain)
 
     return JSONResponse(
-        content=ChainsOfEventsListViewResponse(items=chains, next_timestamp=next_timestamp).model_dump(mode='json'),
+        content=ChainsOfEventsListViewResponse(items=chains, next_timestamp=next_timestamp).to_json_dict(),
         status_code=200,
     )

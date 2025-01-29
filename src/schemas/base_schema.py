@@ -5,6 +5,12 @@ from pydantic_core import CoreSchema
 
 
 class BaseSchema(BaseModel):
+    def to_json_dict(self) -> dict[str, Any]:
+        return self.model_dump(mode='json', exclude_unset=True)
+
+    def to_json(self) -> str:
+        return self.model_dump_json(indent=2, exclude_unset=True)
+
     @classmethod
     def __get_pydantic_json_schema__(cls, schema: CoreSchema, handler: GetJsonSchemaHandler) -> dict[str, Any]:
         """Replace anyOf for Unions to oneOf"""

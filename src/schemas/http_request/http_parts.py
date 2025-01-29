@@ -1,13 +1,13 @@
 import base64
+import gzip
 import json
-from abc import abstractmethod
 from enum import Enum
 from typing import Literal, Optional
 from urllib.parse import unquote
 
 import httpx
 import lxml.etree
-from pydantic import ConfigDict
+from pydantic import ConfigDict, computed_field
 
 from consts import FORBIDDEN_HEADERS
 from schemas.base_schema import BaseSchema
@@ -37,8 +37,6 @@ class HttpRequestHeaders(BaseSchema):
     def from_httpx_headers(cls, headers: httpx.Headers) -> 'HttpRequestHeaders':
         mapped_headers = {}
         for header_name, header_value in headers.items():
-            if header_name.lower() in FORBIDDEN_HEADERS:
-                continue
             mapped_headers.setdefault(header_name, []).append(header_value)
 
         return cls(**mapped_headers)
@@ -65,54 +63,54 @@ class HttpContentType(Enum):
 
 class HttpRequestContent(BaseSchema):
     type_of: HttpContentType
-    content_type: str
+    raw: str | None
 
-    @abstractmethod
-    def to_binary(self) -> bytes:
-        pass
+    def to_binary(self):
+        if self.raw:
+            return gzip.decompress(base64.b64decode(self.raw.encode('utf8')))
+        else:
+            return None
 
 
 class HttpRequestBinaryContent(HttpRequestContent):
     type_of: Literal['BINARY'] = 'BINARY'
-    data: str
-
-    def to_binary(self):
-        return base64.b64encode(self.data.encode('utf8'))
 
 
 class HttpRequestJsonContent(HttpRequestContent):
     type_of: Literal['JSON'] = 'JSON'
-    data: list | dict
     encoding: str
 
-    def to_binary(self):
-        return json.dumps(self.data).encode(self.encoding)
+    @computed_field
+    @property
+    def json(self) -> dict | list:
+        return json.loads(self.to_binary().decode(self.encoding))
 
 
 class HttpRequestXmlContent(HttpRequestContent):
     type_of: Literal['XML'] = 'XML'
-    data: str
     encoding: str
 
-    def to_binary(self):
-        return self.data.encode(self.encoding)
+    @computed_field
+    @property
+    def data(self) -> str:
+        return self.to_binary().decode(self.encoding)
 
 
 class HttpRequestTextContent(HttpRequestContent):
     type_of: Literal['TEXT'] = 'TEXT'
-    data: str
     encoding: str
 
-    def to_binary(self):
-        return self.data.encode(self.encoding)
+    @computed_field
+    @property
+    def data(self) -> str:
+        return self.to_binary().decode(self.encoding)
 
 
 class HttpRequestNoContent(HttpRequestContent):
     type_of: Literal['NO_CONTENT'] = 'NO_CONTENT'
-    data: None = None
 
-    def to_binary(self):
-        return None
+    # def to_binary(self):
+    #     return None
 
 
 t_Content = (
@@ -128,6 +126,12 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
     serialized_content = None
     text = None
     content_type = content_type or ''
+
+    if content:
+        raw_content = base64.b64encode(gzip.compress(content)).decode('utf8')
+    else:
+        raw_content = None
+
     try:
         text = content.decode(encoding)
     except UnicodeDecodeError:
@@ -136,26 +140,29 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
     if text:
         if 'application/json' in content_type:
             try:
-                serialized_content = HttpRequestJsonContent(
-                    data=json.loads(text), encoding=encoding, content_type=content_type
-                )
+                json.loads(text)
             except json.JSONDecodeError:
                 pass
+            else:
+                serialized_content = HttpRequestJsonContent(
+                    raw=raw_content,
+                    encoding=encoding,
+                )
         elif 'xml' in content_type:
             try:
                 lxml.etree.fromstring(text)
             except lxml.etree.XMLSyntaxError:
                 pass
             else:
-                serialized_content = HttpRequestXmlContent(data=text, encoding=encoding, content_type=content_type)
+                serialized_content = HttpRequestXmlContent(encoding=encoding, raw=raw_content)
         else:
-            serialized_content = HttpRequestTextContent(data=text, encoding=encoding, content_type=content_type)
+            serialized_content = HttpRequestTextContent(encoding=encoding, raw=raw_content)
     elif content:
         serialized_content = HttpRequestBinaryContent(
-            data=base64.b64encode(content).decode('utf8'), content_type=content_type
+            raw=raw_content,
         )
     else:
-        serialized_content = HttpRequestNoContent(content_type=content_type)
+        serialized_content = HttpRequestNoContent(raw=raw_content)
 
     return serialized_content
 
