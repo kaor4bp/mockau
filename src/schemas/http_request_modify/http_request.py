@@ -1,5 +1,5 @@
 from schemas.base_schema import BaseSchema
-from schemas.common_modifiers.string_modifier import t_StringModifier
+from schemas.modifiers.string_modifier import t_StringModifier
 
 
 class HttpRequestModify(BaseSchema):

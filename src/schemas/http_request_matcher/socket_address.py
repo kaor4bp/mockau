@@ -1,9 +1,10 @@
 from typing import Optional
 
-from schemas.common_matchers.abstract_matcher import AbstractMatcher
-from schemas.common_matchers.integer_matcher import t_IntegerMatcher
-from schemas.common_matchers.string_matcher import t_StringMatcher
 from schemas.http_request.http_parts import HttpRequestSocketAddress
+from schemas.matchers.abstract_matcher import AbstractMatcher
+from schemas.matchers.integer_matcher import t_IntegerMatcher
+from schemas.matchers.string_matcher import t_StringMatcher
+from schemas.variables_context import VariablesContext, variables_context_transaction
 
 
 class SocketAddressMatcher(AbstractMatcher):
@@ -11,11 +12,12 @@ class SocketAddressMatcher(AbstractMatcher):
     port: Optional[t_IntegerMatcher] = None
     scheme: Optional[t_StringMatcher] = None
 
-    def is_matched(self, socket_address: HttpRequestSocketAddress) -> bool:
-        if self.host and not self.host.is_matched(socket_address.host):
+    @variables_context_transaction
+    def is_matched(self, socket_address: HttpRequestSocketAddress, *, context: VariablesContext) -> bool:
+        if self.host and not self.host.is_matched(socket_address.host, context=context):
             return False
-        if self.port and not self.port.is_matched(socket_address.port):
+        if self.port and not self.port.is_matched(socket_address.port, context=context):
             return False
-        if self.scheme and not self.scheme.is_matched(socket_address.scheme):
+        if self.scheme and not self.scheme.is_matched(socket_address.scheme, context=context):
             return False
         return True

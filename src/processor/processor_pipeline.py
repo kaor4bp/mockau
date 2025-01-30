@@ -13,6 +13,7 @@ from models.events import (
 )
 from schemas import HttpRequest
 from schemas.http_response import HttpResponse
+from schemas.variables_context import VariablesContext
 
 
 class HttpProcessorPipeline:
@@ -25,7 +26,7 @@ class HttpProcessorPipeline:
 
     async def run(self) -> HttpResponse | None:
         await self.on_create()
-        action = await self.search_action()
+        action, context = await self.search_action()
         if action:
             await self.on_action_is_matched(action)
             response = await self.execute_action(action)
@@ -56,8 +57,9 @@ class HttpProcessorPipeline:
 
     async def search_action(self):
         async for action in get_all_actions():
-            if action.http_request.is_matched(self.http_request):
-                return action
+            context = VariablesContext()
+            if action.http_request.is_matched(self.http_request, context=context):
+                return action, context
 
     async def on_action_is_matched(self, action: t_Action):
         event = EventHttpRequestActionMatched(

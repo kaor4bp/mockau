@@ -30,18 +30,24 @@ class HttpRequestOverride(BaseSchema):
         return HttpRequest(
             id=new_id,
             socket_address=HttpRequestSocketAddress(
-                host=self.socket_address.host
-                if self.socket_address and self.socket_address.host is not PydanticUndefined
-                else original_request.socket_address.host,
-                port=self.socket_address.port
-                if self.socket_address and self.socket_address.port is not PydanticUndefined
-                else original_request.socket_address.port,
-                scheme=self.socket_address.scheme
-                if self.socket_address and self.socket_address.scheme is not PydanticUndefined
-                else original_request.socket_address.scheme,
+                host=(
+                    self.socket_address.host
+                    if self.socket_address and self.socket_address.host is not PydanticUndefined
+                    else original_request.socket_address.host
+                ),
+                port=(
+                    self.socket_address.port
+                    if self.socket_address and self.socket_address.port is not PydanticUndefined
+                    else original_request.socket_address.port
+                ),
+                scheme=(
+                    self.socket_address.scheme
+                    if self.socket_address and self.socket_address.scheme is not PydanticUndefined
+                    else original_request.socket_address.scheme
+                ),
             ),
             path=self.path or original_request.path,
-            query_params=self.query_params if self.query_params is not None else original_request.query_params,
+            query_params=(self.query_params if self.query_params is not None else original_request.query_params),
             method=self.method or original_request.method,
             headers=headers,
             body=original_request.body,

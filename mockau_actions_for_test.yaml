@@ -1,0 +1,63 @@
+- http_request:
+    path:
+      pattern: "/test-env1/.*"
+    query_params:
+      key:
+        equal_to: foo
+    socket_address:
+      host:
+        equal_to: mockau.mynetwork.domain
+    method:
+      any_of:
+      - GET
+    headers:
+      all_of:
+      - any_of:
+        - key:
+            equal_to: content-type
+          values:
+            any_of:
+            - equal_to: application/json
+      - key:
+          not_:
+            equal_to: foo
+        values:
+          any_of:
+          - not_:
+              equal_to: foo
+  http_request_override:
+    path: "/"
+    socket_address:
+      host: api.ipify.org
+      scheme: https
+    headers:
+      Host:
+      - api.ipify.org
+  id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  priority: 0
+- http_request:
+    socket_address:
+      host:
+        variable:
+          name: "${host}"
+    path:
+      pattern: "/world/.*"
+      variable:
+        name: "${hello}"
+  http_request_override:
+    path: "/hello/"
+  id: efd2d04d-0197-45e6-83d0-eaf50af6ffc9
+  priority: 2
+- http_request:
+    path:
+      pattern: "/hello.*"
+  http_request_override:
+    path: "/"
+    socket_address:
+      host: api.ipify.org
+      scheme: https
+    headers:
+      host:
+      - api.ipify.org
+  id: 30be145f-de9e-4440-80f4-c3e65471e322
+  priority: 3

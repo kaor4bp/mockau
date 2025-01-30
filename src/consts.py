@@ -1,3 +1,1 @@
-FORBIDDEN_HEADERS = (
-    'content-length',
-)
+FORBIDDEN_HEADERS = ('content-length',)

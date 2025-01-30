@@ -2,10 +2,11 @@ from typing import Annotated
 
 from pydantic import Field
 
-from schemas.common_matchers.abstract_matcher import AbstractMatcher
-from schemas.common_matchers.string_matcher import t_StringMatcher
+from schemas.matchers.abstract_matcher import AbstractMatcher
+from schemas.matchers.string_matcher import t_StringMatcher
 
 
+# todo: No usages, remove it
 class StringListMatcher(AbstractMatcher):
     any_of: Annotated[
         list[t_StringMatcher] | None,

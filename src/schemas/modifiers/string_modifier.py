@@ -4,7 +4,7 @@ from typing import Annotated, Union
 
 from pydantic import Field
 
-from schemas.common_modifiers.abstract_modifier import AbstractModifier
+from schemas.modifiers.abstract_modifier import AbstractModifier
 
 
 class StringReplaceModifier(AbstractModifier):
@@ -97,5 +97,5 @@ t_StringModifier = Annotated[
         IndexSubstringsModifier,
         StringToConstantModifier,
     ],
-    Field(examples=[{'and_': [{'pattern': '\/test-env-\d+\/', 'modifier': {'old': 'test', 'new': 'staging'}}]}]),
+    Field(examples=[{'and_': [{'pattern': '/test-env-d+/', 'modifier': {'old': 'test', 'new': 'staging'}}]}]),
 ]
