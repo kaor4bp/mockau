@@ -1,8 +1,11 @@
+from datetime import datetime, timedelta
+
+import pytz
 from fastapi import BackgroundTasks
 from pydantic import TypeAdapter
 
 from dependencies import mongo_events_client
-from models.events import EventTypeGroup, t_HttpRequestEvent
+from models.events import EventTypeGroup, t_Event, t_HttpRequestEvent
 
 
 async def group_events():
@@ -21,19 +24,19 @@ async def group_events():
             break
 
 
-# async def cleanup_events():
-#     for _ in range(5):
-#         outdated_timestamp = (datetime.now(tz=pytz.UTC) - timedelta(hours=12)).timestamp() * 1000000
-#         query = mongo_events_client.delete_many(
-#             filters={
-#                 'timestamp': {'$lte': outdated_timestamp},
-#                 'group_id': {'$ne': None},
-#             }
-#         ).batch_size(10)
-#         async for document in query:
-#             event = TypeAdapter(t_Event).validate_python(document)
-#             mongo_events_client.delete_many({'group_id': document['group_id']})
+async def cleanup_events():
+    outdated_timestamp = (datetime.now(tz=pytz.UTC) - timedelta(hours=12)).timestamp() * 1000000
+    query = mongo_events_client.find(
+        filters={
+            'timestamp': {'$lte': outdated_timestamp},
+            'group_id': {'$ne': None},
+        }
+    ).batch_size(10)
+    async for document in query:
+        event: t_Event = TypeAdapter(t_Event).validate_python(document)
+        await mongo_events_client.delete_many({'group_id': str(event.group_id)})
 
 
 async def schedule_background_tasks(background_tasks: BackgroundTasks):
     background_tasks.add_task(group_events)
+    background_tasks.add_task(cleanup_events)

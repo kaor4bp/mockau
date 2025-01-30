@@ -4,7 +4,6 @@ from typing import Literal, Optional
 from uuid import UUID, uuid4
 
 import pytz
-from bson import ObjectId
 from pydantic import Field, TypeAdapter, computed_field
 
 from dependencies import mongo_events_client
@@ -97,13 +96,25 @@ class ChainOfEvents(BaseModel):
         else:
             return 0
 
+    async def set_group_id(self, group_id: UUID) -> None:
+        for event in self.events:
+            if isinstance(event, BaseEvent):
+                event.group_id = group_id
+                if event.mongo_bson_id:
+                    await mongo_events_client.update_one(
+                        filters={'_id': event.mongo_bson_id}, update={'$set': {'group_id': str(group_id)}}
+                    )
+                else:
+                    await event.send_to_mongo()
+            else:
+                await event.set_group_id(group_id)
+
 
 class BaseEvent(BaseModel):
     type_of: EventType
     # id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=pytz.UTC))
     group_id: UUID | None = None
-    parent_group_id: UUID | None = None
 
     @computed_field
     @property
@@ -111,7 +122,8 @@ class BaseEvent(BaseModel):
         return int(self.created_at.timestamp() * 1000000)
 
     async def send_to_mongo(self) -> None:
-        await mongo_events_client.insert_one(self.to_json_dict())
+        result = await mongo_events_client.insert_one(self.to_json_dict())
+        self.mongo_id = str(result.inserted_id)
 
 
 class BaseHttpRequestEvent(BaseEvent):
@@ -202,8 +214,7 @@ class BaseHttpRequestEvent(BaseEvent):
 
     async def build_events_chain(self, parent_group_id: UUID | None = None) -> ChainOfEvents:
         events = []
-        group_id = self.group_id or uuid4()
-
+        group_id = parent_group_id or self.group_id or uuid4()
         events.append(self)
         events += await self._get_sub_events()
 
@@ -218,19 +229,8 @@ class BaseHttpRequestEvent(BaseEvent):
 
         chain_of_events = ChainOfEvents(events=events)
 
-        if chain_of_events.is_final:
-            for event in events:
-                event.group_id = group_id
-                event.parent_group_id = parent_group_id
-            await mongo_events_client.update_many(
-                filters={'$or': [{'_id': ObjectId(event.mongo_id)} for event in events]},
-                update={
-                    '$set': {
-                        'group_id': str(group_id),
-                        'parent_group_id': str(self.parent_group_id) if self.parent_group_id else None,
-                    }
-                },
-            )
+        if chain_of_events.is_final and not self.group_id:
+            await chain_of_events.set_group_id(group_id)
         return chain_of_events
 
 

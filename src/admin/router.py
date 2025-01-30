@@ -55,6 +55,33 @@ async def get_last_events_chain():
     return JSONResponse(content=chain_of_events.to_json_dict(), status_code=200)
 
 
+@admin_debug_router.get('/verify_event_chains')
+async def verify_event_chains():
+    query = (
+        mongo_events_client.find(
+            filters={
+                'type_of': {'$in': EventTypeGroup.INBOUND_HTTP_REQUEST},
+            }
+        )
+        .sort({'timestamp': -1})
+        .batch_size(100)
+    )
+    async for document in query:
+        request_event = TypeAdapter(t_HttpRequestEvent).validate_python(document)
+        root_event = await request_event.get_root_http_request()
+        events_chain = await root_event.build_events_chain()
+        if not events_chain.is_final:
+            return JSONResponse(
+                content={
+                    'status': 'failed',
+                    'events_chain': events_chain.to_json_dict(),
+                },
+                status_code=200,
+            )
+
+    return JSONResponse(content={'status': 'ok'}, status_code=200)
+
+
 @admin_debug_router.get('/get_last_request_response')
 async def get_last_request_response():
     query = (
