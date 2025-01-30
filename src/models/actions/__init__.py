@@ -1,3 +1,3 @@
-from .action import OverrideHttpRequestAction, ModifyHttpRequestAction
+from .action import OverrideHttpRequestAction, ModifyHttpRequestAction, StubHttpResponseAction
 
-t_Action = OverrideHttpRequestAction | ModifyHttpRequestAction
+t_Action = OverrideHttpRequestAction | ModifyHttpRequestAction | StubHttpResponseAction

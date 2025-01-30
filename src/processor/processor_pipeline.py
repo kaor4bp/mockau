@@ -2,7 +2,7 @@ from asyncio import create_task, gather
 from uuid import UUID
 
 from dependencies import get_all_actions
-from models.actions import OverrideHttpRequestAction, t_Action
+from models.actions import OverrideHttpRequestAction, StubHttpResponseAction, t_Action
 from models.events import (
     EventExternalHttpRequest,
     EventHttpRequestActionMatched,
@@ -46,6 +46,9 @@ class HttpProcessorPipeline:
             response = await new_request.send()
             await self.on_response_received(new_request.id, response)
             return response
+        elif isinstance(action, StubHttpResponseAction):
+            await self.on_response_received(self.http_request.id, action.http_response)
+            return action.http_response
         else:
             raise NotImplementedError()
 
