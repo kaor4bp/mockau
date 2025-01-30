@@ -15,6 +15,7 @@ from models.events import EventType, EventTypeGroup, t_HttpRequestEvent
 from schemas.http_request_matcher.http_request_matcher import HttpRequestMatcher
 
 admin_router = APIRouter(prefix='/mockau/admin', tags=['Admin'])
+admin_debug_router = APIRouter(prefix='/mockau/admin', tags=['Admin Debug'])
 
 
 @admin_router.post(
@@ -33,7 +34,7 @@ async def create_action(body: t_Action):
     )
 
 
-@admin_router.get('/get_last_events_chain')
+@admin_debug_router.get('/get_last_events_chain')
 async def get_last_events_chain():
     query = (
         mongo_events_client.find(
@@ -54,7 +55,7 @@ async def get_last_events_chain():
     return JSONResponse(content=chain_of_events.to_json_dict(), status_code=200)
 
 
-@admin_router.get('/get_last_request_response')
+@admin_debug_router.get('/get_last_request_response')
 async def get_last_request_response():
     query = (
         mongo_events_client.find(

@@ -5,30 +5,41 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, Request
 from starlette.responses import JSONResponse
-from starlette.routing import Route
 
-from admin.router import admin_router
+from admin.router import admin_debug_router, admin_router
 from models.storable_settings import DynamicEntrypoint
-from processor.background_tasks import group_events
+from processor.background_tasks import schedule_background_tasks
 from processor.processor_pipeline import HttpProcessorPipeline
 from schemas import HttpRequest
+
+
+def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
+    for method in ['GET', 'POST', 'HEAD', 'PATCH', 'PUT', 'DELETE']:
+        app.add_api_route(
+            path=f'/{name}{{full_path:path}}',
+            endpoint=generate_dynamic_router_processor(name),
+            tags=[f'Dynamic Entrypoint {name}'],
+            methods=[method],
+            operation_id=f'dynamic_entrypoint_{method}_{name}',
+        )
+        app.routes.insert(-1, app.routes.pop())
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     for de in await DynamicEntrypoint.get_all():
-        route = Route(f'/{de.name}{{full_path:path}}', generate_dynamic_router_processor(de.name))
-        app.routes.insert(0, route)
-
+        add_dynamic_entrypoint(app, de.name)
     yield
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(admin_router)
+app.include_router(admin_debug_router)
 
 
 def generate_dynamic_router_processor(name: str):
-    async def dynamic_router_processor(request: Request):
+    async def dynamic_router_processor(request: Request, background_tasks: BackgroundTasks):
+        await schedule_background_tasks(background_tasks)
         http_request = await HttpRequest.from_fastapi_request(request)
 
         pipeline = HttpProcessorPipeline(http_request, entrypoint=name)
@@ -60,22 +71,21 @@ async def create_entrypoint(name: str):
             status_code=409,
         )
     await de.create()
-    route = Route(f'/{name}{{full_path:path}}', generate_dynamic_router_processor(name))
-    app.routes.insert(0, route)
+    add_dynamic_entrypoint(app, de.name)
     return JSONResponse(
         content={'status': 'done'},
         status_code=200,
     )
 
 
-@app.get("/{full_path:path}", tags=['Default Dynamic Router'])
-@app.post("/{full_path:path}", tags=['Default Dynamic Router'])
-@app.patch("/{full_path:path}", tags=['Default Dynamic Router'])
-@app.put("/{full_path:path}", tags=['Default Dynamic Router'])
-@app.delete("/{full_path:path}", tags=['Default Dynamic Router'])
-@app.head("/{full_path:path}", tags=['Default Dynamic Router'])
+@app.get("/{full_path:path}", tags=['Default Entrypoint'])
+@app.post("/{full_path:path}", tags=['Default Entrypoint'])
+@app.patch("/{full_path:path}", tags=['Default Entrypoint'])
+@app.put("/{full_path:path}", tags=['Default Entrypoint'])
+@app.delete("/{full_path:path}", tags=['Default Entrypoint'])
+@app.head("/{full_path:path}", tags=['Default Entrypoint'])
 async def default_dynamic_router(full_path, request: Request, background_tasks: BackgroundTasks):
-    background_tasks.add_task(group_events)
+    await schedule_background_tasks(background_tasks)
     http_request = await HttpRequest.from_fastapi_request(request)
 
     pipeline = HttpProcessorPipeline(http_request)

@@ -1,5 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorCursor
-from pymongo.results import InsertOneResult, UpdateResult
+from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
 
 class MongoClient:
@@ -30,3 +30,6 @@ class MongoClient:
 
     async def update_many(self, filters: dict, update: dict, upsert: bool = False) -> UpdateResult:
         return await self.collection.update_many(filter=filters, update=update, upsert=upsert)
+
+    async def delete_many(self, filters: dict) -> DeleteResult:
+        return await self.collection.delete_many(filter=filters)
