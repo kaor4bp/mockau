@@ -1,12 +1,13 @@
 from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytz
+from bson import ObjectId
 from pydantic import Field, TypeAdapter, computed_field
 
-from dependencies import mongo_events_manager
+from dependencies import mongo_events_client
 from models.base_model import BaseModel
 from schemas import HttpRequest
 from schemas.http_response import HttpResponse
@@ -54,13 +55,21 @@ class ChainOfEvents(BaseModel):
 
     @computed_field
     @property
+    def has_actions_mismatched(self) -> bool:
+        return any(isinstance(event, EventHttpRequestActionsMismatched) for event in self.events)
+
+    @computed_field
+    @property
     def is_initiated_by_external_request(self) -> bool:
         return any(isinstance(event, EventExternalHttpRequest) for event in self.events)
 
     @computed_field
     @property
     def is_final(self) -> bool:
-        return self.has_response and self.is_initiated_by_external_request
+        for event in self.events:
+            if isinstance(event, ChainOfEvents) and not event.is_final:
+                return False
+        return self.has_response or self.has_actions_mismatched
 
     @computed_field
     @property
@@ -93,6 +102,8 @@ class BaseEvent(BaseModel):
     type_of: EventType
     # id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=pytz.UTC))
+    group_id: UUID | None = None
+    parent_group_id: UUID | None = None
 
     @computed_field
     @property
@@ -100,7 +111,7 @@ class BaseEvent(BaseModel):
         return int(self.created_at.timestamp() * 1000000)
 
     async def send_to_mongo(self) -> None:
-        await mongo_events_manager.insert_one(self.to_json_dict())
+        await mongo_events_client.insert_one(self.to_json_dict())
 
 
 class BaseHttpRequestEvent(BaseEvent):
@@ -111,7 +122,7 @@ class BaseHttpRequestEvent(BaseEvent):
         if not self.track_http_request_id:
             return None
 
-        query_result = await mongo_events_manager.find_one(
+        query_result = await mongo_events_client.find_one(
             filters={
                 'track_http_request_id': str(self.track_http_request_id),
                 'http_request.id': {'$ne': str(self.track_http_request_id)},
@@ -124,7 +135,7 @@ class BaseHttpRequestEvent(BaseEvent):
             return event
 
     async def _get_child_http_request(self) -> Optional['t_HttpRequestEvent']:
-        query_result = await mongo_events_manager.find_one(
+        query_result = await mongo_events_client.find_one(
             filters={
                 'parent_http_request_id': str(self.http_request.id),
             }
@@ -137,13 +148,13 @@ class BaseHttpRequestEvent(BaseEvent):
         if not self.track_http_request_id:
             return None
 
-        query_result = await mongo_events_manager.find_one(filters={'http_request.id': str(self.track_http_request_id)})
+        query_result = await mongo_events_client.find_one(filters={'http_request.id': str(self.track_http_request_id)})
         if not query_result:
             return None
         return TypeAdapter(t_HttpRequestEvent).validate_python(query_result)
 
     async def _get_sub_events(self) -> list['t_HttpRequestSubEvent']:
-        query = mongo_events_manager.find(filters={'http_request_id': str(self.http_request.id)}).sort({'timestamp': 1})
+        query = mongo_events_client.find(filters={'http_request_id': str(self.http_request.id)}).sort({'timestamp': 1})
         return [TypeAdapter(t_HttpRequestSubEvent).validate_python(e) for e in await query.to_list()]
 
     async def get_http_response_event(
@@ -151,7 +162,7 @@ class BaseHttpRequestEvent(BaseEvent):
         recursive: bool = True,
         prefer_external_response: bool = False,
     ) -> Optional['EventReceivedHttpResponse']:
-        query_result = await mongo_events_manager.find_one(
+        query_result = await mongo_events_client.find_one(
             filters={
                 'http_request_id': str(self.http_request.id),
                 'type_of': EventType.HTTP_RECEIVED_RESPONSE.value,
@@ -189,8 +200,9 @@ class BaseHttpRequestEvent(BaseEvent):
             raise AssertionError('Too many recursions')
         return http_request
 
-    async def build_events_chain(self) -> ChainOfEvents:
+    async def build_events_chain(self, parent_group_id: UUID | None = None) -> ChainOfEvents:
         events = []
+        group_id = self.group_id or uuid4()
 
         events.append(self)
         events += await self._get_sub_events()
@@ -200,9 +212,26 @@ class BaseHttpRequestEvent(BaseEvent):
             events.append(children_http_request)
             tracked_http_request = await children_http_request._get_tracked_http_request()
             if tracked_http_request:
-                events.append(await tracked_http_request.build_events_chain())
+                tracked_chain_of_events = await tracked_http_request.build_events_chain(parent_group_id=group_id)
+                events.append(tracked_chain_of_events)
             events += await children_http_request._get_sub_events()
-        return ChainOfEvents(events=events)
+
+        chain_of_events = ChainOfEvents(events=events)
+
+        if chain_of_events.is_final:
+            for event in events:
+                event.group_id = group_id
+                event.parent_group_id = parent_group_id
+            await mongo_events_client.update_many(
+                filters={'$or': [{'_id': ObjectId(event.mongo_id)} for event in events]},
+                update={
+                    '$set': {
+                        'group_id': str(group_id),
+                        'parent_group_id': str(self.parent_group_id) if self.parent_group_id else None,
+                    }
+                },
+            )
+        return chain_of_events
 
 
 class BaseHttpRequestSubEvent(BaseEvent):
@@ -224,7 +253,7 @@ class EventInternalHttpRequest(BaseHttpRequestEvent):
     parent_http_request_id: UUID
 
     async def _get_parent_http_request(self) -> Optional['t_HttpRequestEvent']:
-        query_result = await mongo_events_manager.find_one(
+        query_result = await mongo_events_client.find_one(
             filters={
                 'http_request.id': str(self.parent_http_request_id),
             }

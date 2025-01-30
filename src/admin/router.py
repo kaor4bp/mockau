@@ -9,7 +9,7 @@ from admin.schemas import (
     HttpRequestResponsesListViewResponse,
     HttpRequestResponseViewResponse,
 )
-from dependencies import mongo_actions_manager, mongo_events_manager
+from dependencies import mongo_actions_client, mongo_events_client
 from models.actions import t_Action
 from models.events import EventType, EventTypeGroup, t_HttpRequestEvent
 from schemas.http_request_matcher.http_request_matcher import HttpRequestMatcher
@@ -22,7 +22,7 @@ admin_router = APIRouter(prefix='/mockau/admin', tags=['Admin'])
     response_model=CreateActionResponse,
 )
 async def create_action(body: t_Action):
-    await mongo_actions_manager.update_one(
+    await mongo_actions_client.update_one(
         filters={'id': str(body.id)}, update={'$set': body.to_json_dict()}, upsert=True
     )
 
@@ -36,7 +36,7 @@ async def create_action(body: t_Action):
 @admin_router.get('/get_last_events_chain')
 async def get_last_events_chain():
     query = (
-        mongo_events_manager.find(
+        mongo_events_client.find(
             filters={
                 'type_of': {'$in': EventTypeGroup.INBOUND_HTTP_REQUEST},
             }
@@ -57,7 +57,7 @@ async def get_last_events_chain():
 @admin_router.get('/get_last_request_response')
 async def get_last_request_response():
     query = (
-        mongo_events_manager.find(
+        mongo_events_client.find(
             filters={
                 'type_of': {'$in': EventTypeGroup.INBOUND_HTTP_REQUEST},
             }
@@ -141,7 +141,7 @@ async def get_events_chain(from_: int, to: int | None = None, limit: int = 10, i
         timestamp_filter['$lt'] = to
 
     query = (
-        mongo_events_manager.find(
+        mongo_events_client.find(
             filters={'type_of': EventType.HTTP_EXTERNAL_REQUEST.value, 'timestamp': timestamp_filter}
         )
         .sort({'timestamp': 1})
@@ -155,7 +155,7 @@ async def get_events_chain(from_: int, to: int | None = None, limit: int = 10, i
         TypeAdapter(t_HttpRequestEvent).validate_python(request) for request in requests
     ]
     request_events.sort(key=lambda e: e.timestamp)
-    query = mongo_events_manager.find(
+    query = mongo_events_client.find(
         filters={
             'type_of': {'$in': EventTypeGroup.INBOUND_HTTP_REQUEST},
             'timestamp': {'$gte': request_events[0].timestamp, '$lte': request_events[-1].timestamp},

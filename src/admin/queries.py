@@ -1,6 +1,6 @@
 from pydantic import TypeAdapter
 
-from dependencies import mongo_events_manager
+from dependencies import mongo_events_client
 from models.events import EventTypeGroup, t_HttpRequestEvent
 
 
@@ -14,7 +14,7 @@ async def get_http_requests_by_timestamp(
     if to:
         timestamp_filter['$lt'] = to
     query = (
-        mongo_events_manager.find(
+        mongo_events_client.find(
             filters={'type_of': {'$in': EventTypeGroup.INBOUND_HTTP_REQUEST}, 'timestamp': timestamp_filter}
         )
         .sort({'timestamp': 1})
@@ -28,7 +28,7 @@ async def get_http_requests_by_timestamp(
         if request_event.timestamp > next_timestamp:
             next_timestamp = request_event.timestamp
 
-    query = mongo_events_manager.find(
+    query = mongo_events_client.find(
         filters={
             'type_of': {'$in': EventTypeGroup.INBOUND_HTTP_REQUEST},
             'timestamp': {'$gte': from_, '$lte': next_timestamp},

@@ -9,7 +9,6 @@ import httpx
 import lxml.etree
 from pydantic import ConfigDict, computed_field
 
-from consts import FORBIDDEN_HEADERS
 from schemas.base_schema import BaseSchema
 
 
@@ -79,6 +78,13 @@ class HttpRequestBinaryContent(HttpRequestContent):
 class HttpRequestJsonContent(HttpRequestContent):
     type_of: Literal['JSON'] = 'JSON'
     encoding: str
+
+    @classmethod
+    def create_from_json(cls, json_data: dict | list) -> 'HttpRequestJsonContent':
+        return cls(
+            raw=base64.b64encode(gzip.compress(json.dumps(json_data, indent=2).encode('utf8'))).decode('utf8'),
+            encoding='utf8',
+        )
 
     @computed_field
     @property

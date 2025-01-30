@@ -20,9 +20,11 @@ class HttpProcessorPipeline:
     def __init__(
         self,
         http_request: HttpRequest,
+        entrypoint: str = 'default',
     ) -> None:
         self.http_request = http_request
         self.tasks = []
+        self.entrypoint = entrypoint
 
     async def run(self) -> HttpResponse | None:
         await self.on_create()
@@ -56,10 +58,14 @@ class HttpProcessorPipeline:
         self.tasks.append(create_task(event.send_to_mongo()))
 
     async def search_action(self):
-        async for action in get_all_actions():
-            context = VariablesContext()
-            if action.http_request.is_matched(self.http_request, context=context):
-                return action, context
+        try:
+            async for action in get_all_actions(self.entrypoint):
+                context = VariablesContext()
+                if action.http_request.is_matched(self.http_request, context=context):
+                    return action, context
+        except StopAsyncIteration:
+            pass
+        return None, None
 
     async def on_action_is_matched(self, action: t_Action):
         event = EventHttpRequestActionMatched(
