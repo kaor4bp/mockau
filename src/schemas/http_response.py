@@ -25,6 +25,11 @@ class HttpResponse(BaseSchema):
     encoding: str | None
     content: t_Content = Field(discriminator='type_of')
     cookies: HttpRequestCookies
+    http_version: str = 'HTTP/1.1'
+
+    @property
+    def has_redirect_location(self) -> bool:
+        return bool(getattr(self.headers, 'location', None))
 
     @classmethod
     def from_httpx_response(cls, response: httpx.Response) -> 'HttpResponse':
@@ -43,6 +48,7 @@ class HttpResponse(BaseSchema):
                 encoding=response.encoding,
             ),
             cookies=HttpRequestCookies.from_httpx_cookies(response.cookies),
+            http_version=response.http_version,
         )
 
     def to_fastapi_response(self) -> Response:

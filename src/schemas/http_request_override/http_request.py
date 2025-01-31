@@ -6,6 +6,7 @@ from pydantic_core import PydanticUndefined
 from schemas import HttpRequest
 from schemas.base_schema import BaseSchema
 from schemas.http_request.http_parts import HttpMethod, HttpRequestSocketAddress
+from schemas.http_request.http_request import HttpRequestClientSettings
 from schemas.http_request_override.http_parts import (
     HttpRequestOverrideHeaders,
     HttpRequestOverrideQueryParam,
@@ -19,6 +20,8 @@ class HttpRequestOverride(BaseSchema):
     socket_address: HttpRequestOverrideSocketAddress | None = None
     method: HttpMethod | None = None
     headers: HttpRequestOverrideHeaders | None = None
+
+    client_settings: HttpRequestClientSettings | None = None
 
     # body: t_HttpRequestOverrideContent | None = Field(default=None, discriminator='type_of')
 
@@ -51,5 +54,6 @@ class HttpRequestOverride(BaseSchema):
             method=self.method or original_request.method,
             headers=headers,
             body=original_request.body,
+            client_settings=self.client_settings or original_request.client_settings,
             # body=self.body or original_request.body,
         )

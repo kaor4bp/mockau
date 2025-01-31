@@ -22,6 +22,8 @@ class EventType(Enum):
 
     HTTP_RECEIVED_RESPONSE = 'http_received_response'
 
+    HTTP_REQUEST_TOO_MANY_REDIRECTS = 'http_request_too_many_redirects'
+
 
 class EventTypeGroup:
     ALL_HTTP_REQUEST = [
@@ -158,15 +160,14 @@ class BaseHttpRequestEvent(BaseEvent):
         if event.http_request.id != self.track_http_request_id:
             return event
 
-    async def _get_child_http_request(self) -> Optional['t_HttpRequestEvent']:
-        query_result = await mongo_events_client.find_one(
+    async def _get_children_http_requests(self) -> list['t_HttpRequestEvent']:
+        query = mongo_events_client.find(
             filters={
                 'parent_http_request_id': str(self.http_request.id),
             }
-        )
-        if not query_result:
-            return None
-        return TypeAdapter(t_HttpRequestEvent).validate_python(query_result)
+        ).sort({'timestamp': 1})
+        documents = await query.to_list()
+        return TypeAdapter(list[t_HttpRequestEvent]).validate_python(documents)
 
     async def _get_parent_http_request(self) -> Optional['t_HttpRequestEvent']:
         if not self.track_http_request_id:
@@ -198,18 +199,19 @@ class BaseHttpRequestEvent(BaseEvent):
         if not recursive:
             return None
 
-        children_http_request = await self._get_child_http_request()
-        if not children_http_request:
+        children_http_requests = await self._get_children_http_requests()
+        if not children_http_requests:
             return None
+        last_child_http_request = children_http_requests[-1]
 
         if prefer_external_response:
-            tracked_request = await children_http_request._get_tracked_http_request()
+            tracked_request = await last_child_http_request._get_tracked_http_request()
             if tracked_request:
                 tracked_response = await tracked_request.get_http_response_event(recursive=recursive)
                 if tracked_response:
                     return tracked_response
 
-        return await children_http_request.get_http_response_event(recursive=recursive)
+        return await last_child_http_request.get_http_response_event(recursive=recursive)
 
     async def get_root_http_request(self) -> 't_HttpRequestEvent':
         http_request = self
@@ -229,14 +231,14 @@ class BaseHttpRequestEvent(BaseEvent):
         events.append(self)
         events += await self._get_sub_events()
 
-        children_http_request = await self._get_child_http_request()
-        if children_http_request:
-            events.append(children_http_request)
-            tracked_http_request = await children_http_request._get_tracked_http_request()
+        children_http_requests = await self._get_children_http_requests()
+        for child_http_request in children_http_requests:
+            events.append(child_http_request)
+            tracked_http_request = await child_http_request._get_tracked_http_request()
             if tracked_http_request:
                 tracked_chain_of_events = await tracked_http_request.build_events_chain()
                 events.append(tracked_chain_of_events)
-            events += await children_http_request._get_sub_events()
+            events += await child_http_request._get_sub_events()
 
         chain_of_events = ChainOfEvents(events=events)
 
@@ -283,11 +285,20 @@ class EventHttpRequestActionsMismatched(BaseHttpRequestSubEvent):
     type_of: Literal['http_request_actions_mismatched'] = 'http_request_actions_mismatched'
 
 
+class EventHttpRequestTooManyRedirects(BaseHttpRequestSubEvent):
+    type_of: Literal['http_request_too_many_redirects'] = 'http_request_too_many_redirects'
+
+
 class EventReceivedHttpResponse(BaseHttpRequestSubEvent):
     type_of: Literal['http_received_response'] = 'http_received_response'
     http_response: HttpResponse
 
 
 t_HttpRequestEvent = EventExternalHttpRequest | EventTransitHttpRequest | EventInternalHttpRequest
-t_HttpRequestSubEvent = EventHttpRequestActionMatched | EventHttpRequestActionsMismatched | EventReceivedHttpResponse
+t_HttpRequestSubEvent = (
+    EventHttpRequestActionMatched
+    | EventHttpRequestActionsMismatched
+    | EventReceivedHttpResponse
+    | EventHttpRequestTooManyRedirects
+)
 t_Event = t_HttpRequestEvent | t_HttpRequestSubEvent

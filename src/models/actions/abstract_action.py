@@ -1,5 +1,7 @@
+from abc import abstractmethod
 from uuid import UUID, uuid4
 
+from fastapi import Response
 from pydantic import Field
 
 from models.base_model import BaseModel
@@ -22,3 +24,7 @@ class AbstractAction(BaseModel):
     times: Times | None = None
     time_to_live: TimeToLive | None = None
     variables_group: VariablesGroup | None = None
+
+    @abstractmethod
+    async def execute(self, events_handler: 'ProcessorEventsHandler') -> Response | None:
+        pass
