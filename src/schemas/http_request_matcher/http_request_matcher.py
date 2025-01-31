@@ -9,14 +9,11 @@ from schemas.http_request_matcher.query_param import t_QueryParamMatcherContaine
 from schemas.http_request_matcher.socket_address import SocketAddressMatcher
 from schemas.matchers.abstract_matcher import AbstractMatcher
 from schemas.matchers.string_matcher import t_StringMatcher
-from schemas.variables import t_Variable
-from schemas.variables_context import VariablesContext, variables_context_transaction
+from schemas.variables import VariablesContext, variables_context_transaction
 
 
 class HttpRequestMatcher(AbstractMatcher):
-    path: Annotated[
-        Optional[t_StringMatcher | t_Variable], Field(default=None, examples=[{'pattern': '/test-env1/.*'}])
-    ]
+    path: Annotated[Optional[t_StringMatcher], Field(default=None, examples=[{'set_variable': '/test-env1/.*'}])]
     query_params: Annotated[
         Optional[t_QueryParamMatcherContainer], Field(default=None, examples=[{"key": {"equal_to": "foo"}}])
     ]

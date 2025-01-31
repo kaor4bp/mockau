@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import pytz
 from pydantic import Field, TypeAdapter, computed_field
@@ -10,6 +10,7 @@ from dependencies import mongo_events_client
 from models.base_model import BaseModel
 from schemas import HttpRequest
 from schemas.http_response import HttpResponse
+from utils.string_utils import hash_bytes_to_uuid
 
 
 class EventType(Enum):
@@ -96,18 +97,28 @@ class ChainOfEvents(BaseModel):
         else:
             return 0
 
-    async def set_group_id(self, group_id: UUID) -> None:
+    async def set_group_id(self, parent_group_id: UUID | None = None) -> None:
+        group_id = hash_bytes_to_uuid(TypeAdapter(list[t_Event]).dump_json(self.all_events))
+        if parent_group_id:
+            sub_group_id = group_id
+            group_id = parent_group_id
+        else:
+            sub_group_id = None
         for event in self.events:
             if isinstance(event, BaseEvent):
                 event.group_id = group_id
-                if event.mongo_bson_id:
-                    await mongo_events_client.update_one(
-                        filters={'_id': event.mongo_bson_id}, update={'$set': {'group_id': str(group_id)}}
-                    )
-                else:
-                    await event.send_to_mongo()
+                event.sub_group_id = sub_group_id
+                await mongo_events_client.update_one(
+                    filters={'_id': event.mongo_bson_id},
+                    update={
+                        '$set': {
+                            'group_id': str(group_id) if group_id else None,
+                            'sub_group_id': str(sub_group_id) if sub_group_id else None,
+                        }
+                    },
+                )
             else:
-                await event.set_group_id(group_id)
+                await event.set_group_id(parent_group_id=group_id)
 
 
 class BaseEvent(BaseModel):
@@ -115,6 +126,7 @@ class BaseEvent(BaseModel):
     # id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=pytz.UTC))
     group_id: UUID | None = None
+    sub_group_id: UUID | None = None
 
     @computed_field
     @property
@@ -212,9 +224,8 @@ class BaseHttpRequestEvent(BaseEvent):
             raise AssertionError('Too many recursions')
         return http_request
 
-    async def build_events_chain(self, parent_group_id: UUID | None = None) -> ChainOfEvents:
+    async def build_events_chain(self) -> ChainOfEvents:
         events = []
-        group_id = parent_group_id or self.group_id or uuid4()
         events.append(self)
         events += await self._get_sub_events()
 
@@ -223,14 +234,14 @@ class BaseHttpRequestEvent(BaseEvent):
             events.append(children_http_request)
             tracked_http_request = await children_http_request._get_tracked_http_request()
             if tracked_http_request:
-                tracked_chain_of_events = await tracked_http_request.build_events_chain(parent_group_id=group_id)
+                tracked_chain_of_events = await tracked_http_request.build_events_chain()
                 events.append(tracked_chain_of_events)
             events += await children_http_request._get_sub_events()
 
         chain_of_events = ChainOfEvents(events=events)
 
         if chain_of_events.is_final and not self.group_id:
-            await chain_of_events.set_group_id(group_id)
+            await chain_of_events.set_group_id()
         return chain_of_events
 
 

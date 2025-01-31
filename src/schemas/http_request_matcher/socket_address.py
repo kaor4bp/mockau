@@ -4,7 +4,7 @@ from schemas.http_request.http_parts import HttpRequestSocketAddress
 from schemas.matchers.abstract_matcher import AbstractMatcher
 from schemas.matchers.integer_matcher import t_IntegerMatcher
 from schemas.matchers.string_matcher import t_StringMatcher
-from schemas.variables_context import VariablesContext, variables_context_transaction
+from schemas.variables import VariablesContext, variables_context_transaction
 
 
 class SocketAddressMatcher(AbstractMatcher):

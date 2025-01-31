@@ -1,4 +1,6 @@
+import hashlib
 import itertools
+from uuid import UUID
 
 
 def split_string(value, splits: int):
@@ -10,3 +12,13 @@ def split_string(value, splits: int):
             prev_index = index
         parts.append(value[prev_index:])
         yield parts
+
+
+def hash_string_to_uuid(text: str) -> UUID:
+    hashsum = hashlib.shake_256(text.encode('utf8')).hexdigest(16)
+    return UUID(bytes=bytes.fromhex(hashsum))
+
+
+def hash_bytes_to_uuid(data: bytes) -> UUID:
+    hashsum = hashlib.shake_256(data).hexdigest(16)
+    return UUID(bytes=bytes.fromhex(hashsum))

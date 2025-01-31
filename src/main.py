@@ -1,14 +1,17 @@
 import logging
 import pathlib
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 
+import pytz
 import uvicorn
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import BackgroundTasks, FastAPI, Request
 from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
 from models.storable_settings import DynamicEntrypoint
-from processor.background_tasks import schedule_background_tasks
+from processor.background_tasks import cleanup_events, group_events
 from processor.processor_pipeline import HttpProcessorPipeline
 from schemas import HttpRequest
 
@@ -29,7 +32,25 @@ def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
 async def lifespan(app: FastAPI):
     for de in await DynamicEntrypoint.get_all():
         add_dynamic_entrypoint(app, de.name)
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(
+        group_events,
+        'interval',
+        seconds=timedelta(minutes=1).total_seconds(),
+        max_instances=1,
+        next_run_time=datetime.now(tz=pytz.UTC),
+    )
+    scheduler.add_job(
+        cleanup_events,
+        'interval',
+        seconds=timedelta(minutes=30).total_seconds(),
+        max_instances=1,
+        next_run_time=datetime.now(tz=pytz.UTC),
+    )
+    scheduler.start()
     yield
+    scheduler.shutdown(wait=True)
 
 
 app = FastAPI(lifespan=lifespan)
@@ -39,7 +60,6 @@ app.include_router(admin_debug_router)
 
 def generate_dynamic_router_processor(name: str):
     async def dynamic_router_processor(request: Request, background_tasks: BackgroundTasks):
-        await schedule_background_tasks(background_tasks)
         http_request = await HttpRequest.from_fastapi_request(request)
 
         pipeline = HttpProcessorPipeline(http_request, entrypoint=name)
@@ -85,7 +105,6 @@ async def create_entrypoint(name: str):
 @app.delete("/{full_path:path}", tags=['Default Entrypoint'])
 @app.head("/{full_path:path}", tags=['Default Entrypoint'])
 async def default_dynamic_router(full_path, request: Request, background_tasks: BackgroundTasks):
-    await schedule_background_tasks(background_tasks)
     http_request = await HttpRequest.from_fastapi_request(request)
 
     pipeline = HttpProcessorPipeline(http_request)

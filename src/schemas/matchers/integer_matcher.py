@@ -1,8 +1,8 @@
-from schemas.matchers.abstract_matcher import AbstractMatcher
-from schemas.variables_context import VariablesContext, variables_context_transaction
+from schemas.matchers.variable_matcher import SetVariableMatcher
+from schemas.variables import VariablesContext, variables_context_transaction
 
 
-class IntegerMatcher(AbstractMatcher):
+class IntegerMatcher(SetVariableMatcher):
     equal_to: int | None = None
     gte: int | None = None
     gt: int | None = None
@@ -33,6 +33,8 @@ class IntegerMatcher(AbstractMatcher):
         if self.or_ and all(not item.is_matched(value, context=context) for item in self.or_):
             return False
         if self.not_ and self.not_.is_matched(value, context=context):
+            return False
+        if self.set_variable is not None and not self.is_variable_matched(value, context=context):
             return False
         return True
 

@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 from pydantic import Field
 
 from models.base_model import BaseModel
+from schemas.variables import VariablesGroup
 
 
 class Times(BaseModel):
@@ -20,3 +21,4 @@ class AbstractAction(BaseModel):
     entrypoint: str = 'default'
     times: Times | None = None
     time_to_live: TimeToLive | None = None
+    variables_group: VariablesGroup | None = None

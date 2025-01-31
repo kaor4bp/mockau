@@ -4,7 +4,7 @@ from typing import TypeVar
 from black.nodes import Generic
 
 from schemas.base_schema import BaseSchema
-from schemas.variables_context import VariablesContext, variables_context_transaction
+from schemas.variables import VariablesContext, variables_context_transaction
 
 
 class AbstractMatcher(BaseSchema):

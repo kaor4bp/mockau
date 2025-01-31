@@ -97,5 +97,5 @@ t_StringModifier = Annotated[
         IndexSubstringsModifier,
         StringToConstantModifier,
     ],
-    Field(examples=[{'and_': [{'pattern': '/test-env-d+/', 'modifier': {'old': 'test', 'new': 'staging'}}]}]),
+    Field(examples=[{'and_': [{'set_variable': '/test-env-d+/', 'modifier': {'old': 'test', 'new': 'staging'}}]}]),
 ]

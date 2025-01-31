@@ -3,7 +3,7 @@ from pydantic import Field
 from schemas.http_request.http_parts import HttpRequestQueryParam
 from schemas.matchers.abstract_matcher import AbstractMatcher, BaseAllOfMatcher, BaseAnyOfMatcher
 from schemas.matchers.string_matcher import t_StringMatcher
-from schemas.variables_context import VariablesContext, variables_context_transaction
+from schemas.variables import VariablesContext, variables_context_transaction
 
 
 class QueryParamItemMatcher(AbstractMatcher):

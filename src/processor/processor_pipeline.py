@@ -13,7 +13,7 @@ from models.events import (
 )
 from schemas import HttpRequest
 from schemas.http_response import HttpResponse
-from schemas.variables_context import VariablesContext
+from schemas.variables import VariablesContext, VariablesGroup
 
 
 class HttpProcessorPipeline:
@@ -63,7 +63,7 @@ class HttpProcessorPipeline:
     async def search_action(self):
         try:
             async for action in get_all_actions(self.entrypoint):
-                context = VariablesContext()
+                context = VariablesContext(variables_group=action.variables_group or VariablesGroup())
                 if action.http_request.is_matched(self.http_request, context=context):
                     return action, context
         except StopAsyncIteration:

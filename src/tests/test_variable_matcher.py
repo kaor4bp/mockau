@@ -1,9 +1,10 @@
 import pytest
 
-from schemas.variables import Variable, VariablesContext, VariablesGroup
+from schemas.matchers.variable_matcher import SetVariableMatcher
+from schemas.variables import VariablesContext, VariablesGroup
 
 
-class TestVariablesGroup:
+class TestVariableMatcher:
     # HTML source: https://en.wikipedia.org/wiki/Apollo_11
     HTML_EXAMPLE = '''
         <p>The <a href="/wiki/Capsule_communicator" class="mw-redirect" title="Capsule communicator">capsule communicator</a>
@@ -47,24 +48,21 @@ class TestVariablesGroup:
             ['/some/path/${variable_1}/.+', '/some/path/hello/world', {'${variable_1}': 'hello'}],
             ['/some/path/${variable_1}/and/${variable_1}/', '/some/path/hello/and/hello/', {'${variable_1}': 'hello'}],
             ['/some/path/${variable_1}/.+', '/some/path/hello/world?hello=[..]+', {'${variable_1}': 'hello'}],
+            ['/some/path/.+', '/some/path/hello', {}],
         ],
         ids=[
             'one_variable',
             'one_variable_with_extra_regex',
             'one_repeated_variable',
             'unsafe_regex_chars_in_value',
+            'no_variables',
         ],
     )
-    def test_save_to_context(self, pattern, value, expected_result):
-        template_variables = VariablesGroup(
-            variables=[
-                Variable(name='${variable_1}'),
-            ],
-            pattern=pattern,
-        )
-        context = VariablesContext()
-        assert template_variables.is_matched(value, context=context)
-        assert context == expected_result
+    def test_is_matched(self, pattern, value, expected_result):
+        pattern_matcher = SetVariableMatcher(set_variable=pattern)
+        context = VariablesContext(variables_group=VariablesGroup(variables=[]))
+        assert pattern_matcher.is_matched(value, context=context)
+        assert context.variables == expected_result
 
     @pytest.mark.parametrize(
         argnames=['pattern', 'value'],
@@ -78,17 +76,16 @@ class TestVariablesGroup:
             'value_is_not_matched',
         ],
     )
-    def test_cannot_save_to_context_if_value_does_not_match_to_template(self, pattern, value):
-        template_variables = VariablesGroup(variables=[Variable(name='${variable_1}')], pattern=pattern)
-        context = VariablesContext()
-        assert not template_variables.is_matched(value, context=context)
-        assert context == {}
+    def test_is_not_matched_if_value_does_not_match_to_template(self, pattern, value):
+        pattern_matcher = SetVariableMatcher(set_variable=pattern)
+        context = VariablesContext(variables_group=VariablesGroup(variables=[]))
+        assert not pattern_matcher.is_matched(value, context=context)
+        assert context.variables == {}
 
-    def test_save_to_context_with_unoptimized_pattern(self):
-        template_variables = VariablesGroup(
-            variables=[Variable(name='${variable_1}', pattern='.*')],
-            pattern='[\r\n\s\S]*<h3 id="Flight_directors">${variable_1}</h3>[\r\n\s\S]*',
+    def test_is_matched_with_unoptimized_pattern(self):
+        pattern_matcher = SetVariableMatcher(
+            set_variable='[\r\n\s\S]*<h3 id="Flight_directors">${variable_1}</h3>[\r\n\s\S]*'
         )
-        context = VariablesContext()
-        assert template_variables.is_matched(self.HTML_EXAMPLE, context=context)
-        assert context == {'${variable_1}': 'Flight directors'}
+        context = VariablesContext(variables_group=VariablesGroup(variables=[]))
+        assert pattern_matcher.is_matched(self.HTML_EXAMPLE, context=context)
+        assert context.variables == {'${variable_1}': 'Flight directors'}
