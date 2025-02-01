@@ -107,6 +107,27 @@ async def get_last_request_response():
     )
 
 
+@admin_debug_router.get('/get_last_requests')
+async def get_last_requests(limit: int = 10):
+    query = (
+        mongo_events_client.find(
+            filters={
+                'type_of': {'$in': EventTypeGroup.INBOUND_HTTP_REQUEST},
+            }
+        )
+        .sort({'timestamp': -1})
+        .limit(limit)
+    )
+    last_requests = TypeAdapter(list[t_HttpRequestEvent]).validate_python(await query.to_list())
+    return JSONResponse(
+        content=[
+            request_event.http_request.model_dump(mode='json', exclude_none=True, exclude_defaults=True)
+            for request_event in last_requests
+        ],
+        status_code=200,
+    )
+
+
 @admin_router.post(
     '/search_request_responses',
     response_model=HttpRequestResponsesListViewResponse,

@@ -1,5 +1,4 @@
 from copy import deepcopy
-from enum import Enum
 from uuid import UUID, uuid4
 
 import httpx
@@ -18,19 +17,6 @@ from schemas.http_request.http_parts import (
 from schemas.http_response import HttpResponse
 
 
-class FollowRedirectsMode(Enum):
-    FOLLOWED_BY_CLIENT = 'FOLLOWED_BY_CLIENT'
-    FOLLOWED_BY_MOCK = 'FOLLOWED_BY_MOCK'
-    NO_FOLLOW = 'NO_FOLLOW'
-
-
-class HttpRequestClientSettings(BaseSchema):
-    http1: bool = True
-    http2: bool = True
-    follow_redirects: FollowRedirectsMode = FollowRedirectsMode.FOLLOWED_BY_CLIENT
-    max_redirects: int = 20
-
-
 class HttpRequest(BaseSchema):
     id: UUID = Field(default_factory=uuid4)
 
@@ -41,8 +27,6 @@ class HttpRequest(BaseSchema):
     headers: HttpRequestHeaders
     body: t_Content = Field(discriminator='type_of')
     http_version: str = 'HTTP/1.1'
-
-    client_settings: HttpRequestClientSettings = Field(default_factory=HttpRequestClientSettings)
 
     def get_track_request_id(self) -> UUID | None:
         track_request_id = getattr(self.headers, 'x-mockau-request-id', None)
@@ -76,14 +60,6 @@ class HttpRequest(BaseSchema):
                 content=await request.body(),
                 content_type=request.headers.get('content-type', ''),
             ),
-        )
-
-    def get_client(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            http2=self.client_settings.http2,
-            http1=self.client_settings.http1,
-            follow_redirects=bool(self.client_settings.follow_redirects == FollowRedirectsMode.FOLLOWED_BY_CLIENT),
-            max_redirects=self.client_settings.max_redirects,
         )
 
     async def send(self, client: httpx.AsyncClient) -> HttpResponse:

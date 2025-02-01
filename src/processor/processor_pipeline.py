@@ -1,13 +1,22 @@
 from typing import Generator
 
+import httpx
 from pydantic import TypeAdapter
 
 from dependencies import mongo_actions_client
 from models.actions import t_Action
+from models.storable_settings import DynamicEntrypoint, FollowRedirectsMode, HttpClientSettings
 from processor.processor_events_handler import ProcessorEventsHandler
 from schemas import HttpRequest
 from schemas.http_response import HttpResponse
 from schemas.variables import VariablesContext, VariablesGroup
+
+_HTTP_CLIENTS = {
+    'default': (
+        httpx.AsyncClient(http1=True, http2=True, follow_redirects=True, max_redirects=20),
+        HttpClientSettings(),
+    ),
+}
 
 
 class HttpProcessorPipeline:
@@ -20,12 +29,25 @@ class HttpProcessorPipeline:
         self.events_handler = ProcessorEventsHandler(self.http_request)
         self.entrypoint = entrypoint
 
+    async def get_http_client(self):
+        if not _HTTP_CLIENTS.get(self.entrypoint):
+            de = await DynamicEntrypoint.get_by_name(self.entrypoint)
+            client = httpx.AsyncClient(
+                http2=de.client_settings.http2,
+                http1=de.client_settings.http1,
+                follow_redirects=bool(de.client_settings.follow_redirects == FollowRedirectsMode.FOLLOWED_BY_CLIENT),
+                max_redirects=de.client_settings.max_redirects,
+            )
+            _HTTP_CLIENTS[self.entrypoint] = (client, de.client_settings)
+        return _HTTP_CLIENTS[self.entrypoint]
+
     async def run(self) -> HttpResponse | None:
         await self.events_handler.on_inbound_request_received()
         action, context = await self.search_action()
         if action:
             await self.events_handler.on_action_is_matched(action)
-            response = await action.execute(self.events_handler)
+            client = await self.get_http_client()
+            response = await action.execute(*client, self.events_handler)
             await self.events_handler.submit()
             return response
         else:
