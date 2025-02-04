@@ -2,7 +2,6 @@ import logging
 import pathlib
 from contextlib import asynccontextmanager
 
-import elasticsearch
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, Request
 from starlette.responses import JSONResponse
@@ -13,7 +12,6 @@ from es_documents.events import init_events
 from models.storable_settings import DynamicEntrypoint
 from processor.processor_pipeline import HttpProcessorPipeline
 from schemas import HttpRequest
-from settings import MockauSettings
 
 
 def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
