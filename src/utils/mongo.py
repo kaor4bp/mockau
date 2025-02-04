@@ -1,12 +1,13 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorCursor
 from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
 
+from settings import MockauSettings
+
 
 class MongoClient:
     def __init__(self, *, collection: str):
-        self._uri = "mongodb://127.0.0.1:27017"  # host.docker.internal
-        self._client = AsyncIOMotorClient(self._uri)
-        self._db = self._client["saas_qa_configs"]
+        self._client = AsyncIOMotorClient(MockauSettings.mongo.uri)
+        self._db = self._client[MockauSettings.mongo.db_name]
         self._collection = self._db[collection]
 
     @property

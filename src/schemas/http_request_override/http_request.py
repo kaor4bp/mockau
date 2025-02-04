@@ -1,8 +1,8 @@
 from copy import deepcopy
-from uuid import uuid4
 
 from pydantic_core import PydanticUndefined
 
+from consts import X_MOCKAU_TRACEPARENT_HEADER
 from schemas import HttpRequest
 from schemas.base_schema import BaseSchema
 from schemas.http_request.http_parts import HttpMethod, HttpRequestSocketAddress
@@ -11,6 +11,7 @@ from schemas.http_request_override.http_parts import (
     HttpRequestOverrideQueryParam,
     HttpRequestOverrideSocketAddress,
 )
+from utils.traceparent import generate_traceparent_token
 
 
 class HttpRequestOverride(BaseSchema):
@@ -24,11 +25,11 @@ class HttpRequestOverride(BaseSchema):
 
     def override_http_request(self, original_request: HttpRequest) -> HttpRequest:
         headers = deepcopy(self.headers or original_request.headers)
-        new_id = uuid4()
-        setattr(headers, 'x-mockau-request-id', [str(new_id)])
+        mockau_traceparent_token = generate_traceparent_token(original_request.mockau_traceparent)
+        setattr(headers, X_MOCKAU_TRACEPARENT_HEADER, [mockau_traceparent_token])
 
         return HttpRequest(
-            id=new_id,
+            mockau_traceparent=mockau_traceparent_token,
             socket_address=HttpRequestSocketAddress(
                 host=(
                     self.socket_address.host

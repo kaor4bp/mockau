@@ -19,13 +19,12 @@ class OverrideHttpRequestAction(AbstractAction):
         events_handler: 'ProcessorEventsHandler',
     ):
         new_request = self.http_request_override.override_http_request(events_handler.inbound_http_request)
-        # client = new_request.get_client()
         response = None
 
         for _ in range(client_settings.max_redirects):
             await events_handler.on_request_send(new_request)
             response = await new_request.send(client)
-            await events_handler.on_response_received(new_request.id, response)
+            await events_handler.on_response_received(new_request.mockau_traceparent, response)
 
             if (
                 client_settings.follow_redirects is FollowRedirectsMode.FOLLOWED_BY_MOCK
@@ -56,5 +55,8 @@ class StubHttpResponseAction(AbstractAction):
         client_settings: HttpClientSettings,
         events_handler: 'ProcessorEventsHandler',
     ):
-        await events_handler.on_response_received(events_handler.inbound_http_request.id, self.http_response)
+        await events_handler.on_response_received(
+            events_handler.inbound_http_request.mockau_traceparent,
+            self.http_response,
+        )
         return self.http_response

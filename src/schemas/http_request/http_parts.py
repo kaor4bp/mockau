@@ -62,7 +62,11 @@ class HttpContentType(Enum):
 
 class HttpRequestContent(BaseSchema):
     type_of: HttpContentType
-    raw: str | None
+    raw: str | None = None
+
+    @property
+    def text(self):
+        return 'binary'
 
     def to_binary(self):
         if self.raw:
@@ -78,6 +82,10 @@ class HttpRequestBinaryContent(HttpRequestContent):
 class HttpRequestJsonContent(HttpRequestContent):
     type_of: Literal['JSON'] = 'JSON'
     encoding: str
+
+    @property
+    def text(self) -> str:
+        return self.to_binary().decode(self.encoding)
 
     @classmethod
     def create_from_json(cls, json_data: dict | list) -> 'HttpRequestJsonContent':
@@ -96,6 +104,10 @@ class HttpRequestXmlContent(HttpRequestContent):
     type_of: Literal['XML'] = 'XML'
     encoding: str
 
+    @property
+    def text(self) -> str:
+        return self.to_binary().decode(self.encoding)
+
     @computed_field
     @property
     def data(self) -> str:
@@ -106,6 +118,10 @@ class HttpRequestTextContent(HttpRequestContent):
     type_of: Literal['TEXT'] = 'TEXT'
     encoding: str
 
+    @property
+    def text(self) -> str:
+        return self.to_binary().decode(self.encoding)
+
     @computed_field
     @property
     def data(self) -> str:
@@ -114,6 +130,10 @@ class HttpRequestTextContent(HttpRequestContent):
 
 class HttpRequestNoContent(HttpRequestContent):
     type_of: Literal['NO_CONTENT'] = 'NO_CONTENT'
+
+    @property
+    def text(self) -> str:
+        return '__empty__'
 
     # def to_binary(self):
     #     return None

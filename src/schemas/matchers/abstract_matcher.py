@@ -1,7 +1,5 @@
 from abc import abstractmethod
-from typing import TypeVar
-
-from black.nodes import Generic
+from typing import Generic, TypeVar
 
 from schemas.base_schema import BaseSchema
 from schemas.variables import VariablesContext, variables_context_transaction

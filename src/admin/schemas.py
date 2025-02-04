@@ -1,12 +1,11 @@
-from typing import Generic
+from typing import Generic, Self, TypeVar
 from uuid import UUID
 
-from black.nodes import TypeVar
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 
-from models.events import ChainOfEvents
-from schemas import BaseSchema, HttpRequest
-from schemas.http_response import HttpResponse
+from models.events_chain import EventsChain
+from schemas import BaseSchema
+from schemas.http_request_response_view import HttpRequestResponseView
 
 T_PaginatedItemType = TypeVar('T_PaginatedItemType')
 
@@ -25,14 +24,15 @@ class TimestampPaginatedResponse(BaseSchema, Generic[T_PaginatedItemType]):
         return len(self.items)
 
 
-class ChainsOfEventsListViewResponse(TimestampPaginatedResponse[ChainOfEvents]):
-    pass
+class EventsChainTimestampPaginatedResponse(TimestampPaginatedResponse[EventsChain]):
+    @model_validator(mode='after')
+    def sort_items(self: Self) -> Self:
+        self.items.sort(key=lambda item: item.min_timestamp)
+        return self
 
 
-class HttpRequestResponseViewResponse(BaseSchema):
-    request: HttpRequest
-    response: HttpResponse | None
-
-
-class HttpRequestResponsesListViewResponse(TimestampPaginatedResponse[HttpRequestResponseViewResponse]):
-    pass
+class HttpRequestResponseViewTimestampPaginatedResponse(TimestampPaginatedResponse[HttpRequestResponseView]):
+    @model_validator(mode='after')
+    def sort_items(self: Self) -> Self:
+        self.items.sort(key=lambda item: item.timestamp)
+        return self

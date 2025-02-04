@@ -2,6 +2,7 @@ import httpx
 from fastapi import Response
 from pydantic import Field
 
+from consts import X_MOCKAU_TRACEPARENT_HEADER
 from schemas.http_request.http_parts import (
     HttpRequestCookies,
     HttpRequestHeaders,
@@ -17,7 +18,7 @@ from .base_schema import BaseSchema
 class HttpResponse(BaseSchema):
     path: str
     query_params: list[HttpRequestQueryParam]
-    host: HttpRequestSocketAddress | None
+    socket_address: HttpRequestSocketAddress | None
     headers: HttpRequestHeaders
     status_code: int
     charset_encoding: str | None
@@ -28,13 +29,35 @@ class HttpResponse(BaseSchema):
     http_version: str = 'HTTP/1.1'
 
     @property
+    def mockau_traceparent(self) -> str | None:
+        mockau_traceparent = getattr(self.headers, X_MOCKAU_TRACEPARENT_HEADER, None)
+        if not mockau_traceparent:
+            mockau_traceparent = getattr(self.headers, 'traceparent', None)
+        return mockau_traceparent
+
+    def get_full_url(self) -> httpx.URL:
+        url = httpx.URL(self.path)
+        if self.socket_address:
+            url = url.copy_with(
+                host=self.socket_address.host,
+                scheme=self.socket_address.scheme,
+            )
+        if self.socket_address and self.socket_address.port is not None:
+            url = url.copy_with(port=self.socket_address.port)
+        if self.query_params:
+            url = url.copy_with(
+                query='&'.join([f'{param.key}={param.value}' for param in self.query_params]).encode('utf8')
+            )
+        return url
+
+    @property
     def has_redirect_location(self) -> bool:
         return bool(getattr(self.headers, 'location', None))
 
     @classmethod
     def from_httpx_response(cls, response: httpx.Response) -> 'HttpResponse':
         return cls(
-            host=HttpRequestSocketAddress.from_httpx_url(response.url),
+            socket_address=HttpRequestSocketAddress.from_httpx_url(response.url),
             path=response.url.path,
             query_params=HttpRequestQueryParam.from_httpx_url(response.url),
             headers=HttpRequestHeaders.from_httpx_headers(response.headers),
