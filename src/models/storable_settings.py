@@ -3,8 +3,8 @@ from typing import Literal
 
 from pydantic import Field
 
+from core.bases.base_model import BaseModel
 from dependencies import mongo_settings_client
-from models.base_model import BaseModel
 
 
 class StorableSettingsType(Enum):

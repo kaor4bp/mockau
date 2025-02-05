@@ -1,10 +1,11 @@
 from elasticsearch_dsl import A
 
 from admin.schemas import EventsChainTimestampPaginatedResponse, HttpRequestResponseViewTimestampPaginatedResponse
+from core.http.events.common import HttpEventType
+from core.http.events.documents.http_request_event_document import HttpRequestEventDocument
+from core.http.events.models import HttpRequestEventModel
+from core.http.events.schemas.events_chain import EventsChain
 from dependencies import elasticsearch_client
-from es_documents.events import EventHttpRequestDocument
-from models.events import EventHttpRequestModel, EventType
-from models.events_chain import EventsChain
 from schemas.http_request_response_view import HttpRequestResponseView
 
 
@@ -14,14 +15,14 @@ async def get_http_requests_by_timestamp(
     limit: int,
 ) -> HttpRequestResponseViewTimestampPaginatedResponse:
     search = (
-        EventHttpRequestDocument.search(using=elasticsearch_client)
+        HttpRequestEventDocument.search(using=elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lt': to})
         .filter(
             "terms",
             event=[
-                EventType.HTTP_EXTERNAL_REQUEST.value,
-                EventType.HTTP_TRANSIT_REQUEST.value,
+                HttpEventType.HTTP_EXTERNAL_REQUEST.value,
+                HttpEventType.HTTP_TRANSIT_REQUEST.value,
             ],
         )
         .extra(size=limit)
@@ -38,20 +39,20 @@ async def get_http_requests_by_timestamp(
         )
 
     search = (
-        EventHttpRequestDocument.search(using=elasticsearch_client)
+        HttpRequestEventDocument.search(using=elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lte': max_timestamp})
         .filter(
             "terms",
             event=[
-                EventType.HTTP_EXTERNAL_REQUEST.value,
-                EventType.HTTP_TRANSIT_REQUEST.value,
+                HttpEventType.HTTP_EXTERNAL_REQUEST.value,
+                HttpEventType.HTTP_TRANSIT_REQUEST.value,
             ],
         )
     )
     response = await search.execute()
 
-    request_events_list: list[EventHttpRequestModel] = []
+    request_events_list: list[HttpRequestEventModel] = []
     mockau_trace_ids_list = []
     for document in response.hits:
         mockau_trace_ids_list.append(document.mockau_trace_id)
@@ -89,14 +90,14 @@ async def find_event_chains_by_timestamp(
     limit: int,
 ) -> EventsChainTimestampPaginatedResponse:
     search = (
-        EventHttpRequestDocument.search(using=elasticsearch_client)
+        HttpRequestEventDocument.search(using=elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lt': to})
         .filter(
             "terms",
             event=[
-                EventType.HTTP_EXTERNAL_REQUEST.value,
-                EventType.HTTP_TRANSIT_REQUEST.value,
+                HttpEventType.HTTP_EXTERNAL_REQUEST.value,
+                HttpEventType.HTTP_TRANSIT_REQUEST.value,
             ],
         )
         .extra(size=limit)
@@ -113,14 +114,14 @@ async def find_event_chains_by_timestamp(
         )
 
     search = (
-        EventHttpRequestDocument.search(using=elasticsearch_client)
+        HttpRequestEventDocument.search(using=elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lte': max_timestamp})
         .filter(
             "terms",
             event=[
-                EventType.HTTP_EXTERNAL_REQUEST.value,
-                EventType.HTTP_TRANSIT_REQUEST.value,
+                HttpEventType.HTTP_EXTERNAL_REQUEST.value,
+                HttpEventType.HTTP_TRANSIT_REQUEST.value,
             ],
         )
     )

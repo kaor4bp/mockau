@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import Field
 
-from schemas.http_request.http_parts import HttpRequestQueryParam
+from core.http.interaction.schemas import HttpQueryParam
 from schemas.matchers.abstract_matcher import AbstractMatcher, BaseAllOfMatcher, BaseAnyOfMatcher
 from schemas.matchers.string_matcher import t_StringMatcher
 from schemas.variables import VariablesContext, variables_context_transaction
@@ -21,7 +21,7 @@ class HeaderItemMatcher(AbstractMatcher):
     values: Optional[HeaderValueOrMatcher | HeaderValuesAndMatcher] = Field(default=None)
 
     @variables_context_transaction
-    def is_matched(self, value: list[HttpRequestQueryParam], *, context: VariablesContext) -> bool:
+    def is_matched(self, value: list[HttpQueryParam], *, context: VariablesContext) -> bool:
         for param in value:
             if not self.key.is_matched(param.key, context=context):
                 continue

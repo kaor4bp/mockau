@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from schemas.base_schema import BaseSchema
+from core.bases.base_schema import BaseSchema
 
 
 class AbstractModifier(BaseSchema):

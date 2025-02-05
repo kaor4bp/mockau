@@ -2,26 +2,26 @@ from typing import Optional
 
 from pydantic import Field
 
-from schemas import BaseSchema
-from schemas.http_request.http_parts import (
-    HttpRequestBinaryContent,
-    HttpRequestCookies,
-    HttpRequestHeaders,
-    HttpRequestJsonContent,
-    HttpRequestNoContent,
-    HttpRequestQueryParam,
-    HttpRequestSocketAddress,
-    HttpRequestTextContent,
-    HttpRequestXmlContent,
+from core.bases.base_schema import BaseSchema
+from core.http.interaction.schemas import (
+    HttpBinaryContent,
+    HttpContentEmpty,
+    HttpCookies,
+    HttpHeaders,
+    HttpJsonContent,
+    HttpQueryParam,
+    HttpSocketAddress,
+    HttpTextContent,
+    HttpXmlContent,
 )
 from schemas.undefined_schema import UndefinedSchema
 
 
-class HttpRequestOverrideCookies(HttpRequestCookies):
+class HttpRequestOverrideCookies(HttpCookies):
     pass
 
 
-class HttpRequestOverrideHeaders(HttpRequestHeaders):
+class HttpRequestOverrideHeaders(HttpHeaders):
     pass
 
 
@@ -45,31 +45,25 @@ class HttpRequestOverrideNoContent(BaseSchema):
     data: None = None
 
 
-t_HttpRequestOverrideContent = (
-    HttpRequestBinaryContent
-    | HttpRequestJsonContent
-    | HttpRequestXmlContent
-    | HttpRequestTextContent
-    | HttpRequestNoContent
-)
+t_HttpRequestOverrideContent = HttpBinaryContent | HttpJsonContent | HttpXmlContent | HttpTextContent | HttpContentEmpty
 
 
-class HttpRequestOverrideSocketAddress(HttpRequestSocketAddress):
+class HttpRequestOverrideSocketAddress(HttpSocketAddress):
     host: Optional[str] = None
     port: Optional[int] | UndefinedSchema = Field(default_factory=UndefinedSchema)
     scheme: Optional[str] = None
 
     def override_http_socket_address(
         self,
-        original_socket_address: HttpRequestSocketAddress,
-    ) -> HttpRequestSocketAddress:
-        return HttpRequestSocketAddress(
+        original_socket_address: HttpSocketAddress,
+    ) -> HttpSocketAddress:
+        return HttpSocketAddress(
             host=self.host if self.host else original_socket_address.host,
             port=original_socket_address.port if self.port == UndefinedSchema() else self.port,
             scheme=self.scheme if self.scheme else original_socket_address.scheme,
         )
 
 
-class HttpRequestOverrideQueryParam(HttpRequestQueryParam):
+class HttpRequestOverrideQueryParam(HttpQueryParam):
     key: str
     value: str

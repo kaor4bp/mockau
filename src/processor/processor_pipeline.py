@@ -1,21 +1,20 @@
-from datetime import datetime
-from typing import Generator
+from typing import AsyncGenerator
 
 import httpx
-import pytz
 from fastapi import BackgroundTasks
 from httpx import Limits, Timeout
 from pydantic import TypeAdapter
 
+from core.http.actions.types import t_HttpActionModel
+from core.http.events.common import HttpEventType
+from core.http.events.documents import HttpRequestResponseViewEventDocument
+from core.http.events.models import HttpRequestResponseViewEventModel
+from core.http.interaction.schemas import HttpRequest
+from core.http.interaction.schemas.http_response import HttpResponse
 from dependencies import elasticsearch_client as es_client
 from dependencies import mongo_actions_client
-from es_documents.events import EventHttpRequestResponseViewDocument, HttpRequestDocument, HttpResponseDocument
-from models.actions import t_Action
-from models.events import EventType
 from models.storable_settings import DynamicEntrypoint, FollowRedirectsMode, HttpClientSettings
 from processor.processor_events_handler import ProcessorEventsHandler
-from schemas import HttpRequest
-from schemas.http_response import HttpResponse
 from schemas.variables import VariablesContext, VariablesGroup
 
 
@@ -75,25 +74,21 @@ class HttpProcessorPipeline:
             await self.events_handler.submit()
 
         if self.http_request.is_external:
-            created_at = datetime.now(tz=pytz.UTC)
-            request_response_view_event = EventHttpRequestResponseViewDocument(
-                event=EventType.HTTP_REQUEST_RESPONSE_VIEW.value,
-                http_request=HttpRequestDocument.from_http_request(self.http_request),
-                http_response=HttpResponseDocument.from_http_response(response) if response else None,
+            event = HttpRequestResponseViewEventModel(
+                event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value,
+                http_request=self.http_request,
+                http_response=response,
                 mockau_traceparent=self.http_request.mockau_traceparent,
-                mockau_trace_id=self.http_request.mockau_trace_id,
-                created_at=created_at,
-                timestamp=int(created_at.timestamp() * 1000000),
             )
-            self.background_tasks.add_task(request_response_view_event.save, using=es_client)
+            self.background_tasks.add_task(HttpRequestResponseViewEventDocument.from_model(event).save, using=es_client)
         return response
 
-    async def get_all_actions(self) -> Generator[t_Action, None, None]:
+    async def get_all_actions(self) -> AsyncGenerator[t_HttpActionModel, None]:
         query = (
             mongo_actions_client.find(filters={'entrypoint': self.entrypoint}).sort({'priority': -1}).batch_size(100)
         )
         async for document in query:
-            yield TypeAdapter(t_Action).validate_python(document)
+            yield TypeAdapter(t_HttpActionModel).validate_python(document)
 
     async def search_action(self):
         try:

@@ -1,5 +1,6 @@
-from schemas import BaseSchema, HttpRequest
-from schemas.http_response import HttpResponse
+from core.bases.base_schema import BaseSchema
+from core.http.interaction.schemas import HttpRequest
+from core.http.interaction.schemas.http_response import HttpResponse
 
 
 class HttpRequestResponseView(BaseSchema):

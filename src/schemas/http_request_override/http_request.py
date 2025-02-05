@@ -3,9 +3,9 @@ from copy import deepcopy
 from pydantic_core import PydanticUndefined
 
 from consts import X_MOCKAU_TRACEPARENT_HEADER
-from schemas import HttpRequest
-from schemas.base_schema import BaseSchema
-from schemas.http_request.http_parts import HttpMethod, HttpRequestSocketAddress
+from core.bases.base_schema import BaseSchema
+from core.http.interaction.common import HttpMethod
+from core.http.interaction.schemas import HttpRequest, HttpSocketAddress
 from schemas.http_request_override.http_parts import (
     HttpRequestOverrideHeaders,
     HttpRequestOverrideQueryParam,
@@ -30,7 +30,7 @@ class HttpRequestOverride(BaseSchema):
 
         return HttpRequest(
             mockau_traceparent=mockau_traceparent_token,
-            socket_address=HttpRequestSocketAddress(
+            socket_address=HttpSocketAddress(
                 host=(
                     self.socket_address.host
                     if self.socket_address and self.socket_address.host is not PydanticUndefined

@@ -3,8 +3,8 @@ from uuid import UUID
 
 from pydantic import computed_field, model_validator
 
-from models.events_chain import EventsChain
-from schemas import BaseSchema
+from core.bases.base_schema import BaseSchema
+from core.http.events.schemas.events_chain import EventsChain
 from schemas.http_request_response_view import HttpRequestResponseView
 
 T_PaginatedItemType = TypeVar('T_PaginatedItemType')

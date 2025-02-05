@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import Field
 
-from schemas import BaseSchema
+from core.bases.base_schema import BaseSchema
 
 
 class VariableScope(Enum):

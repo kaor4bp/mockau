@@ -3,29 +3,26 @@ from fastapi import Response
 from pydantic import Field
 
 from consts import X_MOCKAU_TRACEPARENT_HEADER
-from schemas.http_request.http_parts import (
-    HttpRequestCookies,
-    HttpRequestHeaders,
-    HttpRequestQueryParam,
-    HttpRequestSocketAddress,
-    generate_http_content,
-    t_Content,
-)
-
-from .base_schema import BaseSchema
+from core.bases.base_schema import BaseSchema
+from core.http.interaction.schemas.http_content import generate_http_content
+from core.http.interaction.schemas.http_cookies import HttpCookies
+from core.http.interaction.schemas.http_headers import HttpHeaders
+from core.http.interaction.schemas.http_query_param import HttpQueryParam
+from core.http.interaction.schemas.http_socket_address import HttpSocketAddress
+from core.http.interaction.types import t_Content
 
 
 class HttpResponse(BaseSchema):
     path: str
-    query_params: list[HttpRequestQueryParam]
-    socket_address: HttpRequestSocketAddress | None
-    headers: HttpRequestHeaders
+    query_params: list[HttpQueryParam]
+    socket_address: HttpSocketAddress | None
+    headers: HttpHeaders
     status_code: int
     charset_encoding: str | None
     elapsed: float
     encoding: str | None
     content: t_Content = Field(discriminator='type_of')
-    cookies: HttpRequestCookies
+    cookies: HttpCookies
     http_version: str = 'HTTP/1.1'
 
     @property
@@ -57,10 +54,10 @@ class HttpResponse(BaseSchema):
     @classmethod
     def from_httpx_response(cls, response: httpx.Response) -> 'HttpResponse':
         return cls(
-            socket_address=HttpRequestSocketAddress.from_httpx_url(response.url),
+            socket_address=HttpSocketAddress.from_httpx_url(response.url),
             path=response.url.path,
-            query_params=HttpRequestQueryParam.from_httpx_url(response.url),
-            headers=HttpRequestHeaders.from_httpx_headers(response.headers),
+            query_params=HttpQueryParam.from_httpx_url(response.url),
+            headers=HttpHeaders.from_httpx_headers(response.headers),
             status_code=response.status_code,
             charset_encoding=response.charset_encoding,
             elapsed=response.elapsed.total_seconds(),
@@ -70,7 +67,7 @@ class HttpResponse(BaseSchema):
                 content_type=response.headers.get('content-type', ''),
                 encoding=response.encoding,
             ),
-            cookies=HttpRequestCookies.from_httpx_cookies(response.cookies),
+            cookies=HttpCookies.from_httpx_cookies(response.cookies),
             http_version=response.http_version,
         )
 

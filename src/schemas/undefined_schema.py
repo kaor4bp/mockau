@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from schemas import BaseSchema
+from core.bases.base_schema import BaseSchema
 
 
 class UndefinedSchema(BaseSchema):

@@ -3,20 +3,22 @@ from typing import Self
 from elasticsearch_dsl import Q
 from pydantic import model_validator
 
-from dependencies import elasticsearch_client
-from es_documents.events import (
-    EventHttpRequestActionDocument,
-    EventHttpRequestDocument,
-    EventHttpRequestErrorDocument,
-    EventHttpRequestResponseViewDocument,
-    EventHttpResponseDocument,
+from core.bases.base_schema import BaseSchema
+from core.http.events.common import HttpEventType, HttpEventTypeGroup
+from core.http.events.documents import (
+    HttpRequestActionEventDocument,
+    HttpRequestErrorEventDocument,
+    HttpRequestEventDocument,
+    HttpRequestResponseViewEventDocument,
+    HttpResponseEventDocument,
 )
-from models.base_model import BaseModel
-from models.events import EventHttpRequestModel, EventType, EventTypeGroup, t_EventModel
+from core.http.events.models import HttpRequestEventModel
+from core.http.events.types import t_EventModel
+from dependencies import elasticsearch_client
 from schemas.http_request_response_view import HttpRequestResponseView
 
 
-class EventsChain(BaseModel):
+class EventsChain(BaseSchema):
     events: list[t_EventModel]
 
     @model_validator(mode='after')
@@ -33,9 +35,11 @@ class EventsChain(BaseModel):
                 min_timestamp = event_timestamp
         return min_timestamp
 
-    def _get_http_response_event(self, http_request_event: EventHttpRequestModel):
-        all_request_events = (event for event in self.events if event.event.value in EventTypeGroup.ALL_HTTP_REQUEST)
-        response_events = (event for event in self.events if event.event is EventType.HTTP_RECEIVED_RESPONSE)
+    def _get_http_response_event(self, http_request_event: HttpRequestEventModel):
+        all_request_events = (
+            event for event in self.events if event.event.value in HttpEventTypeGroup.ALL_HTTP_REQUEST
+        )
+        response_events = (event for event in self.events if event.event is HttpEventType.HTTP_RECEIVED_RESPONSE)
 
         for response_event in response_events:
             if http_request_event.mockau_traceparent == response_event.mockau_traceparent:
@@ -50,7 +54,9 @@ class EventsChain(BaseModel):
             return self._get_http_response_event(child_event)
 
     def get_http_request_response_views(self) -> list[HttpRequestResponseView]:
-        request_events = [event for event in self.events if event.event.value in EventTypeGroup.INBOUND_HTTP_REQUEST]
+        request_events = [
+            event for event in self.events if event.event.value in HttpEventTypeGroup.INBOUND_HTTP_REQUEST
+        ]
         results = []
         for request_event in request_events:
             http_response_event = self._get_http_response_event(request_event)
@@ -67,17 +73,17 @@ class EventsChain(BaseModel):
     async def create_by_trace_id(cls, trace_id: str) -> 'EventsChain':
         event_models = []
         document_types = [
-            EventHttpRequestResponseViewDocument,
-            EventHttpResponseDocument,
-            EventHttpRequestActionDocument,
-            EventHttpRequestErrorDocument,
-            EventHttpRequestDocument,
+            HttpRequestResponseViewEventDocument,
+            HttpResponseEventDocument,
+            HttpRequestActionEventDocument,
+            HttpRequestErrorEventDocument,
+            HttpRequestEventDocument,
         ]
         for document_type in document_types:
             query = Q(
                 "bool",
                 must=[Q("term", mockau_trace_id=trace_id)],
-                must_not=[Q("term", event=EventType.HTTP_REQUEST_RESPONSE_VIEW.value)],
+                must_not=[Q("term", event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value)],
             )
 
             response = await document_type.search(using=elasticsearch_client).query(query).execute()
@@ -91,17 +97,17 @@ class EventsChain(BaseModel):
     async def bulk_create_by_trace_ids(cls, trace_ids: list[str]) -> 'list[EventsChain]':
         event_models = {}
         document_types = [
-            EventHttpRequestResponseViewDocument,
-            EventHttpResponseDocument,
-            EventHttpRequestActionDocument,
-            EventHttpRequestErrorDocument,
-            EventHttpRequestDocument,
+            HttpRequestResponseViewEventDocument,
+            HttpResponseEventDocument,
+            HttpRequestActionEventDocument,
+            HttpRequestErrorEventDocument,
+            HttpRequestEventDocument,
         ]
         for document_type in document_types:
             query = Q(
                 "bool",
                 should=[Q("term", mockau_trace_id=trace_id) for trace_id in trace_ids],
-                must_not=[Q("term", event=EventType.HTTP_REQUEST_RESPONSE_VIEW.value)],
+                must_not=[Q("term", event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value)],
             )
 
             response = await document_type.search(using=elasticsearch_client).query(query).execute()

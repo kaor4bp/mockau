@@ -1,4 +1,4 @@
-from schemas.http_request.http_parts import HttpMethod
+from core.http.interaction.common import HttpMethod
 from schemas.matchers.variable_matcher import SetVariableMatcher
 from schemas.variables import VariablesContext, variables_context_transaction
 

@@ -2,7 +2,7 @@ from typing import Annotated, Optional
 
 from pydantic import Field
 
-from schemas.http_request import HttpRequest
+from core.http.interaction.schemas import HttpRequest
 from schemas.http_request_matcher.headers import t_HeaderMatcherContainer
 from schemas.http_request_matcher.method import t_MethodMatcher
 from schemas.http_request_matcher.query_param import t_QueryParamMatcherContainer

@@ -7,11 +7,11 @@ from fastapi import BackgroundTasks, FastAPI, Request
 from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
+from core.http.interaction.schemas import HttpRequest
+from core.init_elasticsearch_documents import init_elasticsearch_documents
 from dependencies import elasticsearch_client
-from es_documents.events import init_events
 from models.storable_settings import DynamicEntrypoint
 from processor.processor_pipeline import HttpProcessorPipeline
-from schemas import HttpRequest
 
 
 def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     for de in await DynamicEntrypoint.get_all():
         add_dynamic_entrypoint(app, de.name)
 
-    await init_events(elasticsearch_client)
+    await init_elasticsearch_documents(elasticsearch_client)
 
     # scheduler = AsyncIOScheduler()
     # scheduler.start()
@@ -95,7 +95,11 @@ async def create_entrypoint(name: str):
 @app.put("/{full_path:path}", tags=['Default Entrypoint'])
 @app.delete("/{full_path:path}", tags=['Default Entrypoint'])
 @app.head("/{full_path:path}", tags=['Default Entrypoint'])
-async def default_dynamic_router(full_path, request: Request, background_tasks: BackgroundTasks):
+async def default_dynamic_router(
+    full_path,
+    request: Request,
+    background_tasks: BackgroundTasks,
+):
     http_request = await HttpRequest.from_fastapi_request(request)
 
     pipeline = HttpProcessorPipeline(
@@ -115,4 +119,4 @@ async def default_dynamic_router(full_path, request: Request, background_tasks: 
 
 if __name__ == "__main__":
     cwd = pathlib.Path(__file__).parent.resolve()
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level=logging.INFO)
+    uvicorn.run('main:app', host="127.0.0.1", port=8000, log_level=logging.INFO, workers=2)

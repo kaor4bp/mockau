@@ -6,25 +6,23 @@ from fastapi import Request
 from pydantic import Field
 
 from consts import X_MOCKAU_TRACEPARENT_HEADER
-from schemas.base_schema import BaseSchema
-from schemas.http_request.http_parts import (
-    HttpMethod,
-    HttpRequestHeaders,
-    HttpRequestQueryParam,
-    HttpRequestSocketAddress,
-    generate_http_content,
-    t_Content,
-)
-from schemas.http_response import HttpResponse
+from core.bases.base_schema import BaseSchema
+from core.http.interaction.common import HttpMethod
+from core.http.interaction.schemas.http_content import generate_http_content
+from core.http.interaction.schemas.http_headers import HttpHeaders
+from core.http.interaction.schemas.http_query_param import HttpQueryParam
+from core.http.interaction.schemas.http_response import HttpResponse
+from core.http.interaction.schemas.http_socket_address import HttpSocketAddress
+from core.http.interaction.types import t_Content
 from utils.traceparent import generate_traceparent_token
 
 
 class HttpRequest(BaseSchema):
     path: str
-    query_params: list[HttpRequestQueryParam]
-    socket_address: HttpRequestSocketAddress | None
+    query_params: list[HttpQueryParam]
+    socket_address: HttpSocketAddress | None
     method: HttpMethod
-    headers: HttpRequestHeaders
+    headers: HttpHeaders
     body: t_Content = Field(discriminator='type_of')
     http_version: str = 'HTTP/1.1'
     mockau_traceparent: str
@@ -45,18 +43,14 @@ class HttpRequest(BaseSchema):
 
     @classmethod
     def from_httpx_request(cls, request: httpx.Request) -> 'HttpRequest':
-        mockau_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, None)
-        if not mockau_traceparent:
-            mockau_traceparent = request.headers.get('traceparent', None)
-        if not mockau_traceparent:
-            mockau_traceparent = generate_traceparent_token()
+        mockau_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, generate_traceparent_token())
 
         return cls(
-            socket_address=HttpRequestSocketAddress.from_httpx_url(request.url),
+            socket_address=HttpSocketAddress.from_httpx_url(request.url),
             path=request.url.path,
-            query_params=HttpRequestQueryParam.from_httpx_url(request.url),
+            query_params=HttpQueryParam.from_httpx_url(request.url),
             method=request.method.upper(),
-            headers=HttpRequestHeaders.from_httpx_headers(request.headers),
+            headers=HttpHeaders.from_httpx_headers(request.headers),
             body=generate_http_content(
                 content=request.content,
                 content_type=request.headers.get('content-type', ''),
@@ -66,19 +60,15 @@ class HttpRequest(BaseSchema):
 
     @classmethod
     async def from_fastapi_request(cls, request: Request) -> 'HttpRequest':
-        mockau_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, None)
-        if not mockau_traceparent:
-            mockau_traceparent = request.headers.get('traceparent', None)
-        if not mockau_traceparent:
-            mockau_traceparent = generate_traceparent_token()
+        mockau_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, generate_traceparent_token())
 
         httpx_url = httpx.URL(str(request.url))
         return cls(
-            socket_address=HttpRequestSocketAddress.from_httpx_url(httpx_url),
+            socket_address=HttpSocketAddress.from_httpx_url(httpx_url),
             path=httpx_url.path,
-            query_params=HttpRequestQueryParam.from_httpx_url(httpx_url),
+            query_params=HttpQueryParam.from_httpx_url(httpx_url),
             method=request.method.upper(),
-            headers=HttpRequestHeaders.from_httpx_headers(request.headers),
+            headers=HttpHeaders.from_httpx_headers(request.headers),
             body=generate_http_content(
                 content=await request.body(),
                 content_type=request.headers.get('content-type', ''),
@@ -121,8 +111,8 @@ class HttpRequest(BaseSchema):
         mockau_traceparent_token = generate_traceparent_token(http_response.mockau_traceparent)
         setattr(http_request.headers, X_MOCKAU_TRACEPARENT_HEADER, [mockau_traceparent_token])
 
-        http_request.socket_address = HttpRequestSocketAddress.from_httpx_url(location)
+        http_request.socket_address = HttpSocketAddress.from_httpx_url(location)
         http_request.path = location.path
-        http_request.query_params = HttpRequestQueryParam.from_httpx_url(location)
+        http_request.query_params = HttpQueryParam.from_httpx_url(location)
 
         return http_request

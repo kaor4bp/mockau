@@ -5,21 +5,13 @@ import httpx
 from fastapi import Response
 from pydantic import Field
 
-from models.base_model import BaseModel
+from core.bases.base_model import BaseModel
+from core.http.actions.common import Times, TimeToLive
 from models.storable_settings import HttpClientSettings
 from schemas.variables import VariablesGroup
 
 
-class Times(BaseModel):
-    remaining_times: int | None = None
-    unlimited: bool = False
-
-
-class TimeToLive(BaseModel):
-    time_to_live: int | None = None
-
-
-class AbstractAction(BaseModel):
+class BaseHttpActionModel(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     priority: int
     entrypoint: str = 'default'
@@ -29,6 +21,9 @@ class AbstractAction(BaseModel):
 
     @abstractmethod
     async def execute(
-        self, client: httpx.AsyncClient, client_settings: HttpClientSettings, events_handler: 'ProcessorEventsHandler'
+        self,
+        client: httpx.AsyncClient,
+        client_settings: HttpClientSettings,
+        events_handler: 'ProcessorEventsHandler',
     ) -> Response | None:
         pass

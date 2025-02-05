@@ -1,4 +1,4 @@
-from schemas.base_schema import BaseSchema
+from core.bases.base_schema import BaseSchema
 from schemas.modifiers.string_modifier import t_StringModifier
 
 

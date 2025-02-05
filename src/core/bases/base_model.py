@@ -3,7 +3,7 @@ from typing import Annotated, Any
 from bson import ObjectId
 from pydantic import BeforeValidator, Field
 
-from schemas import BaseSchema
+from core.bases.base_schema import BaseSchema
 
 
 def serialize_bson_object_id(value: Any) -> Any:

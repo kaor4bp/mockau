@@ -1,6 +1,6 @@
 from typing import Optional
 
-from schemas.http_request.http_parts import HttpRequestSocketAddress
+from core.http.interaction.schemas import HttpSocketAddress
 from schemas.matchers.abstract_matcher import AbstractMatcher
 from schemas.matchers.integer_matcher import t_IntegerMatcher
 from schemas.matchers.string_matcher import t_StringMatcher
@@ -13,7 +13,7 @@ class SocketAddressMatcher(AbstractMatcher):
     scheme: Optional[t_StringMatcher] = None
 
     @variables_context_transaction
-    def is_matched(self, socket_address: HttpRequestSocketAddress, *, context: VariablesContext) -> bool:
+    def is_matched(self, socket_address: HttpSocketAddress, *, context: VariablesContext) -> bool:
         if self.host and not self.host.is_matched(socket_address.host, context=context):
             return False
         if self.port and not self.port.is_matched(socket_address.port, context=context):

@@ -10,8 +10,8 @@ from admin.schemas import (
     EventsChainTimestampPaginatedResponse,
     HttpRequestResponseViewTimestampPaginatedResponse,
 )
+from core.http.actions.types import t_HttpAction
 from dependencies import mongo_actions_client
-from models.actions import t_Action
 from schemas.http_request_matcher.http_request_matcher import HttpRequestMatcher
 from schemas.variables import VariablesContext, VariablesGroup
 
@@ -23,9 +23,9 @@ admin_debug_router = APIRouter(prefix='/mockau/admin', tags=['Admin Debug'])
     '/create_action',
     response_model=CreateActionResponse,
 )
-async def create_action(body: t_Action):
+async def create_action(body: t_HttpAction):
     await mongo_actions_client.update_one(
-        filters={'id': str(body.id)}, update={'$set': body.to_json_dict()}, upsert=True
+        filters={'id': str(body.id)}, update={'$set': body.to_model().to_json_dict()}, upsert=True
     )
 
     return Response(
