@@ -1,6 +1,6 @@
 from polyfactory.factories.pydantic_factory import ModelFactory
 
-from schemas.http_request import HttpRequest
+from core.http.interaction.schemas import HttpRequest
 
 
 class HttpRequestFactory(ModelFactory[HttpRequest]):
