@@ -1,0 +1,20 @@
+services:
+  mockau:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    environment:
+      - MONGO_URI=mongodb://root:Very-Strong-Password13@mongo:27017/
+      - MONGO_DB_NAME=mockau
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:8.0
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: Very-Strong-Password13
