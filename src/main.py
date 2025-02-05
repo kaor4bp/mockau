@@ -8,10 +8,10 @@ from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
 from core.http.interaction.schemas import HttpRequest
+from core.http.processor.http_processor_pipeline import HttpProcessorPipeline
 from core.init_elasticsearch_documents import init_elasticsearch_documents
-from dependencies import elasticsearch_client
+from mockau_fastapi import MockauFastAPI
 from models.storable_settings import DynamicEntrypoint
-from processor.processor_pipeline import HttpProcessorPipeline
 
 
 def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
@@ -27,20 +27,22 @@ def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    for de in await DynamicEntrypoint.get_all():
+async def lifespan(app: MockauFastAPI):
+    await app.init_state()
+
+    for de in await DynamicEntrypoint.get_all(app):
         add_dynamic_entrypoint(app, de.name)
 
-    await init_elasticsearch_documents(elasticsearch_client)
+    await init_elasticsearch_documents(app.state.elasticsearch_client)
 
     # scheduler = AsyncIOScheduler()
     # scheduler.start()
     yield
     # scheduler.shutdown(wait=True)
-    await elasticsearch_client.close()
+    await app.destruct_state()
 
 
-app = FastAPI(lifespan=lifespan)
+app = MockauFastAPI(lifespan=lifespan)
 app.include_router(admin_router)
 app.include_router(admin_debug_router)
 
@@ -50,6 +52,7 @@ def generate_dynamic_router_processor(name: str):
         http_request = await HttpRequest.from_fastapi_request(request)
 
         pipeline = HttpProcessorPipeline(
+            app=request.app,
             background_tasks=background_tasks,
             http_request=http_request,
             entrypoint=name,
@@ -103,6 +106,7 @@ async def default_dynamic_router(
     http_request = await HttpRequest.from_fastapi_request(request)
 
     pipeline = HttpProcessorPipeline(
+        app=request.app,
         background_tasks=background_tasks,
         http_request=http_request,
     )
@@ -119,4 +123,4 @@ async def default_dynamic_router(
 
 if __name__ == "__main__":
     cwd = pathlib.Path(__file__).parent.resolve()
-    uvicorn.run('main:app', host="127.0.0.1", port=8000, log_level=logging.INFO, workers=2)
+    uvicorn.run('main:app', host="127.0.0.1", port=8000, log_level=logging.INFO, workers=1)

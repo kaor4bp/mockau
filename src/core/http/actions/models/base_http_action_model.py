@@ -24,6 +24,6 @@ class BaseHttpActionModel(BaseModel):
         self,
         client: httpx.AsyncClient,
         client_settings: HttpClientSettings,
-        events_handler: 'ProcessorEventsHandler',
+        events_handler: 'HttpEventsHandler',
     ) -> Response | None:
         pass

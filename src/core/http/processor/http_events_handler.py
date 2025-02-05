@@ -17,12 +17,13 @@ from core.http.events.models import (
 )
 from core.http.interaction.schemas import HttpRequest
 from core.http.interaction.schemas.http_response import HttpResponse
-from dependencies import elasticsearch_client as es_client
+from mockau_fastapi import MockauFastAPI
 
 
-class ProcessorEventsHandler:
-    def __init__(self, inbound_http_request: HttpRequest) -> None:
+class HttpEventsHandler:
+    def __init__(self, app: MockauFastAPI, inbound_http_request: HttpRequest) -> None:
         self.tasks = []
+        self.app = app
         self.inbound_http_request = inbound_http_request
 
     async def submit(self):
@@ -39,7 +40,9 @@ class ProcessorEventsHandler:
             http_request=self.inbound_http_request,
             mockau_traceparent=self.inbound_http_request.mockau_traceparent,
         )
-        self.tasks.append(create_task(HttpRequestEventDocument.from_model(event).save(using=es_client)))
+        self.tasks.append(
+            create_task(HttpRequestEventDocument.from_model(event).save(using=self.app.state.elasticsearch_client))
+        )
 
     async def on_too_many_redirects_error(
         self,
@@ -49,7 +52,9 @@ class ProcessorEventsHandler:
             event=HttpEventType.HTTP_REQUEST_TOO_MANY_REDIRECTS.value,
             mockau_traceparent=http_request.mockau_traceparent,
         )
-        self.tasks.append(create_task(HttpRequestErrorEventDocument.from_model(event).save(using=es_client)))
+        self.tasks.append(
+            create_task(HttpRequestErrorEventDocument.from_model(event).save(using=self.app.state.elasticsearch_client))
+        )
 
     async def on_action_is_matched(self, action: t_HttpActionModel):
         event = HttpRequestActionEventModel(
@@ -57,7 +62,11 @@ class ProcessorEventsHandler:
             mockau_traceparent=self.inbound_http_request.mockau_traceparent,
             action_id=action.id,
         )
-        self.tasks.append(create_task(HttpRequestActionEventDocument.from_model(event).save(using=es_client)))
+        self.tasks.append(
+            create_task(
+                HttpRequestActionEventDocument.from_model(event).save(using=self.app.state.elasticsearch_client)
+            )
+        )
 
     async def on_actions_mismatched(self):
         event = HttpRequestErrorEventModel(
@@ -65,7 +74,9 @@ class ProcessorEventsHandler:
             mockau_traceparent=self.inbound_http_request.mockau_traceparent,
         )
         self.tasks.append(
-            create_task(HttpRequestErrorEventDocument.from_model(event).save(using=es_client)),
+            create_task(
+                HttpRequestErrorEventDocument.from_model(event).save(using=self.app.state.elasticsearch_client)
+            ),
         )
 
     async def on_request_send(
@@ -78,7 +89,7 @@ class ProcessorEventsHandler:
             http_request=http_request,
         )
         self.tasks.append(
-            create_task(HttpRequestEventDocument.from_model(event).save(using=es_client)),
+            create_task(HttpRequestEventDocument.from_model(event).save(using=self.app.state.elasticsearch_client)),
         )
 
     async def on_response_received(
@@ -92,5 +103,5 @@ class ProcessorEventsHandler:
             http_response=http_response,
         )
         self.tasks.append(
-            create_task(HttpResponseEventDocument.from_model(event).save(using=es_client)),
+            create_task(HttpResponseEventDocument.from_model(event).save(using=self.app.state.elasticsearch_client)),
         )

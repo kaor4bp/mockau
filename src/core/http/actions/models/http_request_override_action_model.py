@@ -14,7 +14,7 @@ class HttpRequestOverrideActionModel(BaseHttpActionModel):
         self,
         client: httpx.AsyncClient,
         client_settings: HttpClientSettings,
-        events_handler: 'ProcessorEventsHandler',
+        events_handler: 'HttpEventsHandler',
     ):
         new_request = self.http_request_override.override_http_request(events_handler.inbound_http_request)
         response = None

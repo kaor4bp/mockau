@@ -14,7 +14,7 @@ from core.http.events.documents import (
 )
 from core.http.events.models import HttpRequestEventModel
 from core.http.events.types import t_EventModel
-from dependencies import elasticsearch_client
+from mockau_fastapi import MockauFastAPI
 from schemas.http_request_response_view import HttpRequestResponseView
 
 
@@ -70,7 +70,7 @@ class EventsChain(BaseSchema):
         return results
 
     @classmethod
-    async def create_by_trace_id(cls, trace_id: str) -> 'EventsChain':
+    async def create_by_trace_id(cls, app: MockauFastAPI, trace_id: str) -> 'EventsChain':
         event_models = []
         document_types = [
             HttpRequestResponseViewEventDocument,
@@ -86,7 +86,7 @@ class EventsChain(BaseSchema):
                 must_not=[Q("term", event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value)],
             )
 
-            response = await document_type.search(using=elasticsearch_client).query(query).execute()
+            response = await document_type.search(using=app.state.elasticsearch_client).query(query).execute()
 
             for hit in response.hits:
                 event_models.append(hit.to_model())
@@ -94,7 +94,7 @@ class EventsChain(BaseSchema):
         return cls(events=event_models)
 
     @classmethod
-    async def bulk_create_by_trace_ids(cls, trace_ids: list[str]) -> 'list[EventsChain]':
+    async def bulk_create_by_trace_ids(cls, app: MockauFastAPI, trace_ids: list[str]) -> 'list[EventsChain]':
         event_models = {}
         document_types = [
             HttpRequestResponseViewEventDocument,
@@ -110,7 +110,7 @@ class EventsChain(BaseSchema):
                 must_not=[Q("term", event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value)],
             )
 
-            response = await document_type.search(using=elasticsearch_client).query(query).execute()
+            response = await document_type.search(using=app.state.elasticsearch_client).query(query).execute()
 
             for hit in response.hits:
                 event_models.setdefault(hit.mockau_trace_id, []).append(hit.to_model())

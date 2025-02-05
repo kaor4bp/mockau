@@ -10,6 +10,9 @@ class MongoClient:
         self._db = self._client[MockauSettings.mongo.db_name]
         self._collection = self._db[collection]
 
+    def close(self):
+        self._client.close()
+
     @property
     def collection(self) -> AsyncIOMotorCollection:
         return self._collection

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import pytz
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Request, Response
 from starlette.responses import JSONResponse
 
 from admin.queries import find_event_chains_by_timestamp, get_http_requests_by_timestamp
@@ -11,7 +11,7 @@ from admin.schemas import (
     HttpRequestResponseViewTimestampPaginatedResponse,
 )
 from core.http.actions.types import t_HttpAction
-from dependencies import mongo_actions_client
+from mockau_fastapi import MockauFastAPI
 from schemas.http_request_matcher.http_request_matcher import HttpRequestMatcher
 from schemas.variables import VariablesContext, VariablesGroup
 
@@ -23,8 +23,9 @@ admin_debug_router = APIRouter(prefix='/mockau/admin', tags=['Admin Debug'])
     '/create_action',
     response_model=CreateActionResponse,
 )
-async def create_action(body: t_HttpAction):
-    await mongo_actions_client.update_one(
+async def create_action(body: t_HttpAction, request: Request):
+    app: MockauFastAPI = request.app
+    await app.state.mongo_actions_client.update_one(
         filters={'id': str(body.id)}, update={'$set': body.to_model().to_json_dict()}, upsert=True
     )
 
@@ -41,17 +42,21 @@ async def create_action(body: t_HttpAction):
     operation_id='searchRequestResponses',
 )
 async def search_request_responses(
+    request: Request,
     from_: int,
     to: int | None = None,
     limit: int = 10,
     body: HttpRequestMatcher | None = None,
 ):
+    app: MockauFastAPI = request.app
+
     request_responses = []
     to = to or int(datetime.now(tz=pytz.UTC).timestamp() * 1000000)
     context = VariablesContext(variables_group=VariablesGroup())
 
     for _ in range(100):
         result = await get_http_requests_by_timestamp(
+            app=app,
             from_=from_,
             to=to,
             limit=limit - len(request_responses),
@@ -81,16 +86,20 @@ async def search_request_responses(
 
 @admin_router.get('/get_events_chain', operation_id='getEventsChain')
 async def get_events_chain(
+    request: Request,
     from_: int,
     to: int | None = None,
     limit: int = 10,
 ):
+    app: MockauFastAPI = request.app
+
     to = to or int(datetime.now(tz=pytz.UTC).timestamp() * 1000000)
 
     events_chains_list = []
 
     for _ in range(100):
         result = await find_event_chains_by_timestamp(
+            app=app,
             from_=from_,
             to=to,
             limit=limit,

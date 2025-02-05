@@ -5,17 +5,18 @@ from core.http.events.common import HttpEventType
 from core.http.events.documents.http_request_event_document import HttpRequestEventDocument
 from core.http.events.models import HttpRequestEventModel
 from core.http.events.schemas.events_chain import EventsChain
-from dependencies import elasticsearch_client
+from mockau_fastapi import MockauFastAPI
 from schemas.http_request_response_view import HttpRequestResponseView
 
 
 async def get_http_requests_by_timestamp(
+    app: MockauFastAPI,
     from_: int,
     to: int,
     limit: int,
 ) -> HttpRequestResponseViewTimestampPaginatedResponse:
     search = (
-        HttpRequestEventDocument.search(using=elasticsearch_client)
+        HttpRequestEventDocument.search(using=app.state.elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lt': to})
         .filter(
@@ -39,7 +40,7 @@ async def get_http_requests_by_timestamp(
         )
 
     search = (
-        HttpRequestEventDocument.search(using=elasticsearch_client)
+        HttpRequestEventDocument.search(using=app.state.elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lte': max_timestamp})
         .filter(
@@ -85,12 +86,13 @@ async def get_http_requests_by_timestamp(
 
 
 async def find_event_chains_by_timestamp(
+    app: MockauFastAPI,
     from_: int,
     to: int,
     limit: int,
 ) -> EventsChainTimestampPaginatedResponse:
     search = (
-        HttpRequestEventDocument.search(using=elasticsearch_client)
+        HttpRequestEventDocument.search(using=app.state.elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lt': to})
         .filter(
@@ -114,7 +116,7 @@ async def find_event_chains_by_timestamp(
         )
 
     search = (
-        HttpRequestEventDocument.search(using=elasticsearch_client)
+        HttpRequestEventDocument.search(using=app.state.elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lte': max_timestamp})
         .filter(
@@ -131,7 +133,7 @@ async def find_event_chains_by_timestamp(
     response = await search.execute()
     unique_mockau_trace_ids = [bucket.key for bucket in response.aggregations.unique_mockau_trace_ids.buckets]
 
-    events_chains = await EventsChain.bulk_create_by_trace_ids(unique_mockau_trace_ids)
+    events_chains = await EventsChain.bulk_create_by_trace_ids(app=app, trace_ids=unique_mockau_trace_ids)
 
     return EventsChainTimestampPaginatedResponse(
         items=events_chains,

@@ -14,7 +14,7 @@ class StubHttpResponseActionModel(BaseHttpActionModel):
         self,
         client: httpx.AsyncClient,
         client_settings: HttpClientSettings,
-        events_handler: 'ProcessorEventsHandler',
+        events_handler: 'HttpEventsHandler',
     ):
         await events_handler.on_response_received(
             events_handler.inbound_http_request.mockau_traceparent,
