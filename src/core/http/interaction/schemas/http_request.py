@@ -74,7 +74,7 @@ class HttpRequest(BaseSchema):
             path=httpx_url.path,
             query_params=HttpQueryParam.from_httpx_url(httpx_url),
             method=request.method.upper(),
-            headers=HttpHeaders.from_httpx_headers(request.headers),
+            headers=HttpHeaders.from_fastapi_headers(request),
             body=generate_http_content(
                 content=await request.body(),
                 content_type=request.headers.get('content-type', ''),

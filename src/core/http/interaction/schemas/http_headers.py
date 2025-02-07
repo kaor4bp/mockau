@@ -16,3 +16,13 @@ class HttpHeaders(BaseSchema):
             mapped_headers.setdefault(header_name, []).append(header_value)
 
         return cls(**mapped_headers)
+
+    @classmethod
+    def from_fastapi_headers(cls, request) -> 'HttpHeaders':
+        mapped_headers = {}
+        for header_name, header_value in request.scope["headers"]:
+            header_name = header_name.decode("utf-8")
+            header_value = header_value.decode("utf-8")
+            mapped_headers.setdefault(header_name, []).append(header_value)
+
+        return cls(**mapped_headers)
