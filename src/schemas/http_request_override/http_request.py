@@ -26,7 +26,11 @@ class HttpRequestOverride(BaseSchema):
     # body: t_HttpRequestOverrideContent | None = Field(default=None, discriminator='type_of')
 
     def override_http_request(self, original_request: HttpRequest) -> HttpRequest:
-        headers = deepcopy(self.headers or original_request.headers)
+        headers = deepcopy(original_request.headers)
+        if self.headers:
+            for k, v in self.headers.model_dump(mode='json').items():
+                setattr(headers, k, v)
+
         mockau_traceparent_token = generate_traceparent_token(original_request.mockau_traceparent)
         setattr(headers, X_MOCKAU_TRACEPARENT_HEADER, [mockau_traceparent_token])
 

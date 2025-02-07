@@ -99,7 +99,7 @@ class HttpRequest(BaseSchema):
 
     async def send(self, client: httpx.AsyncClient) -> HttpResponse:
         headers = []
-        for header_name, header_values in self.headers:
+        for header_name, header_values in self.headers.model_dump(mode='json').items():
             for header_value in header_values:
                 headers.append((header_name, header_value))
         httpx_request = httpx.Request(
