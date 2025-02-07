@@ -17,6 +17,7 @@ from utils.traceparent import generate_traceparent_token
 
 class HttpRequestOverride(BaseSchema):
     path: str | None = None
+    remove_from_path: str | None = None
     query_params: list[HttpRequestOverrideQueryParam] | None = None
     socket_address: HttpRequestOverrideSocketAddress | None = None
     method: HttpMethod | None = None
@@ -51,10 +52,15 @@ class HttpRequestOverride(BaseSchema):
             )
         else:
             socket_address = original_request.socket_address
+
+        path = self.path or original_request.path
+        # dirty hack for alpha testing
+        if self.remove_from_path:
+            path = path.replace(self.remove_from_path, '')
         return HttpRequest(
             mockau_traceparent=mockau_traceparent_token,
             socket_address=socket_address,
-            path=self.path or original_request.path,
+            path=path,
             query_params=(self.query_params if self.query_params is not None else original_request.query_params),
             method=self.method or original_request.method,
             headers=headers,
