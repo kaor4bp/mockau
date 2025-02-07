@@ -9,6 +9,7 @@ from pydantic import Field
 
 from core.bases.base_model import BaseModel
 from core.http.actions.common import Times, TimeToLive
+from core.http.matchers.http_request_matcher import HttpRequestMatcher
 from mockau_fastapi import MockauSharedClients
 from models.storable_settings import HttpClientSettings
 from schemas.variables import VariablesGroup
@@ -21,6 +22,8 @@ class BaseHttpActionModel(BaseModel):
     times: Times | None = None
     time_to_live: TimeToLive | None = None
     variables_group: VariablesGroup = Field(default_factory=VariablesGroup)
+
+    http_request: HttpRequestMatcher
 
     # internal fields
 

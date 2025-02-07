@@ -1,9 +1,16 @@
 import re
+from typing import Annotated, Literal, Union
 
+from pydantic import Field
 from pyformlang.regular_expression import PythonRegex
 
-from core.plain_matchers.base_plain_matcher import BasePlainMatcher
-from core.plain_matchers.common_plain_matchers import CommonPlainMatcher
+from core.plain_matchers.base_plain_matcher import (
+    BaseAndPlainMatcher,
+    BaseAnyPlainMatcher,
+    BaseNotPlainMatcher,
+    BaseOrPlainMatcher,
+    BasePlainMatcher,
+)
 
 
 class BaseStringPlainMatcher(BasePlainMatcher):
@@ -12,11 +19,11 @@ class BaseStringPlainMatcher(BasePlainMatcher):
 
 
 class StringEqualTo(BaseStringPlainMatcher):
-    def __init__(self, value):
-        self.value = value
+    type_of: Literal['StringEqualTo'] = 'StringEqualTo'
+    value: str
 
     def is_intersected(self, other):
-        assert isinstance(other, BaseStringPlainMatcher) or isinstance(other, CommonPlainMatcher)
+        assert isinstance(other, BaseStringPlainMatcher)
 
         if isinstance(other, StringEqualTo):
             return self.value == other.value
@@ -29,14 +36,15 @@ class StringEqualTo(BaseStringPlainMatcher):
 
 
 class StringPattern(BaseStringPlainMatcher):
-    def __init__(self, pattern):
-        self.pattern = pattern
+    type_of: Literal['StringPattern'] = 'StringPattern'
+    pattern: str
 
     def is_intersected(self, other):
-        assert isinstance(other, BaseStringPlainMatcher) or isinstance(other, CommonPlainMatcher)
+        assert isinstance(other, BaseStringPlainMatcher)
 
         if isinstance(other, StringEqualTo):
-            return bool(re.fullmatch(self.pattern, other.value))
+            regex_dfa = PythonRegex(self.pattern).to_epsilon_nfa().minimize()
+            return regex_dfa.accepts(other.value)
         elif isinstance(other, StringPattern):
             regex1_dfa = PythonRegex(self.pattern).to_epsilon_nfa().minimize()
             regex2_dfa = PythonRegex(other.pattern).to_epsilon_nfa().minimize()
@@ -54,11 +62,11 @@ class StringPattern(BaseStringPlainMatcher):
 
 
 class StringContains(BaseStringPlainMatcher):
-    def __init__(self, value):
-        self.value = value
+    type_of: Literal['StringContains'] = 'StringContains'
+    value: str
 
     def is_intersected(self, other):
-        assert isinstance(other, BaseStringPlainMatcher) or isinstance(other, CommonPlainMatcher)
+        assert isinstance(other, BaseStringPlainMatcher)
 
         if isinstance(other, StringEqualTo):
             return self.value in other.value
@@ -72,3 +80,38 @@ class StringContains(BaseStringPlainMatcher):
             return True
         else:
             return other.is_intersected(self)
+
+
+class StringAny(BaseStringPlainMatcher, BaseAnyPlainMatcher):
+    type_of: Literal['StringAny'] = 'StringAny'
+
+
+class StringNot(BaseStringPlainMatcher, BaseNotPlainMatcher['_t_StringPlainMatcher']):
+    type_of: Literal['StringNot'] = 'StringNot'
+
+
+class StringAnd(BaseStringPlainMatcher, BaseAndPlainMatcher['_t_StringPlainMatcher']):
+    type_of: Literal['StringAnd'] = 'StringAnd'
+
+
+class StringOr(BaseStringPlainMatcher, BaseOrPlainMatcher['_t_StringPlainMatcher']):
+    type_of: Literal['StringOr'] = 'StringOr'
+
+
+_t_StringPlainMatcher = Annotated[
+    Union[
+        StringEqualTo,
+        StringPattern,
+        StringContains,
+        StringAny,
+        StringNot,
+        StringAnd,
+        StringOr,
+    ],
+    Field(discriminator='type_of'),
+]
+
+StringAny.model_rebuild()
+StringNot.model_rebuild()
+StringAnd.model_rebuild()
+StringOr.model_rebuild()

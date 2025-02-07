@@ -40,7 +40,10 @@ class HttpRequestMatcher(AbstractMatcher):
             object_plain_matcher['method'] = self.method.to_plain_matcher(context=context)
         if self.headers:
             object_plain_matcher['headers'] = self.headers.to_plain_matcher(context=context)
-        return ObjectPlainMatcher(object_plain_matcher)
+        return ObjectPlainMatcher(
+            obj=object_plain_matcher,
+            obj_name=f'{self.__class__.__module__}#{self.__class__.__name__}',
+        )
 
     @variables_context_transaction
     def is_matched(self, http_request: HttpRequest, *, context: VariablesContext) -> bool:

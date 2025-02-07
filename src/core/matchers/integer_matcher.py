@@ -4,15 +4,18 @@ from typing import Self
 from pydantic import ValidationError, model_validator
 
 from core.matchers.variable_matcher import SetVariableMatcher
-from core.plain_matchers.common_plain_matchers import And, Any, Not, Or
 from core.plain_matchers.integer_plain_matchers import (
+    IntegerAnd,
+    IntegerAny,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
     IntegerLessOrEqualThan,
     IntegerLessThan,
+    IntegerNot,
+    IntegerOr,
 )
-from core.plain_matchers.types import t_PlainMatcher
+from core.plain_matchers.types import t_IntegerPlainMatcher, t_PlainMatcher
 from schemas.variables import VariablesContext, variables_context_transaction
 
 
@@ -37,28 +40,34 @@ class IntegerMatcher(SetVariableMatcher):
         plain_matchers = []
 
         if self.equal_to:
-            plain_matchers.append(IntegerEqualTo(self.equal_to))
+            plain_matchers.append(IntegerEqualTo(value=self.equal_to))
         if self.gte is not None:
-            plain_matchers.append(IntegerGreaterOrEqualThan(self.gte))
+            plain_matchers.append(IntegerGreaterOrEqualThan(value=self.gte))
         if self.gt is not None:
-            plain_matchers.append(IntegerGreaterThan(self.gt))
+            plain_matchers.append(IntegerGreaterThan(value=self.gt))
         if self.lte is not None:
-            plain_matchers.append(IntegerLessOrEqualThan(self.lte))
+            plain_matchers.append(IntegerLessOrEqualThan(value=self.lte))
         if self.lt is not None:
-            plain_matchers.append(IntegerLessThan(self.lt))
+            plain_matchers.append(IntegerLessThan(value=self.lt))
         if self.and_:
-            plain_matchers.append(And(*[matcher.to_plain_matcher(context=context) for matcher in self.and_]))
+            plain_matchers.append(
+                IntegerAnd(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.and_])
+            )
         if self.or_:
-            plain_matchers.append(Or(*[matcher.to_plain_matcher(context=context) for matcher in self.or_]))
+            plain_matchers.append(
+                IntegerOr(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.or_])
+            )
         if self.not_:
-            plain_matchers.append(Not(self.not_.to_plain_matcher(context=context)))
+            plain_matchers.append(
+                IntegerNot[t_IntegerPlainMatcher](matcher=self.not_.to_plain_matcher(context=context))
+            )
 
         if len(plain_matchers) == 0:
-            return Any()
+            return IntegerAny()
         elif len(plain_matchers) == 1:
             return plain_matchers[0]
         else:
-            return And(*plain_matchers)
+            return IntegerAnd(matchers=plain_matchers)
 
     @variables_context_transaction
     def is_matched(self, value: int, *, context: VariablesContext) -> bool:

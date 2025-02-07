@@ -4,8 +4,15 @@ from typing import Annotated, Optional
 from pydantic import Field
 
 from core.matchers.variable_matcher import SetVariableMatcher
-from core.plain_matchers.common_plain_matchers import And, Any, Not, Or
-from core.plain_matchers.string_plain_matchers import StringContains, StringEqualTo, StringPattern
+from core.plain_matchers.string_plain_matchers import (
+    StringAnd,
+    StringAny,
+    StringContains,
+    StringEqualTo,
+    StringNot,
+    StringOr,
+    StringPattern,
+)
 from schemas.variables import VariablesContext, variables_context_transaction
 
 
@@ -50,26 +57,30 @@ class StringMatcher(SetVariableMatcher):
         plain_matchers = []
 
         if self.pattern is not None:
-            plain_matchers.append(StringPattern(self.pattern))
+            plain_matchers.append(StringPattern(pattern=self.pattern))
         if self.equal_to is not None:
-            plain_matchers.append(StringEqualTo(self.equal_to))
+            plain_matchers.append(StringEqualTo(value=self.equal_to))
         if self.contains is not None:
-            plain_matchers.append(StringContains(self.contains))
+            plain_matchers.append(StringContains(value=self.contains))
         if self.and_ is not None:
-            plain_matchers.append(And(*[matcher.to_plain_matcher(context=context) for matcher in self.and_]))
+            plain_matchers.append(
+                StringAnd(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.and_])
+            )
         if self.or_ is not None:
-            plain_matchers.append(Or(*[matcher.to_plain_matcher(context=context) for matcher in self.and_]))
+            plain_matchers.append(
+                StringOr(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.and_])
+            )
         if self.not_ is not None:
-            plain_matchers.append(Not(self.not_.to_plain_matcher(context=context)))
+            plain_matchers.append(StringNot(matcher=self.not_.to_plain_matcher(context=context)))
         if self.set_variable is not None:
             plain_matchers.append(super().to_plain_matcher(context=context))
 
         if len(plain_matchers) == 0:
-            return Any()
+            return StringAny()
         elif len(plain_matchers) == 1:
             return plain_matchers[0]
         else:
-            return And(*plain_matchers)
+            return StringAnd(matchers=plain_matchers)
 
     @variables_context_transaction
     def is_matched(self, value, *, context: VariablesContext) -> bool:

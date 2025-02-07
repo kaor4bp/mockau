@@ -3,8 +3,7 @@ import re
 from pydantic import Field
 
 from core.matchers.abstract_matcher import AbstractMatcher
-from core.plain_matchers.common_plain_matchers import Any
-from core.plain_matchers.string_plain_matchers import StringPattern
+from core.plain_matchers.string_plain_matchers import StringAny, StringPattern
 from core.plain_matchers.types import t_PlainMatcher
 from schemas.variables import VariablesContext, variables_context_transaction
 from utils.string_utils import split_string
@@ -17,7 +16,7 @@ class SetVariableMatcher(AbstractMatcher):
         variable_names = re.findall(r'\${\w+}', self.set_variable)
 
         if not variable_names:
-            return Any()
+            return StringAny()
 
         pattern = self.set_variable
         for variable_name in variable_names:

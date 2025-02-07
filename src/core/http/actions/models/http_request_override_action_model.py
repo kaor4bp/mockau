@@ -1,13 +1,11 @@
 import httpx
 
 from core.http.actions.models.base_http_action_model import BaseHttpActionModel
-from core.http.matchers.http_request_matcher import HttpRequestMatcher
 from models.storable_settings import FollowRedirectsMode, HttpClientSettings
 from schemas.http_request_override.http_request import HttpRequestOverride
 
 
 class HttpRequestOverrideActionModel(BaseHttpActionModel):
-    http_request: HttpRequestMatcher
     http_request_override: HttpRequestOverride
 
     async def execute(

@@ -32,4 +32,7 @@ class SocketAddressMatcher(AbstractMatcher):
             object_plain_matcher['port'] = self.port.to_plain_matcher(context=context)
         if self.scheme:
             object_plain_matcher['scheme'] = self.scheme.to_plain_matcher(context=context)
-        return ObjectPlainMatcher(object_plain_matcher)
+        return ObjectPlainMatcher(
+            obj=object_plain_matcher,
+            obj_name=f'{self.__class__.__module__}#{self.__class__.__name__}',
+        )

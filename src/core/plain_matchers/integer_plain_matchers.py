@@ -1,5 +1,14 @@
-from core.plain_matchers.base_plain_matcher import BasePlainMatcher
-from core.plain_matchers.common_plain_matchers import CommonPlainMatcher
+from typing import Annotated, Literal, Union
+
+from pydantic import Field
+
+from core.plain_matchers.base_plain_matcher import (
+    BaseAndPlainMatcher,
+    BaseAnyPlainMatcher,
+    BaseNotPlainMatcher,
+    BaseOrPlainMatcher,
+    BasePlainMatcher,
+)
 
 
 class BaseIntegerPlainMatcher(BasePlainMatcher):
@@ -8,11 +17,11 @@ class BaseIntegerPlainMatcher(BasePlainMatcher):
 
 
 class IntegerEqualTo(BaseIntegerPlainMatcher):
-    def __init__(self, value):
-        self.value = value
+    type_of: Literal['IntegerEqualTo'] = 'IntegerEqualTo'
+    value: int
 
     def is_intersected(self, other):
-        assert isinstance(other, BaseIntegerPlainMatcher) or isinstance(other, CommonPlainMatcher)
+        assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerEqualTo):
             return self.value == other.value
@@ -29,11 +38,11 @@ class IntegerEqualTo(BaseIntegerPlainMatcher):
 
 
 class IntegerGreaterThan(BaseIntegerPlainMatcher):
-    def __init__(self, value):
-        self.value = value
+    type_of: Literal['IntegerGreaterThan'] = 'IntegerGreaterThan'
+    value: int
 
     def is_intersected(self, other):
-        assert isinstance(other, BaseIntegerPlainMatcher) or isinstance(other, CommonPlainMatcher)
+        assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerGreaterThan):
             return True
@@ -48,11 +57,11 @@ class IntegerGreaterThan(BaseIntegerPlainMatcher):
 
 
 class IntegerGreaterOrEqualThan(BaseIntegerPlainMatcher):
-    def __init__(self, value):
-        self.value = value
+    type_of: Literal['IntegerGreaterOrEqualThan'] = 'IntegerGreaterOrEqualThan'
+    value: int
 
     def is_intersected(self, other):
-        assert isinstance(other, BaseIntegerPlainMatcher) or isinstance(other, CommonPlainMatcher)
+        assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerGreaterThan):
             return True
@@ -67,11 +76,11 @@ class IntegerGreaterOrEqualThan(BaseIntegerPlainMatcher):
 
 
 class IntegerLessThan(BaseIntegerPlainMatcher):
-    def __init__(self, value):
-        self.value = value
+    type_of: Literal['IntegerLessThan'] = 'IntegerLessThan'
+    value: int
 
     def is_intersected(self, other):
-        assert isinstance(other, BaseIntegerPlainMatcher) or isinstance(other, CommonPlainMatcher)
+        assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerGreaterThan):
             return other.value < self.value
@@ -86,11 +95,11 @@ class IntegerLessThan(BaseIntegerPlainMatcher):
 
 
 class IntegerLessOrEqualThan(BaseIntegerPlainMatcher):
-    def __init__(self, value):
-        self.value = value
+    type_of: Literal['IntegerLessOrEqualThan'] = 'IntegerLessOrEqualThan'
+    value: int
 
     def is_intersected(self, other):
-        assert isinstance(other, BaseIntegerPlainMatcher) or isinstance(other, CommonPlainMatcher)
+        assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerGreaterThan):
             return other.value < self.value
@@ -102,3 +111,39 @@ class IntegerLessOrEqualThan(BaseIntegerPlainMatcher):
             return True
         else:
             return other.is_intersected(self)
+
+
+class IntegerAny(BaseIntegerPlainMatcher, BaseAnyPlainMatcher):
+    type_of: Literal['IntegerAny'] = 'IntegerAny'
+
+
+class IntegerNot(BaseIntegerPlainMatcher, BaseNotPlainMatcher['_t_IntegerPlainMatcher']):
+    type_of: Literal['IntegerNot'] = 'IntegerNot'
+
+
+class IntegerAnd(BaseIntegerPlainMatcher, BaseAndPlainMatcher['_t_IntegerPlainMatcher']):
+    type_of: Literal['IntegerAnd'] = 'IntegerAnd'
+
+
+class IntegerOr(BaseIntegerPlainMatcher, BaseOrPlainMatcher['_t_IntegerPlainMatcher']):
+    type_of: Literal['IntegerOr'] = 'IntegerOr'
+
+
+_t_IntegerPlainMatcher = Annotated[
+    Union[
+        IntegerEqualTo,
+        IntegerGreaterThan,
+        IntegerGreaterOrEqualThan,
+        IntegerLessThan,
+        IntegerLessOrEqualThan,
+        IntegerAny,
+        IntegerNot,
+        IntegerAnd,
+        IntegerOr,
+    ],
+    Field(discriminator='type_of'),
+]
+IntegerAny.model_rebuild()
+IntegerNot.model_rebuild()
+IntegerAnd.model_rebuild()
+IntegerOr.model_rebuild()

@@ -1,28 +1,91 @@
-from typing import Union
+from typing import Annotated, Union
 
-from core.plain_matchers.common_plain_matchers import And, Any, Not, Or
+from pydantic import Field
+
 from core.plain_matchers.integer_plain_matchers import (
+    IntegerAnd,
+    IntegerAny,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
     IntegerLessOrEqualThan,
     IntegerLessThan,
+    IntegerNot,
+    IntegerOr,
 )
-from core.plain_matchers.object_plain_matchers import ObjectPlainMatcher
-from core.plain_matchers.string_plain_matchers import StringContains, StringEqualTo, StringPattern
-
-t_PlainMatcher = Union[
-    Any,
-    Not,
-    And,
-    Or,
-    IntegerEqualTo,
-    IntegerGreaterThan,
-    IntegerGreaterOrEqualThan,
-    IntegerLessThan,
-    IntegerLessOrEqualThan,
-    StringEqualTo,
-    StringPattern,
+from core.plain_matchers.object_plain_matchers import ObjectAnd, ObjectAny, ObjectNot, ObjectOr, ObjectPlainMatcher
+from core.plain_matchers.string_plain_matchers import (
+    StringAnd,
+    StringAny,
     StringContains,
-    ObjectPlainMatcher,
+    StringEqualTo,
+    StringNot,
+    StringOr,
+    StringPattern,
+)
+
+t_IntegerPlainMatcher = Annotated[
+    Union[
+        IntegerEqualTo,
+        IntegerGreaterThan,
+        IntegerGreaterOrEqualThan,
+        IntegerLessThan,
+        IntegerLessOrEqualThan,
+        IntegerAny,
+        IntegerNot,
+        IntegerAnd,
+        IntegerOr,
+    ],
+    Field(discriminator='type_of'),
+]
+
+t_StringPlainMatcher = Annotated[
+    Union[
+        StringEqualTo,
+        StringPattern,
+        StringContains,
+        StringAny,
+        StringNot,
+        StringAnd,
+        StringOr,
+    ],
+    Field(discriminator='type_of'),
+]
+
+t_ObjectPlainMatcher = Annotated[
+    Union[
+        ObjectPlainMatcher,
+        ObjectAny,
+        ObjectNot,
+        ObjectAnd,
+        ObjectOr,
+    ],
+    Field(discriminator='type_of'),
+]
+
+t_PlainMatcher = Annotated[
+    Union[
+        IntegerEqualTo,
+        IntegerGreaterThan,
+        IntegerGreaterOrEqualThan,
+        IntegerLessThan,
+        IntegerLessOrEqualThan,
+        IntegerAny,
+        IntegerNot,
+        IntegerAnd,
+        IntegerOr,
+        StringEqualTo,
+        StringPattern,
+        StringContains,
+        StringAny,
+        StringNot,
+        StringAnd,
+        StringOr,
+        ObjectPlainMatcher,
+        ObjectAny,
+        ObjectNot,
+        ObjectAnd,
+        ObjectOr,
+    ],
+    Field(discriminator='type_of'),
 ]

@@ -1,7 +1,6 @@
 from core.http.interaction.common import HttpMethod
 from core.matchers.variable_matcher import SetVariableMatcher
-from core.plain_matchers.common_plain_matchers import Or
-from core.plain_matchers.string_plain_matchers import StringEqualTo
+from core.plain_matchers.string_plain_matchers import StringEqualTo, StringOr
 from core.plain_matchers.types import t_PlainMatcher
 from schemas.variables import VariablesContext, variables_context_transaction
 
@@ -16,7 +15,7 @@ class MethodOrMatcher(SetVariableMatcher):
         return False
 
     def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
-        return Or(*[StringEqualTo(value=item.value) for item in self.any_of])
+        return StringOr(matchers=[StringEqualTo(value=item.value) for item in self.any_of])
 
 
 class MethodEqualToMatcher(SetVariableMatcher):
