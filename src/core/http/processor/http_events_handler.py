@@ -54,6 +54,7 @@ class HttpEventsHandler:
             ),
             http_request=self.inbound_http_request,
             mockau_traceparent=self.inbound_http_request.mockau_traceparent,
+            traceparent=self.inbound_http_request.traceparent,
         )
         self.tasks.append(
             create_task(
@@ -68,6 +69,7 @@ class HttpEventsHandler:
         event = HttpRequestErrorEventModel(
             event=HttpEventType.HTTP_REQUEST_TOO_MANY_REDIRECTS.value,
             mockau_traceparent=http_request.mockau_traceparent,
+            traceparent=http_request.traceparent,
         )
         self.tasks.append(
             create_task(
@@ -81,8 +83,11 @@ class HttpEventsHandler:
         event = HttpRequestActionEventModel(
             event=HttpEventType.HTTP_REQUEST_ACTION_MATCHED.value,
             mockau_traceparent=self.inbound_http_request.mockau_traceparent,
-            action_id=action.id,
-            action_revision=action.revision,
+            action_reference=ActionReference(
+                action_id=action.id,
+                action_revision=action.revision,
+            ),
+            traceparent=self.inbound_http_request.traceparent,
         )
         self.tasks.append(
             create_task(
@@ -96,6 +101,7 @@ class HttpEventsHandler:
         event = HttpRequestErrorEventModel(
             event=HttpEventType.HTTP_REQUEST_NO_ACTION_FOUND.value,
             mockau_traceparent=self.inbound_http_request.mockau_traceparent,
+            traceparent=self.inbound_http_request.traceparent,
         )
         self.tasks.append(
             create_task(
@@ -113,6 +119,7 @@ class HttpEventsHandler:
             event=HttpEventType.HTTP_SEND_REQUEST,
             mockau_traceparent=http_request.mockau_traceparent,
             http_request=http_request,
+            traceparent=self.inbound_http_request.traceparent,
         )
         self.tasks.append(
             create_task(
@@ -129,6 +136,7 @@ class HttpEventsHandler:
             event=HttpEventType.HTTP_RECEIVED_RESPONSE,
             mockau_traceparent=mockau_traceparent,
             http_response=http_response,
+            traceparent=self.inbound_http_request.traceparent,
         )
         self.tasks.append(
             create_task(
@@ -142,6 +150,7 @@ class HttpEventsHandler:
                 http_request=self.inbound_http_request,
                 http_response=http_response,
                 mockau_traceparent=self.inbound_http_request.mockau_traceparent,
+                traceparent=self.inbound_http_request.traceparent,
             )
             lazy_event_doc = HttpRequestResponseViewEventDocument.from_model(lazy_event)
             self.background_tasks.add_task(
@@ -158,6 +167,7 @@ class HttpEventsHandler:
                 action_revision=action.revision,
             ),
             description=description,
+            traceparent=self.inbound_http_request.traceparent,
         )
         lazy_event_doc = HttpRequestActionNotMatchedViewEventDocument.from_model(lazy_event)
         self.background_tasks.add_task(

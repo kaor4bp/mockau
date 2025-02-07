@@ -21,6 +21,7 @@ class HttpResponseEventDocument(BaseHttpEventDocument):
             mockau_trace_id=model.mockau_trace_id,
             timestamp=model.timestamp,
             http_response=HttpResponseInnerDocument.from_model(model.http_response),
+            traceparent=model.traceparent,
         )
 
     def to_model(self) -> HttpResponseEventModel:
@@ -29,4 +30,5 @@ class HttpResponseEventDocument(BaseHttpEventDocument):
             created_at=self.created_at,
             mockau_traceparent=self.mockau_traceparent,
             http_response=self.http_response.to_model(),
+            traceparent=self.traceparent,
         )

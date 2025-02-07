@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 import pytz
 from elasticsearch_dsl import Date, Keyword, Long, Text
@@ -12,3 +13,4 @@ class BaseHttpEventDocument(BaseModelAsyncDocument):
     mockau_traceparent: str = Text(required=True)
     mockau_trace_id: str = Keyword(required=True)
     timestamp: int = Long(required=True)
+    traceparent: Optional[str] = Keyword(required=False)

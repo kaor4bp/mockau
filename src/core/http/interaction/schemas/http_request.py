@@ -28,6 +28,12 @@ class HttpRequest(BaseSchema):
     mockau_traceparent: str
 
     @property
+    def traceparent(self) -> str | None:
+        traceparent = getattr(self.headers, 'traceparent', None)
+        if traceparent:
+            return traceparent[0]
+
+    @property
     def mockau_trace_id(self) -> str:
         _, trace_id, _, _ = self.mockau_traceparent.split('-')
         return trace_id

@@ -11,6 +11,7 @@ class BaseHttpEventModel(BaseModel):
     event: HttpEventType
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=pytz.UTC))
     mockau_traceparent: str
+    traceparent: str | None = None
 
     @property
     def timestamp(self) -> int:

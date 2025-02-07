@@ -28,6 +28,7 @@ class HttpRequestActionNotMatchedViewEventDocument(BaseHttpEventDocument):
             timestamp=model.timestamp,
             description=model.description,
             action_reference=ActionReferenceInnerDocument.from_model(model.action_reference),
+            traceparent=model.traceparent,
         )
 
     def to_model(self) -> HttpRequestActionNotMatchedViewEventModel:
@@ -37,4 +38,5 @@ class HttpRequestActionNotMatchedViewEventDocument(BaseHttpEventDocument):
             mockau_traceparent=self.mockau_traceparent,
             description=self.description,
             action_reference=self.action_reference.to_model(),
+            traceparent=self.traceparent,
         )

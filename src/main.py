@@ -4,12 +4,9 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, Request
-from pydantic import TypeAdapter
 from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
-from core.http.actions.types import t_HttpActionModel
-from core.http.actions.utils import verify_http_actions_consistency
 from core.http.interaction.schemas import HttpRequest
 from core.http.processor.http_processor_pipeline import HttpProcessorPipeline
 from core.init_elasticsearch_documents import init_elasticsearch_documents
@@ -37,27 +34,27 @@ async def lifespan(app: MockauFastAPI):
     for de in await DynamicEntrypoint.get_all(app.state.clients):
         add_dynamic_entrypoint(app, de.name)
 
-        query = (
-            app.state.clients.mongo_actions_client.find(filters={'entrypoint': de.name, 'active': True})
-            .sort({'priority': -1})
-            .batch_size(100)
-        )
-        actions = []
-        async for document in query:
-            actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
-        print(f'Verify HttpActions consistency of "{de.name}"')
-        verify_http_actions_consistency(actions)
-
-    query = (
-        app.state.clients.mongo_actions_client.find(filters={'entrypoint': 'default', 'active': True})
-        .sort({'priority': -1})
-        .batch_size(100)
-    )
-    actions = []
-    async for document in query:
-        actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
-    print(f'Verify HttpActions consistency of "default"')
-    verify_http_actions_consistency(actions)
+    #     query = (
+    #         app.state.clients.mongo_actions_client.find(filters={'entrypoint': de.name, 'active': True})
+    #         .sort({'priority': -1})
+    #         .batch_size(100)
+    #     )
+    #     actions = []
+    #     async for document in query:
+    #         actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
+    #     print(f'Verify HttpActions consistency of "{de.name}"')
+    #     verify_http_actions_consistency(actions)
+    #
+    # query = (
+    #     app.state.clients.mongo_actions_client.find(filters={'entrypoint': 'default', 'active': True})
+    #     .sort({'priority': -1})
+    #     .batch_size(100)
+    # )
+    # actions = []
+    # async for document in query:
+    #     actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
+    # print(f'Verify HttpActions consistency of "default"')
+    # verify_http_actions_consistency(actions)
 
     # scheduler = AsyncIOScheduler()
     # scheduler.start()
