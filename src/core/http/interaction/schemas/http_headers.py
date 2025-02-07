@@ -12,7 +12,9 @@ class HttpHeaders(BaseSchema):
     @classmethod
     def from_httpx_headers(cls, headers: httpx.Headers) -> 'HttpHeaders':
         mapped_headers = {}
-        for header_name, header_value in headers.items():
+        for header_name, header_value in headers.raw:
+            header_name = header_name.decode("utf-8")
+            header_value = header_value.decode("utf-8")
             mapped_headers.setdefault(header_name, []).append(header_value)
 
         return cls(**mapped_headers)
