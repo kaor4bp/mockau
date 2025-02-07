@@ -1,6 +1,7 @@
-from elasticsearch_dsl import Keyword, Text
+from elasticsearch_dsl import Object, Text
 
 from core.http.events.documents.base_http_event_document import BaseHttpEventDocument
+from core.http.events.inner_documents import ActionReferenceInnerDocument
 from core.http.events.models import HttpRequestActionNotMatchedViewEventModel
 from settings import MockauSettings
 
@@ -9,14 +10,16 @@ class HttpRequestActionNotMatchedViewEventDocument(BaseHttpEventDocument):
     class Index:
         name = f'{MockauSettings.elk.index_prefix}_http_request_action_not_matched'
 
-    action_id: str = Keyword(required=True)
-    action_revision: str = Keyword(required=True)
+    action_reference: ActionReferenceInnerDocument = Object(
+        doc_class=ActionReferenceInnerDocument,
+        required=True,
+    )
     description: str = Text(required=True)
 
     @classmethod
     def from_model(
         cls, model: HttpRequestActionNotMatchedViewEventModel
-    ) -> 'HttpRequestActionMatchingViewLazyEventDocument':
+    ) -> 'HttpRequestActionNotMatchedViewEventDocument':
         return cls(
             event=model.event.value,
             created_at=model.created_at,
@@ -24,8 +27,7 @@ class HttpRequestActionNotMatchedViewEventDocument(BaseHttpEventDocument):
             mockau_trace_id=model.mockau_trace_id,
             timestamp=model.timestamp,
             description=model.description,
-            action_id=str(model.action_id),
-            action_revision=str(model.action_revision),
+            action_reference=ActionReferenceInnerDocument.from_model(model.action_reference),
         )
 
     def to_model(self) -> HttpRequestActionNotMatchedViewEventModel:
@@ -34,6 +36,5 @@ class HttpRequestActionNotMatchedViewEventDocument(BaseHttpEventDocument):
             created_at=self.created_at,
             mockau_traceparent=self.mockau_traceparent,
             description=self.description,
-            action_id=self.action_id,
-            action_revision=self.action_revision,
+            action_reference=self.action_reference.to_model(),
         )

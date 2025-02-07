@@ -3,6 +3,7 @@ from asyncio import create_task
 
 from fastapi import BackgroundTasks
 
+from core.http.actions.common import ActionReference
 from core.http.actions.types import t_HttpActionModel
 from core.http.events.common import HttpEventType
 from core.http.events.documents import (
@@ -152,8 +153,10 @@ class HttpEventsHandler:
         lazy_event = HttpRequestActionNotMatchedViewEventModel(
             event=HttpEventType.HTTP_ACTION_NOT_MATCHED_VIEW.value,
             mockau_traceparent=self.inbound_http_request.mockau_traceparent,
-            action_id=action.id,
-            action_revision=action.revision,
+            action_reference=ActionReference(
+                action_id=action.id,
+                action_revision=action.revision,
+            ),
             description=description,
         )
         lazy_event_doc = HttpRequestActionNotMatchedViewEventDocument.from_model(lazy_event)

@@ -10,6 +10,7 @@ from core.http.events.documents.http_response_event_document import HttpResponse
 
 
 async def init_elasticsearch_documents(using: AsyncElasticsearch) -> None:
+    print('Init ElasticSearch documents')
     tasks = [
         HttpRequestResponseViewEventDocument.init(using=using),
         HttpResponseEventDocument.init(using=using),

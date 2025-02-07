@@ -3,8 +3,8 @@ from typing import Optional
 from elasticsearch_dsl import Keyword, Object
 
 from core.http.events.documents.base_http_event_document import BaseHttpEventDocument
+from core.http.events.inner_documents import HttpRequestInnerDocument
 from core.http.events.models import HttpRequestEventModel
-from core.http.interaction.documents.http_request_inner_document import HttpRequestInnerDocument
 from settings import MockauSettings
 
 
