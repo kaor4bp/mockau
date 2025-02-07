@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import Field
 
 from core.bases.base_model import BaseModel
-from mockau_fastapi import MockauFastAPI
+from mockau_fastapi import MockauSharedClients
 
 
 class StorableSettingsType(Enum):
@@ -34,28 +34,28 @@ class DynamicEntrypoint(BaseModel):
     client_settings: HttpClientSettings = Field(default_factory=HttpClientSettings)
 
     @classmethod
-    async def get_all(cls, app: MockauFastAPI) -> list['DynamicEntrypoint']:
-        documents = await app.state.mongo_settings_client.find(
+    async def get_all(cls, clients: MockauSharedClients) -> list['DynamicEntrypoint']:
+        documents = await clients.mongo_settings_client.find(
             filters={'type_of': StorableSettingsType.DYNAMIC_ENTRYPOINT.value}
         ).to_list()
         return [cls.model_validate(document) for document in documents]
 
     @classmethod
-    async def get_by_name(cls, app: MockauFastAPI, name: str) -> 'DynamicEntrypoint':
-        document = await app.state.mongo_settings_client.find_one(filters={'name': name})
+    async def get_by_name(cls, clients: MockauSharedClients, name: str) -> 'DynamicEntrypoint':
+        document = await clients.mongo_settings_client.find_one(filters={'name': name})
         return cls.model_validate(document)
 
-    async def create(self, app: MockauFastAPI) -> None:
-        await app.state.mongo_settings_client.insert_one(self.model_dump(mode='json'))
+    async def create(self, clients: MockauSharedClients) -> None:
+        await clients.mongo_settings_client.insert_one(self.model_dump(mode='json'))
 
-    async def delete(self, app: MockauFastAPI) -> None:
-        await app.state.mongo_settings_client.delete_many(
+    async def delete(self, clients: MockauSharedClients) -> None:
+        await clients.mongo_settings_client.delete_many(
             {'name': self.name, 'type_of': StorableSettingsType.DYNAMIC_ENTRYPOINT.value}
         )
 
-    async def exists(self, app: MockauFastAPI) -> bool:
+    async def exists(self, clients: MockauSharedClients) -> bool:
         return bool(
-            await app.state.mongo_settings_client.find_one(
+            await clients.mongo_settings_client.find_one(
                 {'name': self.name, 'type_of': StorableSettingsType.DYNAMIC_ENTRYPOINT.value}
             )
         )

@@ -5,7 +5,6 @@ from pydantic import Field
 
 from core.bases.base_model_schema import BaseModelSchema
 from core.http.actions.common import Times, TimeToLive
-from schemas.variables import VariablesGroup
 
 
 class BaseHttpAction(ABC, BaseModelSchema):
@@ -14,4 +13,3 @@ class BaseHttpAction(ABC, BaseModelSchema):
     entrypoint: str = 'default'
     times: Times | None = None
     time_to_live: TimeToLive | None = None
-    variables_group: VariablesGroup | None = None

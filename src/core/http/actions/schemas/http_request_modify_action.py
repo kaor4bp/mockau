@@ -1,6 +1,6 @@
 from core.http.actions.models import HttpRequestModifyActionModel
 from core.http.actions.schemas.base_http_action import BaseHttpAction
-from schemas.http_request_matcher.http_request_matcher import HttpRequestMatcher
+from core.http.matchers.http_request_matcher import HttpRequestMatcher
 from schemas.http_request_modify.http_request import HttpRequestModify
 
 

@@ -40,9 +40,14 @@ class _ELKSettings:
     index_prefix: str = StringConfigItem(env='ELASTICSEARCH_INDEX_PREFIX', default='mockau')
 
 
+class _RedisSettings:
+    uri: str = StringConfigItem(env='REDIS_URI')
+
+
 class MockauSettings:
     mongo: _MongoSettings = _MongoSettings()
     elk: _ELKSettings = _ELKSettings()
+    redis: _RedisSettings = _RedisSettings()
 
 
 if __name__ == '__main__':

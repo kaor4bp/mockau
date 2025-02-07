@@ -2,13 +2,29 @@ import re
 
 from pydantic import Field
 
-from schemas.matchers.abstract_matcher import AbstractMatcher
+from core.matchers.abstract_matcher import AbstractMatcher
+from core.plain_matchers.common_plain_matchers import Any
+from core.plain_matchers.string_plain_matchers import StringPattern
+from core.plain_matchers.types import t_PlainMatcher
 from schemas.variables import VariablesContext, variables_context_transaction
 from utils.string_utils import split_string
 
 
 class SetVariableMatcher(AbstractMatcher):
     set_variable: str | None = Field(default=None, examples=['/some/path/${variable_1}/.*'])
+
+    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
+        variable_names = re.findall(r'\${\w+}', self.set_variable)
+
+        if not variable_names:
+            return Any()
+
+        pattern = self.set_variable
+        for variable_name in variable_names:
+            var_regex = self._get_variable_regex(variable_name, context=context)
+            pattern = pattern.replace(variable_name, var_regex)
+
+        return StringPattern(pattern=pattern)
 
     def _get_variable_regex(self, variable_name: str, context: VariablesContext) -> str:
         for variable in context.variables_group.variables:

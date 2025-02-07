@@ -1,9 +1,11 @@
 from typing import Optional
 
 from core.http.interaction.schemas import HttpSocketAddress
-from schemas.matchers.abstract_matcher import AbstractMatcher
-from schemas.matchers.integer_matcher import t_IntegerMatcher
-from schemas.matchers.string_matcher import t_StringMatcher
+from core.matchers.abstract_matcher import AbstractMatcher
+from core.matchers.integer_matcher import t_IntegerMatcher
+from core.matchers.string_matcher import t_StringMatcher
+from core.plain_matchers.object_plain_matchers import ObjectPlainMatcher
+from core.plain_matchers.types import t_PlainMatcher
 from schemas.variables import VariablesContext, variables_context_transaction
 
 
@@ -21,3 +23,13 @@ class SocketAddressMatcher(AbstractMatcher):
         if self.scheme and not self.scheme.is_matched(socket_address.scheme, context=context):
             return False
         return True
+
+    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
+        object_plain_matcher = {}
+        if self.host:
+            object_plain_matcher['host'] = self.host.to_plain_matcher(context=context)
+        if self.port:
+            object_plain_matcher['port'] = self.port.to_plain_matcher(context=context)
+        if self.scheme:
+            object_plain_matcher['scheme'] = self.scheme.to_plain_matcher(context=context)
+        return ObjectPlainMatcher(object_plain_matcher)

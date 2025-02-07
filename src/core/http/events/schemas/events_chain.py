@@ -9,7 +9,6 @@ from core.http.events.documents import (
     HttpRequestActionEventDocument,
     HttpRequestErrorEventDocument,
     HttpRequestEventDocument,
-    HttpRequestResponseViewEventDocument,
     HttpResponseEventDocument,
 )
 from core.http.events.models import HttpRequestEventModel
@@ -73,7 +72,7 @@ class EventsChain(BaseSchema):
     async def create_by_trace_id(cls, app: MockauFastAPI, trace_id: str) -> 'EventsChain':
         event_models = []
         document_types = [
-            HttpRequestResponseViewEventDocument,
+            HttpRequestResponseViewLazyEventDocument,
             HttpResponseEventDocument,
             HttpRequestActionEventDocument,
             HttpRequestErrorEventDocument,
@@ -97,7 +96,7 @@ class EventsChain(BaseSchema):
     async def bulk_create_by_trace_ids(cls, app: MockauFastAPI, trace_ids: list[str]) -> 'list[EventsChain]':
         event_models = {}
         document_types = [
-            HttpRequestResponseViewEventDocument,
+            HttpRequestResponseViewLazyEventDocument,
             HttpResponseEventDocument,
             HttpRequestActionEventDocument,
             HttpRequestErrorEventDocument,

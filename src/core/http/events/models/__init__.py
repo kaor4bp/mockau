@@ -1,5 +1,6 @@
 from core.http.events.models.http_request_action_event_model import HttpRequestActionEventModel
 from core.http.events.models.http_request_error_event_model import HttpRequestErrorEventModel
 from core.http.events.models.http_request_event_model import HttpRequestEventModel
-from core.http.events.models.http_request_response_view_event_model import HttpRequestResponseViewEventModel
 from core.http.events.models.http_response_event_model import HttpResponseEventModel
+from .http_request_action_not_matched_view_event_model import HttpRequestActionNotMatchedViewEventModel
+from .http_request_response_view_event_model import HttpRequestResponseViewEventModel

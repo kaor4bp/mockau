@@ -4,9 +4,12 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, Request
+from pydantic import TypeAdapter
 from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
+from core.http.actions.types import t_HttpActionModel
+from core.http.actions.utils import verify_http_actions_integrity
 from core.http.interaction.schemas import HttpRequest
 from core.http.processor.http_processor_pipeline import HttpProcessorPipeline
 from core.init_elasticsearch_documents import init_elasticsearch_documents
@@ -29,11 +32,32 @@ def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
 @asynccontextmanager
 async def lifespan(app: MockauFastAPI):
     await app.init_state()
+    await init_elasticsearch_documents(app.state.clients.elasticsearch_client)
 
-    for de in await DynamicEntrypoint.get_all(app):
+    for de in await DynamicEntrypoint.get_all(app.state.clients):
         add_dynamic_entrypoint(app, de.name)
 
-    await init_elasticsearch_documents(app.state.elasticsearch_client)
+        query = (
+            app.state.clients.mongo_actions_client.find(filters={'entrypoint': de.name, 'active': True})
+            .sort({'priority': -1})
+            .batch_size(100)
+        )
+        actions = []
+        async for document in query:
+            actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
+        print(f'Verify HTTP Actions integrity of {de.name}')
+        verify_http_actions_integrity(actions)
+
+    query = (
+        app.state.clients.mongo_actions_client.find(filters={'entrypoint': 'default', 'active': True})
+        .sort({'priority': -1})
+        .batch_size(100)
+    )
+    actions = []
+    async for document in query:
+        actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
+    print(f'Verify HTTP Actions integrity of default')
+    verify_http_actions_integrity(actions)
 
     # scheduler = AsyncIOScheduler()
     # scheduler.start()
@@ -71,7 +95,9 @@ def generate_dynamic_router_processor(name: str):
 
 
 @app.post("/mockau/admin/create_entrypoint", tags=['Admin'])
-async def create_entrypoint(name: str):
+async def create_entrypoint(name: str, request: Request):
+    local_app: MockauFastAPI = request.app
+
     if name in ['default', 'mockau']:
         return JSONResponse(
             content={'status': 'name is forbidden'},
@@ -79,7 +105,7 @@ async def create_entrypoint(name: str):
         )
 
     de = DynamicEntrypoint(name=name)
-    if await de.exists():
+    if await de.exists(local_app.state.clients):
         return JSONResponse(
             content={'status': 'already exists'},
             status_code=409,

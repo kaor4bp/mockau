@@ -3,8 +3,10 @@ from typing import Optional
 from pydantic import Field
 
 from core.http.interaction.schemas import HttpQueryParam
-from schemas.matchers.abstract_matcher import AbstractMatcher, BaseAllOfMatcher, BaseAnyOfMatcher
-from schemas.matchers.string_matcher import t_StringMatcher
+from core.matchers.abstract_matcher import AbstractMatcher, BaseAllOfMatcher, BaseAnyOfMatcher
+from core.matchers.string_matcher import t_StringMatcher
+from core.plain_matchers.object_plain_matchers import ObjectPlainMatcher
+from core.plain_matchers.types import t_PlainMatcher
 from schemas.variables import VariablesContext, variables_context_transaction
 
 
@@ -19,6 +21,12 @@ class HeaderValuesAndMatcher(BaseAllOfMatcher):
 class HeaderItemMatcher(AbstractMatcher):
     key: t_StringMatcher
     values: Optional[HeaderValueOrMatcher | HeaderValuesAndMatcher] = Field(default=None)
+
+    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
+        object_plain_matcher = {'key': self.key.to_plain_matcher(context=context)}
+        if self.values:
+            object_plain_matcher['values'] = self.values.to_plain_matcher(context=context)
+        return ObjectPlainMatcher(object_plain_matcher)
 
     @variables_context_transaction
     def is_matched(self, value: list[HttpQueryParam], *, context: VariablesContext) -> bool:

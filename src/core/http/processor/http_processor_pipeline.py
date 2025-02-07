@@ -6,15 +6,12 @@ from httpx import Limits, Timeout
 from pydantic import TypeAdapter
 
 from core.http.actions.types import t_HttpActionModel
-from core.http.events.common import HttpEventType
-from core.http.events.documents import HttpRequestResponseViewEventDocument
-from core.http.events.models import HttpRequestResponseViewEventModel
 from core.http.interaction.schemas import HttpRequest
 from core.http.interaction.schemas.http_response import HttpResponse
 from core.http.processor.http_events_handler import HttpEventsHandler
 from mockau_fastapi import MockauFastAPI
-from models.storable_settings import DynamicEntrypoint, FollowRedirectsMode, HttpClientSettings
-from schemas.variables import VariablesContext, VariablesGroup
+from models.storable_settings import DynamicEntrypoint, FollowRedirectsMode
+from schemas.variables import VariablesContext
 
 
 class HttpProcessorPipeline:
@@ -28,15 +25,16 @@ class HttpProcessorPipeline:
         self.app = app
         self.http_request = http_request
         self.events_handler = HttpEventsHandler(
-            app=self.app,
             inbound_http_request=self.http_request,
+            app=self.app,
+            background_tasks=background_tasks,
         )
         self.entrypoint = entrypoint
         self.background_tasks = background_tasks
 
     async def get_http_client(self):
-        if not self.app.state.httpx_clients.get(self.entrypoint):
-            de = await DynamicEntrypoint.get_by_name(self.app, self.entrypoint)
+        if not self.app.state.clients.httpx_clients.get(self.entrypoint):
+            de = await DynamicEntrypoint.get_by_name(self.app.state.clients, self.entrypoint)
             client = httpx.AsyncClient(
                 http2=de.client_settings.http2,
                 http1=de.client_settings.http1,
@@ -54,8 +52,8 @@ class HttpProcessorPipeline:
                     pool=30 * 60,
                 ),
             )
-            self.app.state.httpx_clients[self.entrypoint] = (client, de.client_settings)
-        return self.app.state.httpx_clients[self.entrypoint]
+            self.app.state.clients.httpx_clients[self.entrypoint] = (client, de.client_settings)
+        return self.app.state.clients.httpx_clients[self.entrypoint]
 
     async def run(self) -> HttpResponse | None:
         await self.events_handler.on_inbound_request_received()
@@ -70,22 +68,11 @@ class HttpProcessorPipeline:
             await self.events_handler.on_actions_mismatched()
             await self.events_handler.submit()
 
-        if self.http_request.is_external:
-            event = HttpRequestResponseViewEventModel(
-                event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value,
-                http_request=self.http_request,
-                http_response=response,
-                mockau_traceparent=self.http_request.mockau_traceparent,
-            )
-            self.background_tasks.add_task(
-                HttpRequestResponseViewEventDocument.from_model(event).save,
-                using=self.app.state.elasticsearch_client,
-            )
         return response
 
     async def get_all_actions(self) -> AsyncGenerator[t_HttpActionModel, None]:
         query = (
-            self.app.state.mongo_actions_client.find(filters={'entrypoint': self.entrypoint})
+            self.app.state.clients.mongo_actions_client.find(filters={'entrypoint': self.entrypoint, 'active': True})
             .sort({'priority': -1})
             .batch_size(100)
         )
@@ -95,9 +82,17 @@ class HttpProcessorPipeline:
     async def search_action(self):
         try:
             async for action in self.get_all_actions():
-                context = VariablesContext(variables_group=action.variables_group or VariablesGroup())
-                if action.http_request.is_matched(self.http_request, context=context):
+                context = VariablesContext(variables_group=action.variables_group)
+                is_matched = action.http_request.is_matched(self.http_request, context=context)
+                # todo: add fetching of matching description
+                if not is_matched:
+                    await self.events_handler.on_action_mismatched_event(action, description='Not matched')
+                    continue
+                is_acquired = await action.acquire(self.app.state.clients)
+                if is_matched and is_acquired:
                     return action, context
+                else:
+                    await self.events_handler.on_action_mismatched_event(action, description='Not acquired')
         except StopAsyncIteration:
             pass
         return None, None

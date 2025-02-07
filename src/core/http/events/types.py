@@ -2,6 +2,7 @@ from typing import Union
 
 from core.http.events.documents import (
     HttpRequestActionEventDocument,
+    HttpRequestActionNotMatchedViewEventDocument,
     HttpRequestErrorEventDocument,
     HttpRequestEventDocument,
     HttpRequestResponseViewEventDocument,
@@ -9,6 +10,7 @@ from core.http.events.documents import (
 )
 from core.http.events.models import (
     HttpRequestActionEventModel,
+    HttpRequestActionNotMatchedViewEventModel,
     HttpRequestErrorEventModel,
     HttpRequestEventModel,
     HttpRequestResponseViewEventModel,
@@ -21,6 +23,7 @@ t_EventModel = Union[
     HttpRequestActionEventModel,
     HttpResponseEventModel,
     HttpRequestResponseViewEventModel,
+    HttpRequestActionNotMatchedViewEventModel,
 ]
 
 
@@ -30,4 +33,5 @@ t_EventDocument = Union[
     HttpRequestActionEventDocument,
     HttpResponseEventDocument,
     HttpRequestResponseViewEventDocument,
+    HttpRequestActionNotMatchedViewEventDocument,
 ]

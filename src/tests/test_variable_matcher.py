@@ -1,6 +1,6 @@
 import pytest
 
-from schemas.matchers.variable_matcher import SetVariableMatcher
+from core.matchers.variable_matcher import SetVariableMatcher
 from schemas.variables import VariablesContext, VariablesGroup
 
 

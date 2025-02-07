@@ -11,8 +11,8 @@ from admin.schemas import (
     HttpRequestResponseViewTimestampPaginatedResponse,
 )
 from core.http.actions.types import t_HttpAction
+from core.http.matchers.http_request_matcher import HttpRequestMatcher
 from mockau_fastapi import MockauFastAPI
-from schemas.http_request_matcher.http_request_matcher import HttpRequestMatcher
 from schemas.variables import VariablesContext, VariablesGroup
 
 admin_router = APIRouter(prefix='/mockau/admin', tags=['Admin'])
@@ -25,12 +25,40 @@ admin_debug_router = APIRouter(prefix='/mockau/admin', tags=['Admin Debug'])
 )
 async def create_action(body: t_HttpAction, request: Request):
     app: MockauFastAPI = request.app
-    await app.state.mongo_actions_client.update_one(
-        filters={'id': str(body.id)}, update={'$set': body.to_model().to_json_dict()}, upsert=True
+    action_model = body.to_model()
+    await app.state.clients.mongo_actions_client.insert_one(
+        document=action_model.model_dump(mode='json', exclude_none=True),
+    )
+    await app.state.clients.mongo_actions_client.update_many(
+        filters={'id': str(body.id), 'revision': {'$ne': str(action_model.revision)}},
+        update={'$set': {'active': False}},
     )
 
     return Response(
         content=CreateActionResponse(id=body.id).to_json(),
+        media_type='application/json',
+        status_code=200,
+    )
+
+
+@admin_router.post(
+    '/create_actions',
+)
+async def create_actions(body: list[t_HttpAction], request: Request):
+    app: MockauFastAPI = request.app
+
+    for action_schema in body:
+        action_model = action_schema.to_model()
+        await app.state.clients.mongo_actions_client.insert_one(
+            document=action_model.model_dump(mode='json', exclude_none=True),
+        )
+        await app.state.clients.mongo_actions_client.update_many(
+            filters={'id': str(action_schema.id), 'revision': {'$ne': str(action_model.revision)}},
+            update={'$set': {'active': False}},
+        )
+
+    return Response(
+        content=CreateActionResponse(id=action_schema.id).to_json(),
         media_type='application/json',
         status_code=200,
     )
@@ -56,7 +84,7 @@ async def search_request_responses(
 
     for _ in range(100):
         result = await get_http_requests_by_timestamp(
-            app=app,
+            clients=app.state.clients,
             from_=from_,
             to=to,
             limit=limit - len(request_responses),
@@ -99,7 +127,7 @@ async def get_events_chain(
 
     for _ in range(100):
         result = await find_event_chains_by_timestamp(
-            app=app,
+            clients=app.state.clients,
             from_=from_,
             to=to,
             limit=limit,

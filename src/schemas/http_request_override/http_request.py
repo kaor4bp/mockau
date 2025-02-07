@@ -11,6 +11,7 @@ from schemas.http_request_override.http_parts import (
     HttpRequestOverrideQueryParam,
     HttpRequestOverrideSocketAddress,
 )
+from schemas.undefined_schema import UndefinedSchema
 from utils.traceparent import generate_traceparent_token
 
 
@@ -28,25 +29,31 @@ class HttpRequestOverride(BaseSchema):
         mockau_traceparent_token = generate_traceparent_token(original_request.mockau_traceparent)
         setattr(headers, X_MOCKAU_TRACEPARENT_HEADER, [mockau_traceparent_token])
 
-        return HttpRequest(
-            mockau_traceparent=mockau_traceparent_token,
-            socket_address=HttpSocketAddress(
+        if self.socket_address:
+            if self.socket_address.port == UndefinedSchema():
+                port = None
+            elif self.socket_address.port is PydanticUndefined or self.socket_address.port is None:
+                port = original_request.socket_address.port
+            else:
+                port = self.socket_address.port
+            socket_address = HttpSocketAddress(
                 host=(
                     self.socket_address.host
                     if self.socket_address and self.socket_address.host is not PydanticUndefined
                     else original_request.socket_address.host
                 ),
-                port=(
-                    self.socket_address.port
-                    if self.socket_address and self.socket_address.port is not PydanticUndefined
-                    else original_request.socket_address.port
-                ),
+                port=port,
                 scheme=(
                     self.socket_address.scheme
                     if self.socket_address and self.socket_address.scheme is not PydanticUndefined
                     else original_request.socket_address.scheme
                 ),
-            ),
+            )
+        else:
+            socket_address = original_request.socket_address
+        return HttpRequest(
+            mockau_traceparent=mockau_traceparent_token,
+            socket_address=socket_address,
             path=self.path or original_request.path,
             query_params=(self.query_params if self.query_params is not None else original_request.query_params),
             method=self.method or original_request.method,

@@ -1,7 +1,7 @@
 from typing import Literal
 
-from schemas.http_request.http_parts import HttpContentType
-from schemas.matchers.abstract_matcher import AbstractMatcher
+from core.http.interaction.common import HttpContentType
+from core.matchers.abstract_matcher import AbstractMatcher
 
 
 class BodyMatcher(AbstractMatcher):

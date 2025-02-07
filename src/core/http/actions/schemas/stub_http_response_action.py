@@ -1,7 +1,7 @@
 from core.http.actions.models import StubHttpResponseActionModel
 from core.http.actions.schemas.base_http_action import BaseHttpAction
 from core.http.interaction.schemas.http_response import HttpResponse
-from schemas.http_request_matcher.http_request_matcher import HttpRequestMatcher
+from core.http.matchers.http_request_matcher import HttpRequestMatcher
 
 
 class StubHttpResponseAction(BaseHttpAction):

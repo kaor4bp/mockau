@@ -5,18 +5,18 @@ from core.http.events.common import HttpEventType
 from core.http.events.documents.http_request_event_document import HttpRequestEventDocument
 from core.http.events.models import HttpRequestEventModel
 from core.http.events.schemas.events_chain import EventsChain
-from mockau_fastapi import MockauFastAPI
+from mockau_fastapi import MockauSharedClients
 from schemas.http_request_response_view import HttpRequestResponseView
 
 
 async def get_http_requests_by_timestamp(
-    app: MockauFastAPI,
+    clients: MockauSharedClients,
     from_: int,
     to: int,
     limit: int,
 ) -> HttpRequestResponseViewTimestampPaginatedResponse:
     search = (
-        HttpRequestEventDocument.search(using=app.state.elasticsearch_client)
+        HttpRequestEventDocument.search(using=clients.elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lt': to})
         .filter(
@@ -40,7 +40,7 @@ async def get_http_requests_by_timestamp(
         )
 
     search = (
-        HttpRequestEventDocument.search(using=app.state.elasticsearch_client)
+        HttpRequestEventDocument.search(using=clients.elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lte': max_timestamp})
         .filter(
@@ -86,13 +86,13 @@ async def get_http_requests_by_timestamp(
 
 
 async def find_event_chains_by_timestamp(
-    app: MockauFastAPI,
+    clients: MockauSharedClients,
     from_: int,
     to: int,
     limit: int,
 ) -> EventsChainTimestampPaginatedResponse:
     search = (
-        HttpRequestEventDocument.search(using=app.state.elasticsearch_client)
+        HttpRequestEventDocument.search(using=clients.elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lt': to})
         .filter(
@@ -116,7 +116,7 @@ async def find_event_chains_by_timestamp(
         )
 
     search = (
-        HttpRequestEventDocument.search(using=app.state.elasticsearch_client)
+        HttpRequestEventDocument.search(using=clients.elasticsearch_client)
         .sort('created_at')
         .filter("range", timestamp={'gte': from_, 'lte': max_timestamp})
         .filter(

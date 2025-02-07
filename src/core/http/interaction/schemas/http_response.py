@@ -15,12 +15,12 @@ from core.http.interaction.types import t_Content
 class HttpResponse(BaseSchema):
     path: str
     query_params: list[HttpQueryParam]
-    socket_address: HttpSocketAddress | None
+    socket_address: HttpSocketAddress | None = None
     headers: HttpHeaders
     status_code: int
-    charset_encoding: str | None
+    charset_encoding: str | None = None
     elapsed: float
-    encoding: str | None
+    encoding: str | None = None
     content: t_Content = Field(discriminator='type_of')
     cookies: HttpCookies
     http_version: str = 'HTTP/1.1'
