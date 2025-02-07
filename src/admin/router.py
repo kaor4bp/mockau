@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 import pytz
 from fastapi import APIRouter, Request, Response
@@ -39,6 +40,29 @@ async def create_action(body: t_HttpAction, request: Request):
         media_type='application/json',
         status_code=200,
     )
+
+
+@admin_router.post('/delete_action')
+async def delete_action(action_id: UUID, request: Request):
+    app: MockauFastAPI = request.app
+
+    result = await app.state.clients.mongo_actions_client.update_one(
+        filters={'id': str(action_id)},
+        update={'$set': {'active': False}},
+    )
+
+    if result.modified_count > 0:
+        return Response(
+            content={'status': 'ok'},
+            media_type='application/json',
+            status_code=200,
+        )
+    else:
+        return Response(
+            content={'error': 'Not Found'},
+            media_type='application/json',
+            status_code=404,
+        )
 
 
 @admin_router.post(

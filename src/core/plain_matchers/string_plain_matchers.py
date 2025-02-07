@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 from typing import Annotated, Literal, Union
 
 from pydantic import Field
@@ -39,17 +40,18 @@ class StringPattern(BaseStringPlainMatcher):
     type_of: Literal['StringPattern'] = 'StringPattern'
     pattern: str
 
+    @cached_property
+    def pattern_dfa(self):
+        return PythonRegex(self.pattern).to_epsilon_nfa().minimize()
+
     def is_intersected(self, other):
         assert isinstance(other, BaseStringPlainMatcher)
 
         if isinstance(other, StringEqualTo):
-            regex_dfa = PythonRegex(self.pattern).to_epsilon_nfa().minimize()
-            return regex_dfa.accepts(other.value)
+            return re.fullmatch(self.pattern, other.value)
         elif isinstance(other, StringPattern):
-            regex1_dfa = PythonRegex(self.pattern).to_epsilon_nfa().minimize()
-            regex2_dfa = PythonRegex(other.pattern).to_epsilon_nfa().minimize()
-            intersection_1 = regex1_dfa.get_intersection(regex2_dfa)
-            intersection_2 = regex2_dfa.get_intersection(regex1_dfa)
+            intersection_1 = self.pattern_dfa.get_intersection(other.pattern_dfa)
+            intersection_2 = other.pattern_dfa.get_intersection(self.pattern_dfa)
             return bool(not intersection_1.is_empty() or not intersection_2.is_empty())
         elif isinstance(other, StringContains):
             regex1_dfa = PythonRegex(self.pattern).to_epsilon_nfa().minimize()
@@ -65,16 +67,18 @@ class StringContains(BaseStringPlainMatcher):
     type_of: Literal['StringContains'] = 'StringContains'
     value: str
 
+    @cached_property
+    def pattern_dfa(self):
+        return PythonRegex(f'.*{self.value}.*').to_epsilon_nfa().minimize()
+
     def is_intersected(self, other):
         assert isinstance(other, BaseStringPlainMatcher)
 
         if isinstance(other, StringEqualTo):
             return self.value in other.value
         elif isinstance(other, StringPattern):
-            regex1_dfa = PythonRegex(f'.*{self.value}.*').to_epsilon_nfa().minimize()
-            regex2_dfa = PythonRegex(other.pattern).to_epsilon_nfa().minimize()
-            intersection_1 = regex1_dfa.get_intersection(regex2_dfa)
-            intersection_2 = regex2_dfa.get_intersection(regex1_dfa)
+            intersection_1 = self.pattern_dfa.get_intersection(other.pattern_dfa)
+            intersection_2 = other.pattern_dfa.get_intersection(self.pattern_dfa)
             return bool(not intersection_1.is_empty() or not intersection_2.is_empty())
         elif isinstance(other, StringContains):
             return True

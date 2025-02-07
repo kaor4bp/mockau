@@ -2,18 +2,23 @@ from core.http.actions.types import t_HttpActionModel
 from schemas.variables import VariablesContext
 
 
-def verify_http_actions_integrity(actions: list[t_HttpActionModel]) -> None:
+def verify_http_actions_consistency(actions: list[t_HttpActionModel]) -> None:
     if len(actions) == 0:
-        print('    No actions found, skip checking')
+        print('    No actions found, skip consistency checking')
         return
     if len(actions) == 1:
-        print('    Action is home alone, skip checking')
+        print('    Action is home alone, skip consistency checking')
         return
 
-    for verified_action in actions:
-        verified_action_plain_matcher = verified_action.http_request.to_plain_matcher(
-            context=VariablesContext(variables_group=verified_action.variables_group)
+    action_plain_matchers_mapping = {
+        action.id: action.http_request.to_plain_matcher(
+            context=VariablesContext(variables_group=action.variables_group)
         )
+        for action in actions
+    }
+
+    for verified_action in actions[0 : len(actions) - 1]:
+        verified_action_plain_matcher = action_plain_matchers_mapping[verified_action.id]
         print(f'    Check HttpAction {verified_action.id} collision with:')
 
         is_found = False
@@ -26,8 +31,6 @@ def verify_http_actions_integrity(actions: list[t_HttpActionModel]) -> None:
 
             print(f'        - HttpAction {action.id}')
 
-            action_plain_matcher = action.http_request.to_plain_matcher(
-                context=VariablesContext(variables_group=verified_action.variables_group)
-            )
+            action_plain_matcher = action_plain_matchers_mapping[action.id]
             if action_plain_matcher.is_subset(verified_action_plain_matcher):
                 raise AssertionError(f'Action {action.id} is subset of {verified_action.id}')

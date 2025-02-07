@@ -9,7 +9,7 @@ from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
 from core.http.actions.types import t_HttpActionModel
-from core.http.actions.utils import verify_http_actions_integrity
+from core.http.actions.utils import verify_http_actions_consistency
 from core.http.interaction.schemas import HttpRequest
 from core.http.processor.http_processor_pipeline import HttpProcessorPipeline
 from core.init_elasticsearch_documents import init_elasticsearch_documents
@@ -45,8 +45,8 @@ async def lifespan(app: MockauFastAPI):
         actions = []
         async for document in query:
             actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
-        print(f'Verify HTTP Actions integrity of {de.name}')
-        verify_http_actions_integrity(actions)
+        print(f'Verify HttpActions consistency of "{de.name}"')
+        verify_http_actions_consistency(actions)
 
     query = (
         app.state.clients.mongo_actions_client.find(filters={'entrypoint': 'default', 'active': True})
@@ -56,8 +56,8 @@ async def lifespan(app: MockauFastAPI):
     actions = []
     async for document in query:
         actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
-    print(f'Verify HTTP Actions integrity of default')
-    verify_http_actions_integrity(actions)
+    print(f'Verify HttpActions consistency of "default"')
+    verify_http_actions_consistency(actions)
 
     # scheduler = AsyncIOScheduler()
     # scheduler.start()

@@ -1,7 +1,11 @@
+from uuid import UUID
+
 from elasticsearch_dsl import A
 
 from admin.schemas import EventsChainTimestampPaginatedResponse, HttpRequestResponseViewTimestampPaginatedResponse
+from core.http.actions.common import ActionReference
 from core.http.events.common import HttpEventType
+from core.http.events.documents import HttpRequestActionEventDocument
 from core.http.events.documents.http_request_event_document import HttpRequestEventDocument
 from core.http.events.models import HttpRequestEventModel
 from core.http.events.schemas.events_chain import EventsChain
@@ -59,7 +63,10 @@ async def get_http_requests_by_timestamp(
         mockau_trace_ids_list.append(document.mockau_trace_id)
         request_events_list.append(document.to_model())
 
-    events_chains_list = await EventsChain.bulk_create_by_trace_ids(list(set(mockau_trace_ids_list)))
+    events_chains_list = await EventsChain.bulk_create_by_trace_ids(
+        clients=clients,
+        trace_ids=list(set(mockau_trace_ids_list)),
+    )
     results = []
 
     for events_chain in events_chains_list:
@@ -70,11 +77,32 @@ async def get_http_requests_by_timestamp(
                     request_events_list.pop(request_event_index)
                     break
 
+    search = HttpRequestActionEventDocument.search(using=clients.elasticsearch_client).filter(
+        "terms",
+        mockau_traceparent=[request_event.mockau_traceparent for request_event in request_events_list],
+    )
+    response = await search.execute()
+
+    missed_action_events: list[HttpRequestActionEventDocument] = [document.to_model() for document in response.hits]
+
     for request_event in request_events_list:
+        found_action_event = None
+        for missed_action_event in missed_action_events:
+            if missed_action_event.mockau_traceparent == request_event.mockau_traceparent:
+                found_action_event = missed_action_event
+                break
         results.append(
             HttpRequestResponseView(
                 http_request=request_event.http_request,
                 http_response=None,
+                action_reference=(
+                    ActionReference(
+                        action_id=UUID(found_action_event.action_id),
+                        action_revision=UUID(found_action_event.action_revision),
+                    )
+                    if found_action_event
+                    else None
+                ),
                 timestamp=int(request_event.created_at.timestamp() * 1000000),
             )
         )
@@ -133,7 +161,7 @@ async def find_event_chains_by_timestamp(
     response = await search.execute()
     unique_mockau_trace_ids = [bucket.key for bucket in response.aggregations.unique_mockau_trace_ids.buckets]
 
-    events_chains = await EventsChain.bulk_create_by_trace_ids(app=app, trace_ids=unique_mockau_trace_ids)
+    events_chains = await EventsChain.bulk_create_by_trace_ids(clients=clients, trace_ids=unique_mockau_trace_ids)
 
     return EventsChainTimestampPaginatedResponse(
         items=events_chains,

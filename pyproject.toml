@@ -42,6 +42,7 @@ genson = "^1.3.0"
 celery = {extras = ["redis"], version = "^5.4.0"}
 celery-once = "^3.0.1"
 pyformlang = "^1.0.10"
+aiocache = "^0.12.3"
 
 
 [build-system]

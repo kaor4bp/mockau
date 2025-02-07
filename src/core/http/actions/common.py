@@ -1,5 +1,6 @@
 from datetime import timedelta
 from enum import Enum
+from uuid import UUID
 
 from core.bases.base_schema import BaseSchema
 
@@ -22,3 +23,8 @@ class TimeToLive(BaseSchema):
 
     def to_timedelta(self) -> timedelta:
         return timedelta(**{self.time_unit.value: self.time_to_live})
+
+
+class ActionReference(BaseSchema):
+    action_id: UUID
+    action_revision: UUID

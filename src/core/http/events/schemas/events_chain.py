@@ -4,16 +4,18 @@ from elasticsearch_dsl import Q
 from pydantic import model_validator
 
 from core.bases.base_schema import BaseSchema
+from core.http.actions.common import ActionReference
 from core.http.events.common import HttpEventType, HttpEventTypeGroup
 from core.http.events.documents import (
     HttpRequestActionEventDocument,
     HttpRequestErrorEventDocument,
     HttpRequestEventDocument,
+    HttpRequestResponseViewEventDocument,
     HttpResponseEventDocument,
 )
 from core.http.events.models import HttpRequestEventModel
 from core.http.events.types import t_EventModel
-from mockau_fastapi import MockauFastAPI
+from mockau_fastapi import MockauFastAPI, MockauSharedClients
 from schemas.http_request_response_view import HttpRequestResponseView
 
 
@@ -52,6 +54,14 @@ class EventsChain(BaseSchema):
         if child_event:
             return self._get_http_response_event(child_event)
 
+    def _get_http_request_action(self, http_request_event: HttpRequestEventModel):
+        all_action_matched_events = (
+            event for event in self.events if event.event is HttpEventType.HTTP_REQUEST_ACTION_MATCHED
+        )
+        for action_matched_event in all_action_matched_events:
+            if http_request_event.mockau_traceparent == action_matched_event.mockau_traceparent:
+                return action_matched_event
+
     def get_http_request_response_views(self) -> list[HttpRequestResponseView]:
         request_events = [
             event for event in self.events if event.event.value in HttpEventTypeGroup.INBOUND_HTTP_REQUEST
@@ -59,10 +69,19 @@ class EventsChain(BaseSchema):
         results = []
         for request_event in request_events:
             http_response_event = self._get_http_response_event(request_event)
+            http_action_event = self._get_http_request_action(request_event)
             results.append(
                 HttpRequestResponseView(
                     http_request=request_event.http_request,
                     http_response=http_response_event.http_response if http_response_event else None,
+                    action_reference=(
+                        ActionReference(
+                            action_id=http_action_event.action_id,
+                            action_revision=http_action_event.action_revision,
+                        )
+                        if http_action_event
+                        else None
+                    ),
                     timestamp=int(request_event.created_at.timestamp() * 1000000),
                 )
             )
@@ -72,7 +91,7 @@ class EventsChain(BaseSchema):
     async def create_by_trace_id(cls, app: MockauFastAPI, trace_id: str) -> 'EventsChain':
         event_models = []
         document_types = [
-            HttpRequestResponseViewLazyEventDocument,
+            HttpRequestResponseViewEventDocument,
             HttpResponseEventDocument,
             HttpRequestActionEventDocument,
             HttpRequestErrorEventDocument,
@@ -93,15 +112,15 @@ class EventsChain(BaseSchema):
         return cls(events=event_models)
 
     @classmethod
-    async def bulk_create_by_trace_ids(cls, app: MockauFastAPI, trace_ids: list[str]) -> 'list[EventsChain]':
+    async def bulk_create_by_trace_ids(cls, clients: MockauSharedClients, trace_ids: list[str]) -> 'list[EventsChain]':
         event_models = {}
-        document_types = [
-            HttpRequestResponseViewLazyEventDocument,
+        document_types = {
+            HttpRequestResponseViewEventDocument,
             HttpResponseEventDocument,
             HttpRequestActionEventDocument,
             HttpRequestErrorEventDocument,
             HttpRequestEventDocument,
-        ]
+        }
         for document_type in document_types:
             query = Q(
                 "bool",
@@ -109,7 +128,7 @@ class EventsChain(BaseSchema):
                 must_not=[Q("term", event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value)],
             )
 
-            response = await document_type.search(using=app.state.elasticsearch_client).query(query).execute()
+            response = await document_type.search(using=clients.elasticsearch_client).query(query).execute()
 
             for hit in response.hits:
                 event_models.setdefault(hit.mockau_trace_id, []).append(hit.to_model())
