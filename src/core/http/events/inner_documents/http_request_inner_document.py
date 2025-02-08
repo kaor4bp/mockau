@@ -11,11 +11,11 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
     body = Object(enabled=False)
 
     url = Text(required=True)
-    path = Text(required=True)
-    method = Keyword(required=True)
-    mockau_traceparent = Keyword(required=True)
+    path = Keyword(required=True)
+    method = Text(required=True)
+    mockau_traceparent = Text(required=True)
     http_version = Keyword(required=True)
-    text = Text(required=False)
+    text = Keyword(required=False)
 
     @classmethod
     def from_model(cls, model: HttpRequest) -> 'HttpRequestInnerDocument':

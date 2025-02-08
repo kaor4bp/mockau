@@ -58,11 +58,6 @@ class HttpXmlContent(BaseHttpContent):
     def text(self) -> str | None:
         return self.to_binary().decode(self.encoding)
 
-    @computed_field
-    @property
-    def data(self) -> str:
-        return self.to_binary().decode(self.encoding)
-
 
 class HttpTextContent(BaseHttpContent):
     type_of: Literal['TEXT'] = 'TEXT'
@@ -70,11 +65,6 @@ class HttpTextContent(BaseHttpContent):
 
     @property
     def text(self) -> str | None:
-        return self.to_binary().decode(self.encoding)
-
-    @computed_field
-    @property
-    def data(self) -> str:
         return self.to_binary().decode(self.encoding)
 
 

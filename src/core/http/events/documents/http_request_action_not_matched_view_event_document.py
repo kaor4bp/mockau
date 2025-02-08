@@ -1,4 +1,4 @@
-from elasticsearch_dsl import Object, Text
+from elasticsearch_dsl import Keyword, Object
 
 from core.http.events.documents.base_http_event_document import BaseHttpEventDocument
 from core.http.events.inner_documents import ActionReferenceInnerDocument
@@ -14,7 +14,7 @@ class HttpRequestActionNotMatchedViewEventDocument(BaseHttpEventDocument):
         doc_class=ActionReferenceInnerDocument,
         required=True,
     )
-    description: str = Text(required=True)
+    description: str = Keyword(required=True)
 
     @classmethod
     def from_model(

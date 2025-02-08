@@ -14,9 +14,9 @@ class HttpResponseInnerDocument(BaseModelInnerDocument):
     cookies: Optional[dict] = Object(enabled=False, required=False)
 
     url: str = Text(required=True)
-    path: str = Text(required=True)
+    path: str = Keyword(required=True)
     mockau_traceparent: Optional[str] = Keyword(required=False)
-    text: str = Text(required=False)
+    text: str = Keyword(required=False)
     status_code: int = Integer(required=True)
     charset_encoding: Optional[str] = Keyword(required=False)
     elapsed: float = Float(required=True)
