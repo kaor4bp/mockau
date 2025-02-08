@@ -11,7 +11,7 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
     query_params: list[dict] = Object(multi=True, enabled=False)
     socket_address: dict = Object(enabled=False)
     headers: dict = Object(enabled=False)
-    body: str = Keyword(enabled=False, store=True)
+    body: str = Keyword(store=True, required=True)
 
     url: str = Text(required=True)
     path: str = Keyword(required=True)

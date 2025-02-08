@@ -11,7 +11,7 @@ class HttpResponseInnerDocument(BaseModelInnerDocument):
     query_params: list[dict] = Object(multi=True, enabled=False, required=False)
     socket_address: Optional[dict] = Object(enabled=False, required=False)
     headers: dict = Object(enabled=False, required=True)
-    content: str = Text(enabled=False, required=True, store=True)
+    content: str = Keyword(required=True, store=True)
     cookies: Optional[dict] = Object(enabled=False, required=False)
 
     url: str = Text(required=True)
