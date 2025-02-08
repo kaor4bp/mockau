@@ -1,3 +1,5 @@
+from typing import Optional
+
 from elasticsearch_dsl import Keyword, Object, Text
 
 from core.bases.base_model_inner_document import BaseModelInnerDocument
@@ -5,17 +7,17 @@ from core.http.interaction.schemas import HttpHeaders, HttpRequest
 
 
 class HttpRequestInnerDocument(BaseModelInnerDocument):
-    query_params = Object(multi=True, enabled=False)
-    socket_address = Object(enabled=False)
-    headers = Object(enabled=False)
-    body = Object(enabled=False)
+    query_params: list[dict] = Object(multi=True, enabled=False)
+    socket_address: dict = Object(enabled=False)
+    headers: dict = Object(enabled=False)
+    body: dict = Object(enabled=False, store=True)
 
-    url = Text(required=True)
-    path = Keyword(required=True)
-    method = Text(required=True)
-    mockau_traceparent = Text(required=True)
-    http_version = Keyword(required=True)
-    text = Keyword(required=False)
+    url: str = Text(required=True)
+    path: str = Keyword(required=True)
+    method: str = Text(required=True)
+    mockau_traceparent: str = Text(required=True)
+    http_version: str = Keyword(required=True)
+    text: Optional[str] = Keyword(required=False, store=True)
 
     @classmethod
     def from_model(cls, model: HttpRequest) -> 'HttpRequestInnerDocument':
