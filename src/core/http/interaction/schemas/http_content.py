@@ -107,8 +107,8 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
                 )
         elif 'xml' in content_type:
             try:
-                lxml.etree.fromstring(text)
-            except lxml.etree.XMLSyntaxError:
+                lxml.etree.fromstring(raw_content)
+            except lxml.etree.LxmlError:
                 pass
             else:
                 serialized_content = HttpXmlContent(encoding=encoding, raw=raw_content)
