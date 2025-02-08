@@ -4,6 +4,7 @@ import json
 from typing import Literal
 
 import lxml.etree
+from lxml import etree
 from pydantic import computed_field
 
 from core.bases.base_schema import BaseSchema
@@ -107,12 +108,14 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
                 )
         elif 'xml' in content_type:
             try:
-                lxml.etree.fromstring(raw_content)
+                utf8_parser = etree.XMLParser(encoding='utf-8')
+                utf8_parser.fromstring(text, parser=utf8_parser)
             except lxml.etree.LxmlError:
                 pass
             else:
                 serialized_content = HttpXmlContent(encoding=encoding, raw=raw_content)
-        else:
+
+        if not serialized_content:
             serialized_content = HttpTextContent(encoding=encoding, raw=raw_content)
     elif content:
         serialized_content = HttpBinaryContent(
