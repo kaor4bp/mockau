@@ -14,14 +14,14 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
     headers: list[HttpHeaderInnerDocument] = Object(
         doc_class=HttpHeaderInnerDocument, multi=True, enabled=False, required=True
     )
-    body: str = Keyword(required=True)
+    body: str = Keyword(required=True, store=True)
 
     url: str = Text(required=True)
     path: str = Keyword(required=True)
     method: str = Keyword(required=True)
     mockau_traceparent: str = Keyword(required=True)
     http_version: str = Keyword(required=True)
-    text: Optional[str] = Keyword(required=False)
+    text: Optional[str] = Keyword(required=False, store=True)
 
     @classmethod
     def from_model(cls, model: HttpRequest) -> 'HttpRequestInnerDocument':

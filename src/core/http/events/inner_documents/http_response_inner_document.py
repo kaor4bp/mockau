@@ -14,13 +14,13 @@ class HttpResponseInnerDocument(BaseModelInnerDocument):
     headers: list[HttpHeaderInnerDocument] = Object(
         enabled=False, required=True, multi=True, doc_class=HttpHeaderInnerDocument
     )
-    content: str = Keyword(required=True)
+    content: str = Keyword(required=True, store=True)
     cookies: Optional[dict] = Object(enabled=False, required=False)
 
     url: str = Text(required=True)
     path: str = Keyword(required=True)
     mockau_traceparent: Optional[str] = Keyword(required=False)
-    text: Optional[str] = Keyword(required=False)
+    text: Optional[str] = Keyword(required=False, store=True)
     status_code: int = Integer(required=True)
     charset_encoding: Optional[str] = Keyword(required=False)
     elapsed: float = Float(required=True)
