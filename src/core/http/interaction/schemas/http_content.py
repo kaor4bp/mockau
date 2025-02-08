@@ -108,8 +108,8 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
                 )
         elif 'xml' in content_type:
             try:
-                utf8_parser = etree.XMLParser(encoding='utf-8')
-                lxml.etree.fromstring(text, parser=utf8_parser)
+                parser = etree.XMLParser(encoding=encoding)
+                lxml.etree.fromstring(raw_content, parser=parser)
             except lxml.etree.LxmlError:
                 pass
             else:
