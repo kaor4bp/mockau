@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 
 from elasticsearch_dsl import Keyword, Object, Text
@@ -10,7 +11,7 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
     query_params: list[dict] = Object(multi=True, enabled=False)
     socket_address: dict = Object(enabled=False)
     headers: dict = Object(enabled=False)
-    body: dict = Object(enabled=False, store=True)
+    body: str = Keyword(enabled=False, store=True)
 
     url: str = Text(required=True)
     path: str = Keyword(required=True)
@@ -26,7 +27,7 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
             query_params=data['query_params'],
             socket_address=data.get('socket_address'),
             headers=data['headers'],
-            body=data['body'],
+            body=json.dumps(data['body']),
             url=str(model.get_full_url()),
             path=model.path,
             method=model.method.value,
@@ -44,6 +45,6 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
             headers=data.get('headers', HttpHeaders()),
             method=data['method'],
             http_version=data['http_version'],
-            body=data['body'],
+            body=json.loads(data['body']),
             mockau_traceparent=data['mockau_traceparent'],
         )

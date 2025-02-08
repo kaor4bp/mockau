@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 
 from elasticsearch_dsl import Float, Integer, Keyword, Object, Text
@@ -10,8 +11,8 @@ class HttpResponseInnerDocument(BaseModelInnerDocument):
     query_params: list[dict] = Object(multi=True, enabled=False, required=False)
     socket_address: Optional[dict] = Object(enabled=False, required=False)
     headers: dict = Object(enabled=False, required=True)
-    content: dict = Object(enabled=False, required=True, store=True)
-    cookies: Optional[dict] = Object(enabled=False, required=False, store=True)
+    content: str = Text(enabled=False, required=True, store=True)
+    cookies: Optional[dict] = Object(enabled=False, required=False)
 
     url: str = Text(required=True)
     path: str = Keyword(required=True)
@@ -30,7 +31,7 @@ class HttpResponseInnerDocument(BaseModelInnerDocument):
             query_params=data['query_params'],
             socket_address=data.get('socket_address'),
             headers=data['headers'],
-            content=data['content'],
+            content=json.dumps(data['content']),
             cookies=data['cookies'],
             url=str(model.get_full_url()),
             path=model.path,
@@ -54,6 +55,6 @@ class HttpResponseInnerDocument(BaseModelInnerDocument):
             charset_encoding=data.get('charset_encoding'),
             elapsed=data['elapsed'],
             encoding=data.get('encoding'),
-            content=data['content'],
+            content=json.loads(data['content']),
             cookies=data.get('cookies', HttpCookies()),
         )
