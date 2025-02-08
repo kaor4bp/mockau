@@ -76,7 +76,7 @@ class HttpRequest(BaseSchema):
             method=request.method.upper(),
             headers=HttpHeaders.from_fastapi_headers(request),
             body=generate_http_content(
-                content=await request.body(),
+                content=request.state.body,
                 content_type=request.headers.get('content-type', ''),
             ),
             mockau_traceparent=mockau_traceparent,

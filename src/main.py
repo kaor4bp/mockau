@@ -70,6 +70,7 @@ app.include_router(admin_debug_router)
 
 def generate_dynamic_router_processor(name: str):
     async def dynamic_router_processor(request: Request, background_tasks: BackgroundTasks):
+        request.state.body = await request.body()
         http_request = await HttpRequest.from_fastapi_request(request)
 
         pipeline = HttpProcessorPipeline(
@@ -126,6 +127,7 @@ async def default_dynamic_router(
     request: Request,
     background_tasks: BackgroundTasks,
 ):
+    request.state.body = await request.body()
     http_request = await HttpRequest.from_fastapi_request(request)
 
     pipeline = HttpProcessorPipeline(
