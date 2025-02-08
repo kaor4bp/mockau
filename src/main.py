@@ -123,7 +123,6 @@ async def create_entrypoint(name: str, request: Request):
 @app.delete("/{full_path:path}", tags=['Default Entrypoint'])
 @app.head("/{full_path:path}", tags=['Default Entrypoint'])
 async def default_dynamic_router(
-    full_path,
     request: Request,
     background_tasks: BackgroundTasks,
 ):
