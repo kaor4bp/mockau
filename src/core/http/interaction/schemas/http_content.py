@@ -80,7 +80,7 @@ class HttpContentEmpty(BaseHttpContent):
 HttpContent = HttpBinaryContent | HttpJsonContent | HttpXmlContent | HttpTextContent | HttpContentEmpty
 
 
-def generate_http_content(content: bytes | None, content_type: str | None, encoding: str | None = None) -> HttpContent:
+def generate_http_content(content: bytes | None, content_type: str | None, encoding: str = 'utf8') -> HttpContent:
     serialized_content = None
     text = None
     content_type = content_type or ''
@@ -91,7 +91,7 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
         raw_content = None
 
     try:
-        text = content.decode(encoding or 'utf8')
+        text = content.decode(encoding)
     except UnicodeDecodeError:
         pass
 
@@ -108,7 +108,7 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
                 )
         elif 'xml' in content_type:
             try:
-                parser = etree.XMLParser(encoding=encoding or 'utf8')
+                parser = etree.XMLParser(encoding=encoding)
                 lxml.etree.fromstring(raw_content, parser=parser)
             except lxml.etree.LxmlError:
                 pass
