@@ -12,6 +12,7 @@ from core.http.processor.http_processor_pipeline import HttpProcessorPipeline
 from core.init_elasticsearch_documents import init_elasticsearch_documents
 from mockau_fastapi import MockauFastAPI
 from models.storable_settings import DynamicEntrypoint
+from settings import MockauSettings
 
 
 def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
@@ -30,6 +31,7 @@ def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
 async def lifespan(app: MockauFastAPI):
     await app.init_state()
     await init_elasticsearch_documents(app.state.clients.elasticsearch_client)
+    await MockauSettings.on_startup()
 
     for de in await DynamicEntrypoint.get_all(app.state.clients):
         add_dynamic_entrypoint(app, de.name)

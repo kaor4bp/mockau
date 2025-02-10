@@ -44,10 +44,21 @@ class _RedisSettings:
     uri: str = StringConfigItem(env='REDIS_URI')
 
 
+class _PathSettings:
+    content: str = StringConfigItem(env='PATH_CONTENT', default='./content')
+
+
 class MockauSettings:
     mongo: _MongoSettings = _MongoSettings()
     elk: _ELKSettings = _ELKSettings()
     redis: _RedisSettings = _RedisSettings()
+    path: _PathSettings = _PathSettings()
+
+    @classmethod
+    async def on_startup(cls) -> None:
+        content_path = pathlib.Path(cls.path.content)
+        if not content_path.exists():
+            content_path.mkdir(parents=True)
 
 
 if __name__ == '__main__':

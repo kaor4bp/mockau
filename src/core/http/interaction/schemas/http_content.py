@@ -1,29 +1,39 @@
 import base64
 import gzip
 import json
+import pathlib
 from typing import Literal
+from uuid import uuid4
 
 import lxml.etree
 from lxml import etree
-from pydantic import computed_field
 
 from core.bases.base_schema import BaseSchema
 from core.http.interaction.common import HttpContentType
+from settings import MockauSettings
 
 
 class BaseHttpContent(BaseSchema):
     type_of: HttpContentType
+    file_id: str | None = None
     raw: str | None = None
 
     @property
     def text(self) -> str | None:
         return 'binary'
 
+    @property
+    def preview(self) -> str | None:
+        return 'binary'
+
     def to_binary(self):
         if self.raw:
-            return gzip.decompress(base64.b64decode(self.raw.encode('utf8')))
+            return gzip.decompress(base64.b64decode(self.raw))
+        elif self.file_id:
+            with open(pathlib.Path(MockauSettings.path.content).joinpath(f'./{self.file_id}.dat'), 'rb') as f:
+                return f.read()
         else:
-            return None
+            return b''
 
 
 class HttpBinaryContent(BaseHttpContent):
@@ -33,6 +43,14 @@ class HttpBinaryContent(BaseHttpContent):
 class HttpJsonContent(BaseHttpContent):
     type_of: Literal['JSON'] = 'JSON'
     encoding: str
+
+    @property
+    def preview(self) -> str | None:
+        text = self.text
+        if len(text) > 100:
+            return text[:100] + '...'
+        else:
+            return text
 
     @property
     def text(self) -> str | None:
@@ -45,15 +63,18 @@ class HttpJsonContent(BaseHttpContent):
             encoding='utf8',
         )
 
-    @computed_field
-    @property
-    def json(self) -> dict | list:
-        return json.loads(self.to_binary().decode(self.encoding))
-
 
 class HttpXmlContent(BaseHttpContent):
     type_of: Literal['XML'] = 'XML'
     encoding: str
+
+    @property
+    def preview(self) -> str | None:
+        text = self.text
+        if len(text) > 100:
+            return text[:100] + '...'
+        else:
+            return text
 
     @property
     def text(self) -> str | None:
@@ -65,12 +86,28 @@ class HttpTextContent(BaseHttpContent):
     encoding: str
 
     @property
+    def preview(self) -> str | None:
+        text = self.text
+        if len(text) > 100:
+            return text[:100] + '...'
+        else:
+            return text
+
+    @property
     def text(self) -> str | None:
         return self.to_binary().decode(self.encoding)
 
 
 class HttpContentEmpty(BaseHttpContent):
     type_of: Literal['EMPTY'] = 'EMPTY'
+
+    @property
+    def preview(self) -> str | None:
+        text = self.text
+        if text and len(text) > 100:
+            return text[:100] + '...'
+        else:
+            return text
 
     @property
     def text(self) -> str | None:
@@ -86,9 +123,17 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
     content_type = content_type or ''
 
     if content:
-        raw_content = base64.b64encode(gzip.compress(content)).decode('utf8')
+        file_id = str(uuid4())
+        file_path = pathlib.Path(MockauSettings.path.content).joinpath(f'./{file_id}.dat')
+        with open(file_path, 'wb') as f:
+            f.write(content or b'')
     else:
-        raw_content = None
+        file_id = None
+
+    # if content:
+    #     raw_content = base64.b64encode(gzip.compress(content)).decode('utf8')
+    # else:
+    #     raw_content = None
 
     try:
         text = content.decode(encoding)
@@ -103,25 +148,23 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
                 pass
             else:
                 serialized_content = HttpJsonContent(
-                    raw=raw_content,
+                    file_id=file_id,
                     encoding=encoding,
                 )
         elif 'xml' in content_type:
             try:
                 parser = etree.XMLParser(encoding=encoding)
-                lxml.etree.fromstring(raw_content, parser=parser)
+                lxml.etree.fromstring(content, parser=parser)
             except lxml.etree.LxmlError:
                 pass
             else:
-                serialized_content = HttpXmlContent(encoding=encoding, raw=raw_content)
+                serialized_content = HttpXmlContent(encoding=encoding, file_id=file_id)
 
         if not serialized_content:
-            serialized_content = HttpTextContent(encoding=encoding, raw=raw_content)
+            serialized_content = HttpTextContent(encoding=encoding, file_id=file_id)
     elif content:
-        serialized_content = HttpBinaryContent(
-            raw=raw_content,
-        )
+        serialized_content = HttpBinaryContent(file_id=file_id)
     else:
-        serialized_content = HttpContentEmpty(raw=raw_content)
+        serialized_content = HttpContentEmpty(file_id=file_id)
 
     return serialized_content
