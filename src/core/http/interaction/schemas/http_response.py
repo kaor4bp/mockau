@@ -60,7 +60,10 @@ class HttpResponse(BaseSchema):
         response: httpx.Response,
         request,
     ) -> 'HttpResponse':
+        original_content_encoding = response.headers.get('content-encoding')
+        response.headers['content-encoding'] = 'identity'
         content = await response.aread()
+        response.headers['content-encoding'] = original_content_encoding
         await response.aclose()
 
         result = cls(
