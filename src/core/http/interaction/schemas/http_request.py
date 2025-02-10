@@ -1,4 +1,5 @@
 from copy import deepcopy
+from shlex import quote
 from uuid import UUID
 
 import httpx
@@ -14,6 +15,7 @@ from core.http.interaction.schemas.http_query_param import HttpQueryParam
 from core.http.interaction.schemas.http_response import HttpResponse
 from core.http.interaction.schemas.http_socket_address import HttpSocketAddress
 from core.http.interaction.types import t_Content
+from utils.formatters import MAX_BODY_SIZE_BYTES, format_bytes_size_to_human_readable
 from utils.traceparent import generate_traceparent_token
 
 
@@ -122,3 +124,38 @@ class HttpRequest(BaseSchema):
         http_request.query_params = HttpQueryParam.from_httpx_url(location)
 
         return http_request
+
+    def to_curl(self):
+        parts = [
+            ('curl', None),
+            ('-X', self.method.value),
+        ]
+
+        for k, values in sorted(self.headers.model_dump(mode='json').items()):
+            for v in values:
+                parts += [('-H', '{0}: {1}'.format(k, v))]
+
+        if self.body.type_of == 'BINARY':
+            body = '**binary**'
+            parts += [('-d', body)]
+        elif self.body.type_of != 'EMPTY':
+            body = self.body.to_binary().decode('utf-8')
+
+            sizeof_body = len(str(body))
+            if sizeof_body > MAX_BODY_SIZE_BYTES:
+                body = f'**Too large body ({format_bytes_size_to_human_readable(sizeof_body)})**'
+            parts += [('-d', body)]
+
+        if self.socket_address.scheme != 'https':
+            parts += [('--insecure', None)]
+
+        parts += [(None, str(self.get_full_url()))]
+
+        flat_parts = []
+        for k, v in parts:
+            if k:
+                flat_parts.append(quote(k))
+            if v:
+                flat_parts.append(quote(v))
+
+        return ' '.join(flat_parts)

@@ -19,6 +19,7 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
     mockau_traceparent: str = Keyword(required=True)
     http_version: str = Keyword(required=True)
     preview: Optional[str] = Keyword(required=False, store=True)
+    curl: Optional[str] = Keyword(required=False, store=True)
 
     @classmethod
     def from_model(cls, model: HttpRequest) -> 'HttpRequestInnerDocument':
@@ -33,6 +34,7 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
             method=model.method.value,
             mockau_traceparent=model.mockau_traceparent,
             preview=model.body.preview,
+            curl=model.to_curl(),
             http_version=model.http_version,
         )
 
