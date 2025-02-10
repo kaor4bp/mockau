@@ -53,24 +53,27 @@ class HttpResponse(BaseSchema):
         return bool(getattr(self.headers, 'location', None))
 
     @classmethod
-    def from_httpx_response(cls, response: httpx.Response) -> 'HttpResponse':
-        return cls(
-            socket_address=HttpSocketAddress.from_httpx_url(response.url),
-            path=response.url.path,
-            query_params=HttpQueryParam.from_httpx_url(response.url),
-            headers=HttpHeaders.from_httpx_headers(response.headers),
-            status_code=response.status_code,
-            charset_encoding=response.charset_encoding,
-            elapsed=response.elapsed.total_seconds(),
-            encoding=response.encoding,
-            content=generate_http_content(
-                content=response.read(),
-                content_type=response.headers.get('content-type', ''),
+    async def from_httpx_response(cls, response: httpx.Response) -> 'HttpResponse':
+        try:
+            return cls(
+                socket_address=HttpSocketAddress.from_httpx_url(response.url),
+                path=response.url.path,
+                query_params=HttpQueryParam.from_httpx_url(response.url),
+                headers=HttpHeaders.from_httpx_headers(response.headers),
+                status_code=response.status_code,
+                charset_encoding=response.charset_encoding,
+                elapsed=response.elapsed.total_seconds(),
                 encoding=response.encoding,
-            ),
-            cookies=HttpCookies.from_httpx_cookies(response.cookies),
-            http_version=response.http_version,
-        )
+                content=generate_http_content(
+                    content=await response.aread(),
+                    content_type=response.headers.get('content-type', ''),
+                    encoding=response.encoding,
+                ),
+                cookies=HttpCookies.from_httpx_cookies(response.cookies),
+                http_version=response.http_version,
+            )
+        finally:
+            await response.aclose()
 
     def to_fastapi_response(self) -> Response:
         headers = {}

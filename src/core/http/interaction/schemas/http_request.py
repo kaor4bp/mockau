@@ -106,7 +106,7 @@ class HttpRequest(BaseSchema):
             content=self.body.to_binary(),
         )
         http_response = await client.send(httpx_request)
-        return HttpResponse.from_httpx_response(http_response)
+        return await HttpResponse.from_httpx_response(http_response)
 
     def follow_redirect(self, http_response: HttpResponse) -> 'HttpRequest':
         location = httpx.URL(getattr(http_response.headers, 'location')[0])
