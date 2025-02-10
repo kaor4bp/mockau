@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, Request
-from fastapi.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
@@ -69,7 +68,6 @@ async def lifespan(app: MockauFastAPI):
 app = MockauFastAPI(lifespan=lifespan)
 app.include_router(admin_router)
 app.include_router(admin_debug_router)
-app.add_middleware(GZipMiddleware, minimum_size=0)
 
 
 def generate_dynamic_router_processor(name: str):

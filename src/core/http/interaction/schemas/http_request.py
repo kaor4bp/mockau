@@ -109,7 +109,7 @@ class HttpRequest(BaseSchema):
             headers=headers,
             content=self.body.to_binary(),
         )
-        http_response = await client.send(httpx_request)
+        http_response = await client.send(httpx_request, stream=True)
         return await HttpResponse.from_httpx_response(http_response, self)
 
     def follow_redirect(self, http_response: HttpResponse) -> 'HttpRequest':
@@ -130,6 +130,7 @@ class HttpRequest(BaseSchema):
             ('curl', None),
             ('-X', self.method.value),
         ]
+        parts += [(None, str(self.full_url))]
 
         for k, values in sorted(self.headers.model_dump(mode='json').items()):
             for v in values:
@@ -149,7 +150,8 @@ class HttpRequest(BaseSchema):
         if self.socket_address.scheme != 'https':
             parts += [('--insecure', None)]
 
-        parts += [(None, str(self.full_url))]
+        if self.body.compression:
+            parts += [('--compressed', None)]
 
         flat_parts = []
         for k, v in parts:

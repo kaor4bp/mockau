@@ -19,6 +19,7 @@ class BaseHttpContent(BaseSchema):
     type_of: HttpContentType
     file_id: str | None = None
     raw: str | None = None
+    compression: str | None = None
 
     @computed_field
     @property
@@ -138,12 +139,13 @@ def generate_http_content(
     serialized_content = None
     text = None
     content_type = content_type or ''
-
+    compression = None
     content_encoding = content_encoding or accept_encoding
 
     if content_encoding and content_encoding in ['gzip, deflate', 'gzip', 'deflate']:
         try:
             content = gzip.decompress(content)
+            compression = 'gzip'
         except Exception:
             pass
 
@@ -175,6 +177,7 @@ def generate_http_content(
                 serialized_content = HttpJsonContent(
                     file_id=file_id,
                     encoding=encoding,
+                    compression=compression,
                 )
         elif 'xml' in content_type:
             try:
@@ -183,13 +186,13 @@ def generate_http_content(
             except lxml.etree.LxmlError:
                 pass
             else:
-                serialized_content = HttpXmlContent(encoding=encoding, file_id=file_id)
+                serialized_content = HttpXmlContent(encoding=encoding, file_id=file_id, compression=compression)
 
         if not serialized_content:
-            serialized_content = HttpTextContent(encoding=encoding, file_id=file_id)
+            serialized_content = HttpTextContent(encoding=encoding, file_id=file_id, compression=compression)
     elif content:
-        serialized_content = HttpBinaryContent(file_id=file_id)
+        serialized_content = HttpBinaryContent(file_id=file_id, compression=compression)
     else:
-        serialized_content = HttpContentEmpty(file_id=file_id)
+        serialized_content = HttpContentEmpty(file_id=file_id, compression=compression)
 
     return serialized_content

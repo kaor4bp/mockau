@@ -1,3 +1,5 @@
+import gzip
+
 import httpx
 from fastapi import Response
 from pydantic import Field
@@ -89,8 +91,12 @@ class HttpResponse(BaseSchema):
             for header_value in header_values:
                 headers[header_name] = header_value
 
+        if self.content.compression:
+            content = gzip.compress(self.content.to_binary())
+        else:
+            content = self.content.to_binary()
         return Response(
-            content=self.content.to_binary(),
+            content=content,
             status_code=self.status_code,
             headers=headers,
         )
