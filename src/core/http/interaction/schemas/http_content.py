@@ -2,7 +2,6 @@ import base64
 import gzip
 import json
 import pathlib
-import sys
 from typing import Literal
 from uuid import uuid4
 
@@ -24,7 +23,13 @@ class BaseHttpContent(BaseSchema):
     @computed_field
     @property
     def size(self) -> str:
-        return format_bytes_size_to_human_readable(sys.getsizeof(self.to_binary() or b''))
+        if self.file_id:
+            size = pathlib.Path(MockauSettings.path.content).joinpath(f'./{self.file_id}.dat').stat().st_size
+        elif self.raw:
+            size = len(gzip.decompress(base64.b64decode(self.raw)))
+        else:
+            size = 0
+        return format_bytes_size_to_human_readable(size)
 
     @property
     def text(self) -> str | None:
