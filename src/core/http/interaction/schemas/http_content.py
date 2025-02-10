@@ -128,10 +128,24 @@ class HttpContentEmpty(BaseHttpContent):
 HttpContent = HttpBinaryContent | HttpJsonContent | HttpXmlContent | HttpTextContent | HttpContentEmpty
 
 
-def generate_http_content(content: bytes | None, content_type: str | None, encoding: str = 'utf8') -> HttpContent:
+def generate_http_content(
+    content: bytes | None,
+    content_type: str | None,
+    encoding: str = 'utf8',
+    content_encoding: str | None = None,
+    accept_encoding: str | None = None,
+) -> HttpContent:
     serialized_content = None
     text = None
     content_type = content_type or ''
+
+    content_encoding = content_encoding or accept_encoding
+
+    if content_encoding and content_encoding in ['gzip, deflate', 'gzip', 'deflate']:
+        try:
+            content = gzip.decompress(content)
+        except Exception:
+            pass
 
     if content:
         file_id = str(uuid4())

@@ -90,6 +90,7 @@ class HttpRequest(BaseSchema):
             body=generate_http_content(
                 content=request.state.body,
                 content_type=request.headers.get('content-type', ''),
+                content_encoding=request.headers.get('content-encoding'),
             ),
             mockau_traceparent=mockau_traceparent,
         )
