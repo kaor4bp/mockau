@@ -4,7 +4,6 @@ from pydantic import Field
 
 from consts import X_MOCKAU_TRACEPARENT_HEADER
 from core.bases.base_schema import BaseSchema
-from core.http.interaction.schemas import HttpRequest
 from core.http.interaction.schemas.http_content import generate_http_content
 from core.http.interaction.schemas.http_cookies import HttpCookies
 from core.http.interaction.schemas.http_headers import HttpHeaders
@@ -57,7 +56,7 @@ class HttpResponse(BaseSchema):
     async def from_httpx_response(
         cls,
         response: httpx.Response,
-        request: HttpRequest,
+        request,
     ) -> 'HttpResponse':
         try:
             result = cls(
