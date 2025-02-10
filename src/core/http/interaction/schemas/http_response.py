@@ -70,7 +70,7 @@ class HttpResponse(BaseSchema):
                 encoding=response.encoding,
                 content=generate_http_content(
                     content=await response.aread(),
-                    content_type=response.headers.as_mapping.get('content-type', ''),
+                    content_type=response.headers.get('content-type', ''),
                     encoding=response.encoding,
                     content_encoding=response.headers.get('content-encoding'),
                     accept_encoding=response.headers.get('accept-encoding'),
