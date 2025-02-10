@@ -72,6 +72,8 @@ class HttpRequest(BaseSchema):
             body=generate_http_content(
                 content=request.content,
                 content_type=request.headers.get('content-type', ''),
+                content_encoding=request.headers.get('content-encoding'),
+                accept_encoding=request.headers.get('accept-encoding'),
             ),
             mockau_traceparent=mockau_traceparent,
         )
@@ -91,6 +93,7 @@ class HttpRequest(BaseSchema):
                 content=request.state.body,
                 content_type=request.headers.get('content-type', ''),
                 content_encoding=request.headers.get('content-encoding'),
+                accept_encoding=request.headers.get('accept-encoding'),
             ),
             mockau_traceparent=mockau_traceparent,
         )

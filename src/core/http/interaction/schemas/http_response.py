@@ -72,6 +72,8 @@ class HttpResponse(BaseSchema):
                     content=await response.aread(),
                     content_type=response.headers.get('content-type', ''),
                     encoding=response.encoding,
+                    content_encoding=request.headers.get('content-encoding'),
+                    accept_encoding=request.headers.get('accept-encoding'),
                 ),
                 cookies=HttpCookies.from_httpx_cookies(response.cookies),
                 http_version=response.http_version,
