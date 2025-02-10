@@ -1,4 +1,5 @@
 import asyncio
+import time
 from asyncio import create_task
 
 from fastapi import BackgroundTasks
@@ -35,11 +36,13 @@ class HttpEventsHandler:
         app: MockauFastAPI,
         background_tasks: BackgroundTasks,
         inbound_http_request: HttpRequest,
+        time_start: float,
     ) -> None:
         self.tasks = []
         self.app = app
         self.background_tasks = background_tasks
         self.inbound_http_request = inbound_http_request
+        self.time_start = time_start
 
     async def submit(self):
         await asyncio.gather(*self.tasks)
@@ -151,6 +154,8 @@ class HttpEventsHandler:
                 http_response=http_response,
                 mockau_traceparent=self.inbound_http_request.mockau_traceparent,
                 traceparent=self.inbound_http_request.traceparent,
+                elapsed=time.monotonic() - self.time_start,
+                processing_time=time.monotonic() - self.time_start - http_response.elapsed,
             )
             lazy_event_doc = HttpRequestResponseViewEventDocument.from_model(lazy_event)
             self.background_tasks.add_task(

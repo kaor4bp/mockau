@@ -1,14 +1,19 @@
 import logging
 import pathlib
+import time
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 import uvicorn
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import BackgroundTasks, FastAPI, Request
 from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
 from core.http.interaction.schemas import HttpRequest
 from core.http.processor.http_processor_pipeline import HttpProcessorPipeline
+from core.http.tasks.task_cleanup_content_files import task_cleanup_content_files
 from core.init_elasticsearch_documents import init_elasticsearch_documents
 from mockau_fastapi import MockauFastAPI
 from models.storable_settings import DynamicEntrypoint
@@ -58,10 +63,16 @@ async def lifespan(app: MockauFastAPI):
     # print(f'Verify HttpActions consistency of "default"')
     # verify_http_actions_consistency(actions)
 
-    # scheduler = AsyncIOScheduler()
-    # scheduler.start()
+    scheduler = BackgroundScheduler()
+    scheduler.start()
+    scheduler.add_job(
+        func=task_cleanup_content_files,
+        trigger=IntervalTrigger(minutes=30),
+        max_instances=1,
+        next_run_time=datetime.now(),
+    )
     yield
-    # scheduler.shutdown(wait=True)
+    scheduler.shutdown(wait=True)
     await app.destruct_state()
 
 
@@ -72,6 +83,7 @@ app.include_router(admin_debug_router)
 
 def generate_dynamic_router_processor(name: str):
     async def dynamic_router_processor(request: Request, background_tasks: BackgroundTasks):
+        time_start = time.monotonic()
         request.state.body = await request.body()
         http_request = await HttpRequest.from_fastapi_request(request)
 
@@ -80,6 +92,7 @@ def generate_dynamic_router_processor(name: str):
             background_tasks=background_tasks,
             http_request=http_request,
             entrypoint=name,
+            time_start=time_start,
         )
         response = await pipeline.run()
 
@@ -128,6 +141,7 @@ async def default_dynamic_router(
     request: Request,
     background_tasks: BackgroundTasks,
 ):
+    time_start = time.monotonic()
     request.state.body = await request.body()
     http_request = await HttpRequest.from_fastapi_request(request)
 
@@ -135,6 +149,7 @@ async def default_dynamic_router(
         app=request.app,
         background_tasks=background_tasks,
         http_request=http_request,
+        time_start=time_start,
     )
     response = await pipeline.run()
 

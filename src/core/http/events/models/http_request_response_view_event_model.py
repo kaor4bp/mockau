@@ -7,3 +7,5 @@ from core.http.interaction.schemas import HttpRequest, HttpResponse
 class HttpRequestResponseViewEventModel(BaseHttpEventModel):
     http_request: HttpRequest
     http_response: Optional[HttpResponse] = None
+    elapsed: float
+    processing_time: float

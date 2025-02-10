@@ -20,6 +20,7 @@ class HttpProcessorPipeline:
         app: MockauFastAPI,
         background_tasks: BackgroundTasks,
         http_request: HttpRequest,
+        time_start: float,
         entrypoint: str = 'default',
     ) -> None:
         self.app = app
@@ -28,6 +29,7 @@ class HttpProcessorPipeline:
             inbound_http_request=self.http_request,
             app=self.app,
             background_tasks=background_tasks,
+            time_start=time_start,
         )
         self.entrypoint = entrypoint
         self.background_tasks = background_tasks

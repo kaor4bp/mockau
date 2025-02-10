@@ -18,6 +18,10 @@ from utils.compression import detect_and_decompress
 from utils.formatters import format_bytes_size_to_human_readable
 
 
+def get_data_file_path_by_id(file_id: str) -> pathlib.Path:
+    return pathlib.Path(MockauSettings.path.content).joinpath(f'./{file_id}.dat')
+
+
 class BaseHttpContent(BaseSchema):
     type_of: HttpContentType
     file_id: str | None = None
@@ -28,7 +32,7 @@ class BaseHttpContent(BaseSchema):
     @property
     def size(self) -> str:
         if self.file_id:
-            size = pathlib.Path(MockauSettings.path.content).joinpath(f'./{self.file_id}.dat').stat().st_size
+            size = get_data_file_path_by_id(self.file_id).stat().st_size
         elif self.raw:
             size = len(gzip.decompress(base64.b64decode(self.raw)))
         else:
@@ -47,14 +51,14 @@ class BaseHttpContent(BaseSchema):
         if self.raw:
             return gzip.decompress(base64.b64decode(self.raw))
         elif self.file_id:
-            with open(pathlib.Path(MockauSettings.path.content).joinpath(f'./{self.file_id}.dat'), 'rb') as f:
+            with open(get_data_file_path_by_id(self.file_id), 'rb') as f:
                 return f.read()
 
     def to_binary(self) -> bytes | None:
         if self.raw:
             return gzip.decompress(base64.b64decode(self.raw))
         elif self.file_id:
-            with open(pathlib.Path(MockauSettings.path.content).joinpath(f'./{self.file_id}.dat'), 'rb') as f:
+            with open(get_data_file_path_by_id(self.file_id), 'rb') as f:
                 content = f.read()
 
             if self.compression is None:
@@ -161,8 +165,7 @@ def generate_http_content(
 
     if content:
         file_id = str(uuid4())
-        file_path = pathlib.Path(MockauSettings.path.content).joinpath(f'./{file_id}.dat')
-        with open(file_path, 'wb') as f:
+        with open(get_data_file_path_by_id(file_id), 'wb') as f:
             f.write(content)
     else:
         file_id = None

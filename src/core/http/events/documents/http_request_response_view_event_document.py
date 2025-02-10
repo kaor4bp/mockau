@@ -1,6 +1,6 @@
 from typing import Optional
 
-from elasticsearch_dsl import Object
+from elasticsearch_dsl import Float, Object
 
 from core.http.events.documents.base_http_event_document import BaseHttpEventDocument
 from core.http.events.inner_documents import HttpRequestInnerDocument, HttpResponseInnerDocument
@@ -14,6 +14,8 @@ class HttpRequestResponseViewEventDocument(BaseHttpEventDocument):
 
     http_request: HttpRequestInnerDocument = Object(doc_class=HttpRequestInnerDocument, required=True)
     http_response: Optional[HttpResponseInnerDocument] = Object(doc_class=HttpResponseInnerDocument, required=False)
+    elapsed: float = Float()
+    processing_time: float = Float()
 
     @classmethod
     def from_model(cls, model: HttpRequestResponseViewEventModel) -> 'HttpRequestResponseViewEventDocument':
@@ -26,6 +28,8 @@ class HttpRequestResponseViewEventDocument(BaseHttpEventDocument):
             http_request=HttpRequestInnerDocument.from_model(model.http_request),
             http_response=HttpResponseInnerDocument.from_model(model.http_response) if model.http_response else None,
             traceparent=model.traceparent,
+            processing_time=model.processing_time,
+            elapsed=model.elapsed,
         )
 
     def to_model(self) -> HttpRequestResponseViewEventModel:
@@ -36,4 +40,6 @@ class HttpRequestResponseViewEventDocument(BaseHttpEventDocument):
             http_request=self.http_request.to_http_request(),
             http_response=self.http_response.to_http_response() if self.http_response else None,
             traceparent=self.traceparent,
+            processing_time=self.processing_time,
+            elapsed=self.elapsed,
         )
