@@ -137,7 +137,7 @@ def generate_http_content(content: bytes | None, content_type: str | None, encod
         file_id = str(uuid4())
         file_path = pathlib.Path(MockauSettings.path.content).joinpath(f'./{file_id}.dat')
         with open(file_path, 'wb') as f:
-            f.write(content or b'')
+            f.write(content)
     else:
         file_id = None
 

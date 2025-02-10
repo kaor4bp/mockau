@@ -64,7 +64,7 @@ class HttpResponse(BaseSchema):
             elapsed=response.elapsed.total_seconds(),
             encoding=response.encoding,
             content=generate_http_content(
-                content=response.content,
+                content=response.read(),
                 content_type=response.headers.get('content-type', ''),
                 encoding=response.encoding,
             ),
