@@ -69,7 +69,7 @@ async def lifespan(app: MockauFastAPI):
 app = MockauFastAPI(lifespan=lifespan)
 app.include_router(admin_router)
 app.include_router(admin_debug_router)
-app.add_middleware(GZipMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=0)
 
 
 def generate_dynamic_router_processor(name: str):
