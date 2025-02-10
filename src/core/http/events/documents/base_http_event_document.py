@@ -14,3 +14,4 @@ class BaseHttpEventDocument(BaseModelAsyncDocument):
     mockau_trace_id: str = Keyword(required=True)
     timestamp: int = Long(required=True)
     traceparent: Optional[str] = Keyword(required=False)
+    level: str = Keyword(required=True)

@@ -25,6 +25,7 @@ class HttpRequestActionEventDocument(BaseHttpEventDocument):
             timestamp=model.timestamp,
             action_reference=ActionReferenceInnerDocument.from_model(model.action_reference),
             traceparent=model.traceparent,
+            level=model.level,
         )
 
     def to_model(self) -> HttpRequestActionEventModel:
@@ -34,4 +35,5 @@ class HttpRequestActionEventDocument(BaseHttpEventDocument):
             mockau_traceparent=self.mockau_traceparent,
             action_reference=self.action_reference.to_model(),
             traceparent=self.traceparent,
+            level=self.level,
         )

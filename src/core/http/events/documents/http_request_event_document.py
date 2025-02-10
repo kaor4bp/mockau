@@ -26,6 +26,7 @@ class HttpRequestEventDocument(BaseHttpEventDocument):
             parent_mockau_traceparent=model.parent_mockau_traceparent,
             http_request=HttpRequestInnerDocument.from_model(model.http_request),
             traceparent=model.traceparent,
+            level=model.level,
         )
 
     def to_model(self) -> HttpRequestEventModel:
@@ -36,4 +37,5 @@ class HttpRequestEventDocument(BaseHttpEventDocument):
             parent_mockau_traceparent=self.parent_mockau_traceparent,
             http_request=self.http_request.to_model(),
             traceparent=self.traceparent,
+            level=self.level,
         )

@@ -13,6 +13,11 @@ class HttpEventType(Enum):
 
     HTTP_REQUEST_TOO_MANY_REDIRECTS = 'http_request_too_many_redirects'
 
+    HTTP_SEND_REQUEST_READ_TIMEOUT = 'http_send_request_read_timeout'
+    HTTP_SEND_REQUEST_CONNECT_TIMEOUT = 'http_send_request_connect_timeout'
+    HTTP_SEND_REQUEST_POOL_TIMEOUT = 'http_send_request_pool_timeout'
+    HTTP_SEND_REQUEST_WRITE_TIMEOUT = 'http_send_request_write_timeout'
+
     HTTP_REQUEST_RESPONSE_VIEW = 'http_request_response_view'
     HTTP_ACTION_NOT_MATCHED_VIEW = 'http_action_not_matched_view'
 
@@ -35,4 +40,8 @@ class HttpEventTypeGroup:
         HttpEventType.HTTP_REQUEST_NO_ACTION_FOUND.value,
         HttpEventType.HTTP_RECEIVED_RESPONSE.value,
         HttpEventType.HTTP_REQUEST_TOO_MANY_REDIRECTS.value,
+        HttpEventType.HTTP_SEND_REQUEST_READ_TIMEOUT.value,
+        HttpEventType.HTTP_SEND_REQUEST_CONNECT_TIMEOUT.value,
+        HttpEventType.HTTP_SEND_REQUEST_POOL_TIMEOUT.value,
+        HttpEventType.HTTP_SEND_REQUEST_WRITE_TIMEOUT.value,
     ]

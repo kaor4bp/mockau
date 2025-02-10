@@ -12,14 +12,25 @@ class HttpRequestOverrideActionModel(BaseHttpActionModel):
         self,
         client: httpx.AsyncClient,
         client_settings: HttpClientSettings,
-        events_handler: 'HttpEventsHandler',
+        events_handler: 'HttpEventsHandler',  # noqa: F821
     ):
         new_request = self.http_request_override.override_http_request(events_handler.inbound_http_request)
         response = None
 
         for _ in range(client_settings.max_redirects):
             await events_handler.on_request_send(new_request)
-            response = await new_request.send(client)
+
+            try:
+                response = await new_request.send(client)
+            except httpx.ReadTimeout:
+                await events_handler.on_send_request_read_timeout(new_request)
+            except httpx.ConnectTimeout:
+                await events_handler.on_send_request_connect_timeout(new_request)
+            except httpx.PoolTimeout:
+                await events_handler.on_send_request_pool_timeout(new_request)
+            except httpx.WriteError:
+                await events_handler.on_send_request_write_error(new_request)
+
             await events_handler.on_response_received(new_request.mockau_traceparent, response)
 
             if (

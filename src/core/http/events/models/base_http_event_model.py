@@ -12,6 +12,7 @@ class BaseHttpEventModel(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=pytz.UTC))
     mockau_traceparent: str
     traceparent: str | None = None
+    level: str
 
     @property
     def timestamp(self) -> int:

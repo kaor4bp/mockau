@@ -29,6 +29,7 @@ class HttpRequestActionNotMatchedViewEventDocument(BaseHttpEventDocument):
             description=model.description,
             action_reference=ActionReferenceInnerDocument.from_model(model.action_reference),
             traceparent=model.traceparent,
+            level=model.level,
         )
 
     def to_model(self) -> HttpRequestActionNotMatchedViewEventModel:
@@ -39,4 +40,5 @@ class HttpRequestActionNotMatchedViewEventDocument(BaseHttpEventDocument):
             description=self.description,
             action_reference=self.action_reference.to_model(),
             traceparent=self.traceparent,
+            level=self.level,
         )

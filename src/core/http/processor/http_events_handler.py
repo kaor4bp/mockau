@@ -179,3 +179,71 @@ class HttpEventsHandler:
             lazy_event_doc.save,
             using=self.app.state.background_clients.elasticsearch_client,
         )
+
+    async def on_send_request_read_timeout(
+        self,
+        http_request: HttpRequest,
+    ):
+        event = HttpRequestErrorEventModel(
+            event=HttpEventType.HTTP_SEND_REQUEST_READ_TIMEOUT.value,
+            mockau_traceparent=http_request.mockau_traceparent,
+            traceparent=http_request.traceparent,
+        )
+        self.tasks.append(
+            create_task(
+                HttpRequestErrorEventDocument.from_model(event).save(
+                    using=self.app.state.task_clients.elasticsearch_client
+                )
+            )
+        )
+
+    async def on_send_request_connect_timeout(
+        self,
+        http_request: HttpRequest,
+    ):
+        event = HttpRequestErrorEventModel(
+            event=HttpEventType.HTTP_SEND_REQUEST_CONNECT_TIMEOUT.value,
+            mockau_traceparent=http_request.mockau_traceparent,
+            traceparent=http_request.traceparent,
+        )
+        self.tasks.append(
+            create_task(
+                HttpRequestErrorEventDocument.from_model(event).save(
+                    using=self.app.state.task_clients.elasticsearch_client
+                )
+            )
+        )
+
+    async def on_send_request_pool_timeout(
+        self,
+        http_request: HttpRequest,
+    ):
+        event = HttpRequestErrorEventModel(
+            event=HttpEventType.HTTP_SEND_REQUEST_POOL_TIMEOUT.value,
+            mockau_traceparent=http_request.mockau_traceparent,
+            traceparent=http_request.traceparent,
+        )
+        self.tasks.append(
+            create_task(
+                HttpRequestErrorEventDocument.from_model(event).save(
+                    using=self.app.state.task_clients.elasticsearch_client
+                )
+            )
+        )
+
+    async def on_send_request_write_timeout(
+        self,
+        http_request: HttpRequest,
+    ):
+        event = HttpRequestErrorEventModel(
+            event=HttpEventType.HTTP_SEND_REQUEST_WRITE_TIMEOUT.value,
+            mockau_traceparent=http_request.mockau_traceparent,
+            traceparent=http_request.traceparent,
+        )
+        self.tasks.append(
+            create_task(
+                HttpRequestErrorEventDocument.from_model(event).save(
+                    using=self.app.state.task_clients.elasticsearch_client
+                )
+            )
+        )

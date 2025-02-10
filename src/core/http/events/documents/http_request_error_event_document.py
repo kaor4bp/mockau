@@ -16,6 +16,7 @@ class HttpRequestErrorEventDocument(BaseHttpEventDocument):
             mockau_trace_id=model.mockau_trace_id,
             timestamp=model.timestamp,
             traceparent=model.traceparent,
+            level=model.level,
         )
 
     def to_model(self) -> HttpRequestErrorEventModel:
@@ -24,4 +25,5 @@ class HttpRequestErrorEventDocument(BaseHttpEventDocument):
             created_at=self.created_at,
             mockau_traceparent=self.mockau_traceparent,
             traceparent=self.traceparent,
+            level=self.level,
         )

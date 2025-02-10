@@ -30,6 +30,7 @@ class HttpRequestResponseViewEventDocument(BaseHttpEventDocument):
             traceparent=model.traceparent,
             processing_time=model.processing_time,
             elapsed=model.elapsed,
+            level=model.level,
         )
 
     def to_model(self) -> HttpRequestResponseViewEventModel:
@@ -42,4 +43,5 @@ class HttpRequestResponseViewEventDocument(BaseHttpEventDocument):
             traceparent=self.traceparent,
             processing_time=self.processing_time,
             elapsed=self.elapsed,
+            level=self.level,
         )

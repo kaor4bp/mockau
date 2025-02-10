@@ -1,6 +1,7 @@
 import elasticsearch
 import httpx
 from fastapi import FastAPI
+from httpx import Timeout
 from starlette.datastructures import State
 
 from settings import MockauSettings
@@ -14,7 +15,7 @@ class MockauSharedClients:
     mongo_tasks_client: MongoClient
     elasticsearch_client: elasticsearch.AsyncElasticsearch
 
-    httpx_clients: dict[str, tuple[httpx.AsyncClient, 'HttpClientSettings']]
+    httpx_clients: dict[str, tuple[httpx.AsyncClient, 'HttpClientSettings']]  # noqa: F821
 
     def __init__(self) -> None:
         from models.storable_settings import HttpClientSettings
@@ -32,7 +33,18 @@ class MockauSharedClients:
 
         self.httpx_clients = {
             'default': (
-                httpx.AsyncClient(http1=True, http2=True, follow_redirects=True, max_redirects=20),
+                httpx.AsyncClient(
+                    http1=True,
+                    http2=True,
+                    follow_redirects=True,
+                    max_redirects=20,
+                    timeout=Timeout(
+                        connect=30 * 60,
+                        read=30 * 60,
+                        write=30 * 60,
+                        pool=30 * 60,
+                    ),
+                ),
                 HttpClientSettings(),
             ),
         }
