@@ -1,5 +1,6 @@
 from copy import deepcopy
 from shlex import quote
+from urllib.parse import urlencode
 
 import httpx
 from fastapi import Request
@@ -54,9 +55,7 @@ class HttpRequest(BaseSchema):
         if self.socket_address and self.socket_address.port is not None:
             url = url.copy_with(port=self.socket_address.port)
         if self.query_params:
-            url = url.copy_with(
-                query='&'.join([f'{param.key}={param.value}' for param in self.query_params]).encode('utf8')
-            )
+            url = url.copy_with(params=urlencode([(param.key, param.value) for param in self.query_params]))
         return url
 
     @classmethod
@@ -72,8 +71,6 @@ class HttpRequest(BaseSchema):
             body=generate_http_content(
                 content=request.content,
                 content_type=request.headers.get('content-type', ''),
-                content_encoding=request.headers.get('content-encoding'),
-                accept_encoding=request.headers.get('accept-encoding'),
             ),
             mockau_traceparent=mockau_traceparent,
         )
@@ -92,8 +89,6 @@ class HttpRequest(BaseSchema):
             body=generate_http_content(
                 content=request.state.body,
                 content_type=request.headers.get('content-type', ''),
-                content_encoding=request.headers.get('content-encoding'),
-                accept_encoding=request.headers.get('accept-encoding'),
             ),
             mockau_traceparent=mockau_traceparent,
         )
@@ -107,7 +102,7 @@ class HttpRequest(BaseSchema):
             method=self.method.value,
             url=self.full_url,
             headers=headers,
-            content=self.body.to_binary(),
+            content=self.body.to_raw_binary(),
         )
         http_response = await client.send(httpx_request, stream=True)
         return await HttpResponse.from_httpx_response(http_response, self)

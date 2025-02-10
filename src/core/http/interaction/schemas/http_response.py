@@ -1,4 +1,4 @@
-import gzip
+from urllib.parse import urlencode
 
 import httpx
 from fastapi import Response
@@ -45,9 +45,7 @@ class HttpResponse(BaseSchema):
         if self.socket_address and self.socket_address.port is not None:
             url = url.copy_with(port=self.socket_address.port)
         if self.query_params:
-            url = url.copy_with(
-                query='&'.join([f'{param.key}={param.value}' for param in self.query_params]).encode('utf8')
-            )
+            url = url.copy_with(params=urlencode([(param.key, param.value) for param in self.query_params]))
         return url
 
     @property
@@ -61,9 +59,10 @@ class HttpResponse(BaseSchema):
         request,
     ) -> 'HttpResponse':
         original_content_encoding = response.headers.get('content-encoding')
-        response.headers['content-encoding'] = 'identity'
+        response.headers.update({'content-encoding': 'identity'})
         content = await response.aread()
-        response.headers['content-encoding'] = original_content_encoding
+        if original_content_encoding:
+            response.headers.update({'content-encoding': original_content_encoding})
         await response.aclose()
 
         result = cls(
@@ -79,8 +78,6 @@ class HttpResponse(BaseSchema):
                 content=content,
                 content_type=response.headers.get('content-type', ''),
                 encoding=response.encoding,
-                content_encoding=response.headers.get('content-encoding'),
-                accept_encoding=response.headers.get('accept-encoding'),
             ),
             cookies=HttpCookies.from_httpx_cookies(response.cookies),
             http_version=response.http_version,
@@ -95,12 +92,8 @@ class HttpResponse(BaseSchema):
             for header_value in header_values:
                 headers[header_name] = header_value
 
-        if self.content.compression:
-            content = gzip.compress(self.content.to_binary())
-        else:
-            content = self.content.to_binary()
         return Response(
-            content=content,
+            content=self.content.to_raw_binary(),
             status_code=self.status_code,
             headers=headers,
         )

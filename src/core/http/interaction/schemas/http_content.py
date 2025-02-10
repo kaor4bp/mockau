@@ -2,9 +2,11 @@ import base64
 import gzip
 import json
 import pathlib
+import zlib
 from typing import Literal
 from uuid import uuid4
 
+import brotli
 import lxml.etree
 from lxml import etree
 from pydantic import computed_field
@@ -12,6 +14,7 @@ from pydantic import computed_field
 from core.bases.base_schema import BaseSchema
 from core.http.interaction.common import HttpContentType
 from settings import MockauSettings
+from utils.compression import detect_and_decompress
 from utils.formatters import format_bytes_size_to_human_readable
 
 
@@ -40,12 +43,30 @@ class BaseHttpContent(BaseSchema):
     def preview(self) -> str | None:
         return 'binary'
 
-    def to_binary(self) -> bytes | None:
+    def to_raw_binary(self) -> bytes | None:
         if self.raw:
             return gzip.decompress(base64.b64decode(self.raw))
         elif self.file_id:
             with open(pathlib.Path(MockauSettings.path.content).joinpath(f'./{self.file_id}.dat'), 'rb') as f:
                 return f.read()
+
+    def to_binary(self) -> bytes | None:
+        if self.raw:
+            return gzip.decompress(base64.b64decode(self.raw))
+        elif self.file_id:
+            with open(pathlib.Path(MockauSettings.path.content).joinpath(f'./{self.file_id}.dat'), 'rb') as f:
+                content = f.read()
+
+            if self.compression is None:
+                return content
+            elif self.compression == 'gzip':
+                return gzip.decompress(content)
+            elif self.compression == 'zlib':
+                return zlib.decompress(content)
+            elif self.compression == 'brotli':
+                return brotli.decompress(content)
+            else:
+                raise AttributeError(f'Unknown compression type "{self.compression}"')
 
 
 class HttpBinaryContent(BaseHttpContent):
@@ -133,21 +154,10 @@ def generate_http_content(
     content: bytes | None,
     content_type: str | None,
     encoding: str = 'utf8',
-    content_encoding: str | None = None,
-    accept_encoding: str | None = None,
 ) -> HttpContent:
     serialized_content = None
     text = None
     content_type = content_type or ''
-    compression = None
-    content_encoding = content_encoding or accept_encoding
-
-    if content_encoding and content_encoding in ['gzip, deflate', 'gzip', 'deflate']:
-        try:
-            content = gzip.decompress(content)
-            compression = 'gzip'
-        except Exception:
-            pass
 
     if content:
         file_id = str(uuid4())
@@ -157,13 +167,10 @@ def generate_http_content(
     else:
         file_id = None
 
-    # if content:
-    #     raw_content = base64.b64encode(gzip.compress(content)).decode('utf8')
-    # else:
-    #     raw_content = None
+    compression, decompressed_content = detect_and_decompress(content)
 
     try:
-        text = content.decode(encoding)
+        text = decompressed_content.decode(encoding)
     except UnicodeDecodeError:
         pass
 
@@ -182,7 +189,7 @@ def generate_http_content(
         elif 'xml' in content_type:
             try:
                 parser = etree.XMLParser(encoding=encoding)
-                lxml.etree.fromstring(content, parser=parser)
+                lxml.etree.fromstring(decompressed_content, parser=parser)
             except lxml.etree.LxmlError:
                 pass
             else:
@@ -190,7 +197,7 @@ def generate_http_content(
 
         if not serialized_content:
             serialized_content = HttpTextContent(encoding=encoding, file_id=file_id, compression=compression)
-    elif content:
+    elif decompressed_content:
         serialized_content = HttpBinaryContent(file_id=file_id, compression=compression)
     else:
         serialized_content = HttpContentEmpty(file_id=file_id, compression=compression)
