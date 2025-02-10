@@ -108,6 +108,7 @@ class HttpRequest(BaseSchema):
             method=self.method.value,
             url=self.get_full_url(),
             headers=headers,
+            content=self.body.to_binary(),
         )
         http_response = await client.send(httpx_request)
         return HttpResponse.from_httpx_response(http_response)

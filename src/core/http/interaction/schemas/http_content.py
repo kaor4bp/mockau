@@ -26,14 +26,12 @@ class BaseHttpContent(BaseSchema):
     def preview(self) -> str | None:
         return 'binary'
 
-    def to_binary(self):
+    def to_binary(self) -> bytes | None:
         if self.raw:
             return gzip.decompress(base64.b64decode(self.raw))
         elif self.file_id:
             with open(pathlib.Path(MockauSettings.path.content).joinpath(f'./{self.file_id}.dat'), 'rb') as f:
                 return f.read()
-        else:
-            return b''
 
 
 class HttpBinaryContent(BaseHttpContent):
