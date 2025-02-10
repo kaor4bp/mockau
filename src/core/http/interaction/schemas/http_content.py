@@ -2,21 +2,29 @@ import base64
 import gzip
 import json
 import pathlib
+import sys
 from typing import Literal
 from uuid import uuid4
 
 import lxml.etree
 from lxml import etree
+from pydantic import computed_field
 
 from core.bases.base_schema import BaseSchema
 from core.http.interaction.common import HttpContentType
 from settings import MockauSettings
+from utils.formatters import format_bytes_size_to_human_readable
 
 
 class BaseHttpContent(BaseSchema):
     type_of: HttpContentType
     file_id: str | None = None
     raw: str | None = None
+
+    @computed_field
+    @property
+    def size(self) -> str:
+        return format_bytes_size_to_human_readable(sys.getsizeof(self.to_binary() or b''))
 
     @property
     def text(self) -> str | None:

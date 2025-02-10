@@ -32,7 +32,8 @@ class HttpResponse(BaseSchema):
             mockau_traceparent = getattr(self.headers, 'traceparent', None)
         return mockau_traceparent
 
-    def get_full_url(self) -> httpx.URL:
+    @property
+    def full_url(self) -> httpx.URL:
         url = httpx.URL(self.path)
         if self.socket_address:
             url = url.copy_with(
