@@ -2,7 +2,6 @@ import httpx
 from pydantic import ConfigDict
 
 from core.bases.base_schema import BaseSchema
-from core.http.interaction.schemas import HttpRequest, HttpResponse
 
 
 class HttpHeaders(BaseSchema):
@@ -14,7 +13,7 @@ class HttpHeaders(BaseSchema):
     def as_mapping(self) -> dict[str, str]:
         return self.model_dump(mode='json')
 
-    def adopt_cookies(self, http_request: HttpRequest, http_response: HttpResponse) -> None:
+    def adopt_cookies(self, http_request, http_response) -> None:
         for header_name, header_values in self.as_mapping.items():
             if header_name.lower().startswith('set-cookie:'):
                 new_set_cookie_header_values = []
