@@ -4,6 +4,7 @@ from pydantic import Field
 
 from consts import X_MOCKAU_TRACEPARENT_HEADER
 from core.bases.base_schema import BaseSchema
+from core.http.interaction.schemas import HttpRequest
 from core.http.interaction.schemas.http_content import generate_http_content
 from core.http.interaction.schemas.http_cookies import HttpCookies
 from core.http.interaction.schemas.http_headers import HttpHeaders
@@ -53,9 +54,13 @@ class HttpResponse(BaseSchema):
         return bool(getattr(self.headers, 'location', None))
 
     @classmethod
-    async def from_httpx_response(cls, response: httpx.Response) -> 'HttpResponse':
+    async def from_httpx_response(
+        cls,
+        response: httpx.Response,
+        request: HttpRequest,
+    ) -> 'HttpResponse':
         try:
-            return cls(
+            result = cls(
                 socket_address=HttpSocketAddress.from_httpx_url(response.url),
                 path=response.url.path,
                 query_params=HttpQueryParam.from_httpx_url(response.url),
@@ -72,6 +77,8 @@ class HttpResponse(BaseSchema):
                 cookies=HttpCookies.from_httpx_cookies(response.cookies),
                 http_version=response.http_version,
             )
+            result.headers.adopt_cookies(request, result)
+            return result
         finally:
             await response.aclose()
 
