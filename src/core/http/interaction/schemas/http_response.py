@@ -60,30 +60,31 @@ class HttpResponse(BaseSchema):
         response: httpx.Response,
         request,
     ) -> 'HttpResponse':
-        try:
-            result = cls(
-                socket_address=HttpSocketAddress.from_httpx_url(response.url),
-                path=response.url.path,
-                query_params=HttpQueryParam.from_httpx_url(response.url),
-                headers=HttpHeaders.from_httpx_headers(response.headers),
-                status_code=response.status_code,
-                charset_encoding=response.charset_encoding,
-                elapsed=response.elapsed.total_seconds(),
+        content = await response.aread()
+        await response.aclose()
+
+        result = cls(
+            socket_address=HttpSocketAddress.from_httpx_url(response.url),
+            path=response.url.path,
+            query_params=HttpQueryParam.from_httpx_url(response.url),
+            headers=HttpHeaders.from_httpx_headers(response.headers),
+            status_code=response.status_code,
+            charset_encoding=response.charset_encoding,
+            elapsed=response.elapsed.total_seconds(),
+            encoding=response.encoding,
+            content=generate_http_content(
+                content=content,
+                content_type=response.headers.get('content-type', ''),
                 encoding=response.encoding,
-                content=generate_http_content(
-                    content=await response.aread(),
-                    content_type=response.headers.get('content-type', ''),
-                    encoding=response.encoding,
-                    content_encoding=response.headers.get('content-encoding'),
-                    accept_encoding=response.headers.get('accept-encoding'),
-                ),
-                cookies=HttpCookies.from_httpx_cookies(response.cookies),
-                http_version=response.http_version,
-            )
-            result.headers.adopt_cookies(request, result)
-            return result
-        finally:
-            await response.aclose()
+                content_encoding=response.headers.get('content-encoding'),
+                accept_encoding=response.headers.get('accept-encoding'),
+            ),
+            cookies=HttpCookies.from_httpx_cookies(response.cookies),
+            http_version=response.http_version,
+        )
+        result.headers.adopt_cookies(request, result)
+
+        return result
 
     def to_fastapi_response(self) -> Response:
         headers = {}
