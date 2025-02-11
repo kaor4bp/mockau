@@ -1,5 +1,4 @@
 import os
-import pathlib
 import time
 from datetime import timedelta
 
@@ -13,8 +12,8 @@ from settings import MockauSettings
 def task_cleanup_content_files():
     outdated_mtime = time.time() - timedelta(hours=2).total_seconds()
 
-    for f in os.listdir(pathlib.Path(MockauSettings.path.content).resolve()):
-        file_path = pathlib.Path(MockauSettings.path.content).joinpath(f)
+    for f in os.listdir(MockauSettings.path.content_path):
+        file_path = MockauSettings.path.content_path.joinpath(f)
 
         if os.path.isfile(file_path):
             file_mtime = os.path.getmtime(file_path)

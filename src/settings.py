@@ -45,7 +45,18 @@ class _RedisSettings:
 
 
 class _PathSettings:
-    content: str = StringConfigItem(env='PATH_CONTENT', default='./content')
+    root_path = pathlib.Path(__file__).parent.parent.resolve()
+    src_path = pathlib.Path(__file__).parent.resolve()
+
+    _content: str = StringConfigItem(env='PATH_CONTENT', default='./content')
+
+    @property
+    def content_path(self) -> pathlib.Path:
+        content_path = pathlib.Path(self._content).resolve()
+        if content_path.is_absolute():
+            return content_path
+        else:
+            return self.root_path.joinpath(content_path)
 
 
 class MockauSettings:
@@ -62,4 +73,6 @@ class MockauSettings:
 
 
 if __name__ == '__main__':
-    print(MockauSettings.mongo.uri)
+    print(MockauSettings.path.root_path)
+    print(MockauSettings.path.src_path)
+    print(MockauSettings.path.content_path)
