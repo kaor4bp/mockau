@@ -13,7 +13,7 @@ from settings import MockauSettings
 def task_cleanup_content_files():
     outdated_mtime = time.time() - timedelta(hours=2).total_seconds()
 
-    for f in os.listdir(MockauSettings.path.content):
+    for f in os.listdir(pathlib.Path(MockauSettings.path.content).resolve()):
         file_path = pathlib.Path(MockauSettings.path.content).joinpath(f)
 
         if os.path.isfile(file_path):

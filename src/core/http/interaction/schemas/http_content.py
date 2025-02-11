@@ -19,7 +19,7 @@ from utils.formatters import format_bytes_size_to_human_readable
 
 
 def get_data_file_path_by_id(file_id: str) -> pathlib.Path:
-    return pathlib.Path(MockauSettings.path.content).joinpath(f'./{file_id}.dat')
+    return pathlib.Path(MockauSettings.path.content).joinpath(f'./{file_id}.dat').resolve()
 
 
 class BaseHttpContent(BaseSchema):
