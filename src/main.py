@@ -66,7 +66,7 @@ async def lifespan(app: MockauFastAPI):
     scheduler = BackgroundScheduler()
     scheduler.start()
     scheduler.add_job(
-        func=task_cleanup_content_files,
+        func=task_cleanup_content_files.apply_async,
         trigger=IntervalTrigger(minutes=30),
         max_instances=1,
         next_run_time=datetime.now(),
