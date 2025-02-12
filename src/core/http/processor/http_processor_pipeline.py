@@ -6,11 +6,11 @@ from httpx import Limits, Timeout
 from pydantic import TypeAdapter
 
 from core.http.actions.types import t_HttpActionModel
-from core.http.interaction.schemas import HttpRequest
-from core.http.interaction.schemas.http_response import HttpResponse
+from core.http.interaction.schemas import HttpRequest, HttpResponse
 from core.http.processor.http_events_handler import HttpEventsHandler
+from core.storable_settings.common import FollowRedirectsMode
+from core.storable_settings.models import DynamicEntrypoint
 from mockau_fastapi import MockauFastAPI
-from models.storable_settings import DynamicEntrypoint, FollowRedirectsMode
 from schemas.variables import VariablesContext
 
 

@@ -18,7 +18,7 @@ class MockauSharedClients:
     httpx_clients: dict[str, tuple[httpx.AsyncClient, 'HttpClientSettings']]  # noqa: F821
 
     def __init__(self) -> None:
-        from models.storable_settings import HttpClientSettings
+        from core.storable_settings.models.dynamic_entrypoint import HttpClientSettings
 
         self.mongo_events_client = MongoClient(collection='mockau_events')
         self.mongo_actions_client = MongoClient(collection='mockau_actions')

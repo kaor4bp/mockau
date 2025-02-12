@@ -1,8 +1,13 @@
+import typing
+
 import httpx
 
 from core.http.actions.models.base_http_action_model import BaseHttpActionModel
 from core.http.interaction.schemas.http_response import HttpResponse
-from models.storable_settings import HttpClientSettings
+from core.storable_settings.models.dynamic_entrypoint import HttpClientSettings
+
+if typing.TYPE_CHECKING:
+    from core.http.processor.http_events_handler import HttpEventsHandler
 
 
 class StubHttpResponseActionModel(BaseHttpActionModel):

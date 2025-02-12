@@ -1,0 +1,2 @@
+class SharedSecretKeyInvalidTag(Exception):
+    pass

@@ -4,14 +4,15 @@ import httpx
 from fastapi import Response
 from pydantic import Field
 
-from consts import X_MOCKAU_TRACEPARENT_HEADER
 from core.bases.base_schema import BaseSchema
+from core.http.interaction.consts import X_MOCKAU_TRACEPARENT_HEADER
 from core.http.interaction.schemas.http_content import generate_http_content
 from core.http.interaction.schemas.http_cookies import HttpCookies
 from core.http.interaction.schemas.http_headers import HttpHeaders
 from core.http.interaction.schemas.http_query_param import HttpQueryParam
 from core.http.interaction.schemas.http_socket_address import HttpSocketAddress
 from core.http.interaction.types import t_Content
+from utils.traceparent import decrypt_traceparent_token
 
 
 class HttpResponse(BaseSchema):
@@ -29,10 +30,9 @@ class HttpResponse(BaseSchema):
 
     @property
     def mockau_traceparent(self) -> str | None:
-        mockau_traceparent = getattr(self.headers, X_MOCKAU_TRACEPARENT_HEADER, None)
-        if not mockau_traceparent:
-            mockau_traceparent = getattr(self.headers, 'traceparent', None)
-        return mockau_traceparent
+        encrypted_mockau_traceparent = getattr(self.headers, X_MOCKAU_TRACEPARENT_HEADER, None)
+        if encrypted_mockau_traceparent:
+            return decrypt_traceparent_token(encrypted_mockau_traceparent)
 
     @property
     def full_url(self) -> httpx.URL:

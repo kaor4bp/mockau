@@ -1,34 +1,13 @@
-from enum import Enum
 from typing import Literal
 
 from pydantic import Field
 
-from core.bases.base_model import BaseModel
+from core.storable_settings.common import HttpClientSettings, StorableSettingsType
+from core.storable_settings.models.base_storable_settings import BaseStorableSettings
 from mockau_fastapi import MockauSharedClients
 
 
-class StorableSettingsType(Enum):
-    DYNAMIC_ENTRYPOINT = 'DYNAMIC_ENTRYPOINT'
-
-
-class BaseStorableSettings(BaseModel):
-    type_of: StorableSettingsType
-
-
-class FollowRedirectsMode(Enum):
-    FOLLOWED_BY_CLIENT = 'FOLLOWED_BY_CLIENT'
-    FOLLOWED_BY_MOCK = 'FOLLOWED_BY_MOCK'
-    NO_FOLLOW = 'NO_FOLLOW'
-
-
-class HttpClientSettings(BaseModel):
-    http1: bool = True
-    http2: bool = True
-    follow_redirects: FollowRedirectsMode = FollowRedirectsMode.FOLLOWED_BY_CLIENT
-    max_redirects: int = 20
-
-
-class DynamicEntrypoint(BaseModel):
+class DynamicEntrypoint(BaseStorableSettings):
     type_of: Literal['DYNAMIC_ENTRYPOINT'] = 'DYNAMIC_ENTRYPOINT'
     name: str
     client_settings: HttpClientSettings = Field(default_factory=HttpClientSettings)

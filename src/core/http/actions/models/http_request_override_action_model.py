@@ -1,7 +1,7 @@
 import httpx
 
 from core.http.actions.models.base_http_action_model import BaseHttpActionModel
-from models.storable_settings import FollowRedirectsMode, HttpClientSettings
+from core.storable_settings.common import FollowRedirectsMode, HttpClientSettings
 from schemas.http_request_override.http_request import HttpRequestOverride
 
 

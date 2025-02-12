@@ -1,8 +1,14 @@
 import os
 import pathlib
+import typing
 from functools import cached_property
 
 from dotenv import load_dotenv
+
+if typing.TYPE_CHECKING:
+    from core.storable_settings.models import SharedSecretKey
+    from mockau_fastapi import MockauSharedClients
+
 
 load_dotenv(
     dotenv_path=str(pathlib.Path(__file__).parent.parent.joinpath('./.env').resolve()),
@@ -10,13 +16,16 @@ load_dotenv(
 )
 
 
-def StringConfigItem(env: str, default: str | None = None) -> str:
+def StringConfigItem(env: str, default: str | None = None, cached: bool = True) -> str:
     def get_env(self):
         value = os.getenv(env, default=default)
         assert value is not None, f'Environment variable {env} is not set'
         return value
 
-    return cached_property(get_env)
+    if cached:
+        return cached_property(get_env)
+    else:
+        return property(get_env)
 
 
 def BooleanConfigItem(env: str, default: bool | None = None) -> str:
@@ -64,15 +73,21 @@ class MockauSettings:
     elk: _ELKSettings = _ELKSettings()
     redis: _RedisSettings = _RedisSettings()
     path: _PathSettings = _PathSettings()
+    shared_secret_key: 'SharedSecretKey'
 
     @classmethod
-    async def on_startup(cls) -> None:
-        content_path = pathlib.Path(cls.path.content)
-        if not content_path.exists():
-            content_path.mkdir(parents=True)
+    async def on_startup(cls, clients: 'MockauSharedClients') -> None:
+        from core.storable_settings.models import SharedSecretKey
+
+        if not cls.path.content_path.exists():
+            cls.path.content_path.mkdir(parents=True)
+
+        MockauSettings.shared_secret_key = await SharedSecretKey.get_or_create(clients)
 
 
 if __name__ == '__main__':
+    MockauSettings.on_startup()
+
     print(MockauSettings.path.root_path)
     print(MockauSettings.path.src_path)
     print(MockauSettings.path.content_path)

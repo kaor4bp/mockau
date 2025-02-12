@@ -15,8 +15,8 @@ from core.http.interaction.schemas import HttpRequest
 from core.http.processor.http_processor_pipeline import HttpProcessorPipeline
 from core.http.tasks.task_cleanup_content_files import task_cleanup_content_files
 from core.init_elasticsearch_documents import init_elasticsearch_documents
+from core.storable_settings.models import DynamicEntrypoint
 from mockau_fastapi import MockauFastAPI
-from models.storable_settings import DynamicEntrypoint
 from settings import MockauSettings
 
 
@@ -36,7 +36,7 @@ def add_dynamic_entrypoint(app: FastAPI, name: str) -> None:
 async def lifespan(app: MockauFastAPI):
     await app.init_state()
     await init_elasticsearch_documents(app.state.clients.elasticsearch_client)
-    await MockauSettings.on_startup()
+    await MockauSettings.on_startup(app.state.clients)
 
     for de in await DynamicEntrypoint.get_all(app.state.clients):
         add_dynamic_entrypoint(app, de.name)
