@@ -15,13 +15,8 @@ from core.http.interaction.schemas.http_query_param import HttpQueryParam
 from core.http.interaction.schemas.http_response import HttpResponse
 from core.http.interaction.schemas.http_socket_address import HttpSocketAddress
 from core.http.interaction.types import t_Content
-from settings import MockauSettings
 from utils.formatters import MAX_BODY_SIZE_BYTES, format_bytes_size_to_human_readable
-from utils.traceparent import (
-    decrypt_traceparent_token,
-    generate_encrypted_traceparent_token,
-    generate_traceparent_token,
-)
+from utils.traceparent import generate_traceparent_token
 
 
 class HttpRequest(BaseSchema):
@@ -33,10 +28,6 @@ class HttpRequest(BaseSchema):
     body: t_Content = Field(discriminator='type_of')
     http_version: str = 'HTTP/1.1'
     mockau_traceparent: str
-
-    @property
-    def decrypted_mockau_traceparent(self) -> str:
-        return MockauSettings.shared_secret_key.encrypt(self.mockau_traceparent.encode('utf-8')).to_string()
 
     @property
     def traceparent(self) -> str | None:
@@ -69,9 +60,7 @@ class HttpRequest(BaseSchema):
 
     @classmethod
     def from_httpx_request(cls, request: httpx.Request) -> 'HttpRequest':
-        encrypted_mockau_traceparent = request.headers.get(
-            X_MOCKAU_TRACEPARENT_HEADER, generate_encrypted_traceparent_token()
-        )
+        mockau_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, generate_traceparent_token())
 
         return cls(
             socket_address=HttpSocketAddress.from_httpx_url(request.url),
@@ -83,14 +72,12 @@ class HttpRequest(BaseSchema):
                 content=request.content,
                 content_type=request.headers.get('content-type', ''),
             ),
-            mockau_traceparent=decrypt_traceparent_token(encrypted_mockau_traceparent),
+            mockau_traceparent=mockau_traceparent,
         )
 
     @classmethod
     async def from_fastapi_request(cls, request: Request) -> 'HttpRequest':
-        encrypted_mockau_traceparent = request.headers.get(
-            X_MOCKAU_TRACEPARENT_HEADER, generate_encrypted_traceparent_token()
-        )
+        mockau_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, generate_traceparent_token())
 
         httpx_url = httpx.URL(str(request.url))
         return cls(
@@ -103,7 +90,7 @@ class HttpRequest(BaseSchema):
                 content=request.state.body,
                 content_type=request.headers.get('content-type', ''),
             ),
-            mockau_traceparent=decrypt_traceparent_token(encrypted_mockau_traceparent),
+            mockau_traceparent=mockau_traceparent,
         )
 
     async def send(self, client: httpx.AsyncClient) -> HttpResponse:

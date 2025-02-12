@@ -18,7 +18,9 @@ class HttpEventType(Enum):
     HTTP_SEND_REQUEST_POOL_TIMEOUT = 'http_send_request_pool_timeout'
     HTTP_SEND_REQUEST_WRITE_TIMEOUT = 'http_send_request_write_timeout'
 
-    HTTP_REQUEST_RESPONSE_VIEW = 'http_request_response_view'
+    HTTP_EXTERNAL_REQUEST_RESPONSE_VIEW = 'http_external_request_response_view'
+    HTTP_INTERNAL_REQUEST_RESPONSE_VIEW = 'http_internal_request_response_view'
+
     HTTP_ACTION_NOT_MATCHED_VIEW = 'http_action_not_matched_view'
 
 

@@ -12,7 +12,7 @@ from schemas.http_request_override.http_parts import (
     HttpRequestOverrideSocketAddress,
 )
 from schemas.undefined_schema import UndefinedSchema
-from utils.traceparent import decrypt_traceparent_token, generate_encrypted_traceparent_token
+from utils.traceparent import generate_traceparent_token
 
 
 class HttpRequestOverride(BaseSchema):
@@ -31,8 +31,8 @@ class HttpRequestOverride(BaseSchema):
             for k, v in self.headers.model_dump(mode='json').items():
                 setattr(headers, k, v)
 
-        encrypted_mockau_traceparent_token = generate_encrypted_traceparent_token(original_request.mockau_traceparent)
-        setattr(headers, X_MOCKAU_TRACEPARENT_HEADER, [encrypted_mockau_traceparent_token])
+        mockau_traceparent_token = generate_traceparent_token(original_request.mockau_traceparent)
+        setattr(headers, X_MOCKAU_TRACEPARENT_HEADER, [mockau_traceparent_token])
 
         if self.socket_address:
             if self.socket_address.port == UndefinedSchema():
@@ -62,7 +62,7 @@ class HttpRequestOverride(BaseSchema):
         if self.remove_from_path:
             path = path.replace(self.remove_from_path, '')
         return HttpRequest(
-            mockau_traceparent=decrypt_traceparent_token(encrypted_mockau_traceparent_token),
+            mockau_traceparent=mockau_traceparent_token,
             socket_address=socket_address,
             path=path,
             query_params=(self.query_params if self.query_params is not None else original_request.query_params),

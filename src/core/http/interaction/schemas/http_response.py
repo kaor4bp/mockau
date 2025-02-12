@@ -12,7 +12,6 @@ from core.http.interaction.schemas.http_headers import HttpHeaders
 from core.http.interaction.schemas.http_query_param import HttpQueryParam
 from core.http.interaction.schemas.http_socket_address import HttpSocketAddress
 from core.http.interaction.types import t_Content
-from utils.traceparent import decrypt_traceparent_token
 
 
 class HttpResponse(BaseSchema):
@@ -30,9 +29,7 @@ class HttpResponse(BaseSchema):
 
     @property
     def mockau_traceparent(self) -> str | None:
-        encrypted_mockau_traceparent = getattr(self.headers, X_MOCKAU_TRACEPARENT_HEADER, None)
-        if encrypted_mockau_traceparent:
-            return decrypt_traceparent_token(encrypted_mockau_traceparent)
+        return getattr(self.headers, X_MOCKAU_TRACEPARENT_HEADER, None)
 
     @property
     def full_url(self) -> httpx.URL:

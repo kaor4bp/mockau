@@ -147,21 +147,24 @@ class HttpEventsHandler:
             ),
         )
 
-        if self.inbound_http_request.is_external:
-            lazy_event = HttpRequestResponseViewEventModel(
-                event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value,
-                http_request=self.inbound_http_request,
-                http_response=http_response,
-                mockau_traceparent=self.inbound_http_request.mockau_traceparent,
-                traceparent=self.inbound_http_request.traceparent,
-                elapsed=time.monotonic() - self.time_start,
-                processing_time=time.monotonic() - self.time_start - http_response.elapsed,
-            )
-            lazy_event_doc = HttpRequestResponseViewEventDocument.from_model(lazy_event)
-            self.background_tasks.add_task(
-                lazy_event_doc.save,
-                using=self.app.state.background_clients.elasticsearch_client,
-            )
+        lazy_event = HttpRequestResponseViewEventModel(
+            event=(
+                HttpEventType.HTTP_EXTERNAL_REQUEST_RESPONSE_VIEW.value
+                if self.inbound_http_request.is_external
+                else HttpEventType.HTTP_INTERNAL_REQUEST_RESPONSE_VIEW.value
+            ),
+            http_request=self.inbound_http_request,
+            http_response=http_response,
+            mockau_traceparent=self.inbound_http_request.mockau_traceparent,
+            traceparent=self.inbound_http_request.traceparent,
+            elapsed=time.monotonic() - self.time_start,
+            processing_time=time.monotonic() - self.time_start - http_response.elapsed,
+        )
+        lazy_event_doc = HttpRequestResponseViewEventDocument.from_model(lazy_event)
+        self.background_tasks.add_task(
+            lazy_event_doc.save,
+            using=self.app.state.background_clients.elasticsearch_client,
+        )
 
     async def on_action_mismatched_event(self, action: t_HttpActionModel, description: str):
         lazy_event = HttpRequestActionNotMatchedViewEventModel(
