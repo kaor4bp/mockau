@@ -70,6 +70,8 @@ class HttpProcessorPipeline:
             await self.events_handler.on_actions_mismatched()
             await self.events_handler.submit()
 
+        await self.events_handler.on_request_response_view_event(self.http_request, response)
+
         return response
 
     async def get_all_actions(self) -> AsyncGenerator[t_HttpActionModel, None]:

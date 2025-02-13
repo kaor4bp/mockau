@@ -71,25 +71,7 @@ class IntegerMatcher(SetVariableMatcher):
 
     @variables_context_transaction
     def is_matched(self, value: int, *, context: VariablesContext) -> bool:
-        if self.equal_to is not None and self.equal_to != value:
-            return False
-        if self.gte is not None and value < self.gte:
-            return False
-        if self.gt is not None and value <= self.gt:
-            return False
-        if self.lte is not None and value > self.lte:
-            return False
-        if self.lt is not None and value >= self.lt:
-            return False
-        if self.and_ and any(not item.is_matched(value, context=context) for item in self.and_):
-            return False
-        if self.or_ and all(not item.is_matched(value, context=context) for item in self.or_):
-            return False
-        if self.not_ and self.not_.is_matched(value, context=context):
-            return False
-        if self.set_variable is not None and not self.is_variable_matched(value, context=context):
-            return False
-        return True
+        return self.to_plain_matcher(context=context).is_matched(value)
 
 
 t_IntegerMatcher = IntegerMatcher

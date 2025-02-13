@@ -12,9 +12,11 @@ from admin.schemas import (
     HttpRequestResponseViewTimestampPaginatedResponse,
 )
 from core.http.actions.types import t_HttpAction
+from core.http.interaction.schemas.http_content import get_data_file_path_by_id
 from core.http.matchers.http_request_matcher import HttpRequestMatcher
 from mockau_fastapi import MockauFastAPI
 from schemas.variables import VariablesContext, VariablesGroup
+from utils.compression import detect_and_decompress
 
 admin_router = APIRouter(prefix='/mockau/admin', tags=['Admin'])
 admin_debug_router = APIRouter(prefix='/mockau/admin', tags=['Admin Debug'])
@@ -84,6 +86,24 @@ async def create_actions(body: list[t_HttpAction], request: Request):
     return Response(
         content=CreateActionResponse(id=action_schema.id).to_json(),
         media_type='application/json',
+        status_code=200,
+    )
+
+
+@admin_router.post(
+    '/get_content/{file_id}/',
+)
+async def get_content(file_id, decompress: bool = True):
+    file_path = get_data_file_path_by_id(file_id)
+
+    with open(file_path, 'rb') as f:
+        content = f.read()
+
+    if decompress:
+        _, content = detect_and_decompress(content)
+
+    return Response(
+        content=content,
         status_code=200,
     )
 

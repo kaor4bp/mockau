@@ -42,6 +42,17 @@ class ObjectPlainMatcher(BaseObjectPlainMatcher):
     obj: dict
     obj_name: str | None = 'default'
 
+    def is_matched(self, value) -> bool:
+        found_keys = []
+        for key, value in value.items():
+            for matcher_key, matcher_value in self.obj.items():
+                if isinstance(matcher_key, str):
+                    matcher_key = StringEqualTo(value=matcher_key)
+                if matcher_key.is_matched(key) and matcher_value.is_matched(value):
+                    found_keys.append(matcher_key)
+
+        return len(found_keys) == len(self.obj.keys())
+
     def is_subset_of(self, other):
         assert isinstance(other, BaseObjectPlainMatcher)
 

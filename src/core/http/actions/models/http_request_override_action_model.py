@@ -32,6 +32,7 @@ class HttpRequestOverrideActionModel(BaseHttpActionModel):
                 await events_handler.on_send_request_write_error(new_request)
 
             await events_handler.on_response_received(new_request.mockau_traceparent, response)
+            await events_handler.on_request_response_view_event(new_request, response)
 
             if (
                 client_settings.follow_redirects is FollowRedirectsMode.FOLLOWED_BY_MOCK

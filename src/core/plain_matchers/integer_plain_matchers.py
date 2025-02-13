@@ -20,6 +20,9 @@ class IntegerEqualTo(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerEqualTo'] = 'IntegerEqualTo'
     value: int
 
+    def is_matched(self, value: int) -> bool:
+        return self.value == value
+
     def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)
 
@@ -41,6 +44,9 @@ class IntegerGreaterThan(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerGreaterThan'] = 'IntegerGreaterThan'
     value: int
 
+    def is_matched(self, value: int) -> bool:
+        return self.value > value
+
     def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)
 
@@ -59,6 +65,9 @@ class IntegerGreaterThan(BaseIntegerPlainMatcher):
 class IntegerGreaterOrEqualThan(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerGreaterOrEqualThan'] = 'IntegerGreaterOrEqualThan'
     value: int
+
+    def is_matched(self, value: int) -> bool:
+        return self.value >= value
 
     def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)
@@ -79,6 +88,9 @@ class IntegerLessThan(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerLessThan'] = 'IntegerLessThan'
     value: int
 
+    def is_matched(self, value: int) -> bool:
+        return self.value < value
+
     def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)
 
@@ -97,6 +109,9 @@ class IntegerLessThan(BaseIntegerPlainMatcher):
 class IntegerLessOrEqualThan(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerLessOrEqualThan'] = 'IntegerLessOrEqualThan'
     value: int
+
+    def is_matched(self, value: int) -> bool:
+        return self.value <= value
 
     def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)

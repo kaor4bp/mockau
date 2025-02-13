@@ -10,6 +10,10 @@ class BasePlainMatcher(BaseSchema):
         return self.model_dump_json().__hash__()
 
     @abstractmethod
+    def is_matched(self, value) -> bool:
+        pass
+
+    @abstractmethod
     def is_intersected_with(self, other):
         pass
 
@@ -46,6 +50,9 @@ _t_PlainMatcher = TypeVar('_t_PlainMatcher', bound=BasePlainMatcher)
 
 
 class BaseAnyPlainMatcher(BasePlainMatcher):
+    def is_matched(self, value) -> bool:
+        return True
+
     def is_intersected_with(self, other):
         return True
 
@@ -56,6 +63,9 @@ class BaseAnyPlainMatcher(BasePlainMatcher):
 class BaseNotPlainMatcher(BasePlainMatcher, Generic[_t_PlainMatcher]):
     matcher: _t_PlainMatcher
 
+    def is_matched(self, value) -> bool:
+        return not self.matcher.is_matched(value)
+
     def is_intersected_with(self, other):
         return not self.matcher.is_intersected_with(other)
 
@@ -65,6 +75,13 @@ class BaseNotPlainMatcher(BasePlainMatcher, Generic[_t_PlainMatcher]):
 
 class BaseAndPlainMatcher(BasePlainMatcher, Generic[_t_PlainMatcher]):
     matchers: list[_t_PlainMatcher]
+
+    def is_matched(self, value) -> bool:
+        for matcher in self.matchers:
+            if not matcher.is_matched(value):
+                return False
+        else:
+            return True
 
     def is_subset_of(self, other):
         if isinstance(other, BaseAndPlainMatcher):
@@ -113,6 +130,13 @@ class BaseAndPlainMatcher(BasePlainMatcher, Generic[_t_PlainMatcher]):
 
 class BaseOrPlainMatcher(BasePlainMatcher, Generic[_t_PlainMatcher]):
     matchers: list[_t_PlainMatcher]
+
+    def is_matched(self, value) -> bool:
+        for matcher in self.matchers:
+            if matcher.is_matched(value):
+                return True
+        else:
+            return False
 
     def is_subset_of(self, other):
         if isinstance(other, BaseOrPlainMatcher):

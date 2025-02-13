@@ -47,6 +47,12 @@ class StringEqualTo(BaseStringPlainMatcher):
     value: str
     ignore_case: bool = False
 
+    def is_matched(self, value: str) -> bool:
+        if self.ignore_case:
+            return value.lower() == self.value.lower()
+        else:
+            return value == self.value
+
     def is_subset_of(self, other):
         assert isinstance(other, BaseStringPlainMatcher)
 
@@ -94,6 +100,12 @@ class StringPattern(BaseStringPlainMatcher):
     type_of: Literal['StringPattern'] = 'StringPattern'
     pattern: str
     ignore_case: bool = False
+
+    def is_matched(self, value: str) -> bool:
+        if self.ignore_case:
+            return bool(re.fullmatch(self.pattern.lower(), value, re.IGNORECASE))
+        else:
+            return bool(re.fullmatch(self.pattern, value))
 
     @cached_property
     def pattern_dfa(self) -> EpsilonNFA:
@@ -163,6 +175,12 @@ class StringContains(BaseStringPlainMatcher):
     type_of: Literal['StringContains'] = 'StringContains'
     value: str
     ignore_case: bool = False
+
+    def is_matched(self, value: str) -> bool:
+        if self.ignore_case:
+            return self.value.lower() in value.lower()
+        else:
+            return self.value in value
 
     @cached_property
     def pattern_dfa(self):
