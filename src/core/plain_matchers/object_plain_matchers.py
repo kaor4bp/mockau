@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Union
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from core.plain_matchers.base_plain_matcher import (
     BaseAndPlainMatcher,
@@ -36,40 +36,79 @@ class BaseObjectPlainMatcher(BasePlainMatcher):
 
 
 class ObjectPlainMatcher(BaseObjectPlainMatcher):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     type_of: Literal['ObjectPlainMatcher'] = 'ObjectPlainMatcher'
-    obj: dict[str, '_t_PlainMatcher']
-    obj_name: str
+    obj: dict
+    obj_name: str | None = 'default'
 
-    def is_subset(self, other):
+    def is_subset_of(self, other):
         assert isinstance(other, BaseObjectPlainMatcher)
 
         if isinstance(other, ObjectPlainMatcher):
             assert self.obj_name == other.obj_name
 
-            for key in other.obj.keys():
-                if key not in self.obj.keys():
+            banned_self_keys = []
+            for other_key in other.obj.keys():
+                is_success = False
+                for self_key in self.obj.keys():
+                    if self_key in banned_self_keys:
+                        continue
+
+                    if isinstance(other_key, str):
+                        matcher_other_key = StringEqualTo(value=other_key)
+                    else:
+                        matcher_other_key = other_key
+                    if isinstance(self_key, str):
+                        matcher_self_key = StringEqualTo(value=self_key)
+                    else:
+                        matcher_self_key = self_key
+
+                    if matcher_self_key.is_subset_of(matcher_other_key):
+                        if self.obj[self_key].is_subset_of(other.obj[other_key]):
+                            banned_self_keys.append(self_key)
+                            is_success = True
+                            break
+                        else:
+                            is_success = False
+
+                if not is_success:
                     return False
-                if not self.obj[key].is_subset(other.obj[key]):
-                    return False
+
             return True
         else:
-            return other.is_subset(self)
+            return other.is_subset_of(self)
 
-    def is_intersected(self, other):
+    def is_intersected_with(self, other):
         assert isinstance(other, BaseObjectPlainMatcher)
 
         if isinstance(other, ObjectPlainMatcher):
             assert self.obj_name == other.obj_name
 
-            self_keys = set(self.obj.keys())
-            other_keys = set(other.obj.keys())
+            banned_other_keys = []
+            for self_key in self.obj.keys():
+                for other_key in other.obj.keys():
+                    if other_key in banned_other_keys:
+                        continue
 
-            for key in self_keys.intersection(other_keys):
-                if not self.obj[key].is_intersected(other.obj[key]):
-                    return False
+                    if isinstance(self_key, str):
+                        matcher_self_key = StringEqualTo(value=self_key)
+                    else:
+                        matcher_self_key = self_key
+                    if isinstance(other_key, str):
+                        matcher_other_key = StringEqualTo(value=other_key)
+                    else:
+                        matcher_other_key = other_key
+                    if matcher_self_key.is_intersected_with(matcher_other_key):
+                        if self.obj[self_key].is_intersected_with(other.obj[other_key]):
+                            banned_other_keys.append(other_key)
+                            break
+                        else:
+                            return False
+
             return True
         else:
-            return other.is_intersected(self)
+            return other.is_intersected_with(self)
 
 
 class ObjectAny(BaseObjectPlainMatcher, BaseAnyPlainMatcher):

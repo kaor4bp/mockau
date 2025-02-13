@@ -32,5 +32,5 @@ def verify_http_actions_consistency(actions: list[t_HttpActionModel]) -> None:
             print(f'        - HttpAction {action.id}')
 
             action_plain_matcher = action_plain_matchers_mapping[action.id]
-            if action_plain_matcher.is_subset(verified_action_plain_matcher):
+            if action_plain_matcher.is_subset_of(verified_action_plain_matcher):
                 raise AssertionError(f'Action {action.id} is subset of {verified_action.id}')

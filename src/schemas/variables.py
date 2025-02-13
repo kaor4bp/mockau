@@ -51,6 +51,11 @@ class VariablesContext:
             self._variables[variable_name] = value
             return True
 
+    def apply_variables(self, text: str) -> str:
+        for var_name, var_value in self._variables.items():
+            text = text.replace(var_name, str(var_value))
+        return text
+
 
 def variables_context_transaction(fn):
     def wrapper(*args, context: VariablesContext, **kwargs):

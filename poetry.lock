@@ -752,6 +752,17 @@ async = ["elasticsearch[async] (>=8.0.0,<9.0.0)"]
 develop = ["coverage", "elasticsearch[async]", "jinja2", "mypy", "nltk", "pyright", "pytest", "pytest-asyncio", "pytest-cov", "pytest-mock", "pytz", "sentence-transformers", "sphinx (>2)", "sphinx-rtd-theme (>0.5)", "tqdm", "types-python-dateutil", "types-pytz", "types-tqdm", "unasync"]
 
 [[package]]
+name = "exrex"
+version = "0.12.0"
+description = "Irregular methods for regular expressions"
+optional = false
+python-versions = "*"
+files = [
+    {file = "exrex-0.12.0-py3-none-any.whl", hash = "sha256:1228f2e3afb008cacf6adc3ec20b098f1303886f4382b57cdf3b7259fb7c0ad3"},
+    {file = "exrex-0.12.0.tar.gz", hash = "sha256:3f582add0700d4141e279625252e7a0655f9ad81feab3b8ab9077966668a2c99"},
+]
+
+[[package]]
 name = "faker"
 version = "35.2.0"
 description = "Faker is a Python package that generates fake data for you."
@@ -2333,4 +2344,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "3.12.3"
-content-hash = "cc3aeaca5d313a53c6a09a47ebfd0cde90932c9e2f7493439841d32a63780fc8"
+content-hash = "4d7a5e63f391fb7c5fba46304550e195fadaa8ea26b3da3d841f877724a4f089"

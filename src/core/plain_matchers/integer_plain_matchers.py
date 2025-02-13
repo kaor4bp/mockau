@@ -12,15 +12,15 @@ from core.plain_matchers.base_plain_matcher import (
 
 
 class BaseIntegerPlainMatcher(BasePlainMatcher):
-    def is_subset(self, other):
-        return self.is_intersected(other)
+    def is_subset_of(self, other):
+        return self.is_intersected_with(other)
 
 
 class IntegerEqualTo(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerEqualTo'] = 'IntegerEqualTo'
     value: int
 
-    def is_intersected(self, other):
+    def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerEqualTo):
@@ -34,14 +34,14 @@ class IntegerEqualTo(BaseIntegerPlainMatcher):
         elif isinstance(other, IntegerLessThan):
             return self.value < other.value
         else:
-            return other.is_intersected(self)
+            return other.is_intersected_with(self)
 
 
 class IntegerGreaterThan(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerGreaterThan'] = 'IntegerGreaterThan'
     value: int
 
-    def is_intersected(self, other):
+    def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerGreaterThan):
@@ -53,14 +53,14 @@ class IntegerGreaterThan(BaseIntegerPlainMatcher):
         elif isinstance(other, IntegerLessOrEqualThan):
             return self.value <= other.value
         else:
-            return other.is_intersected(self)
+            return other.is_intersected_with(self)
 
 
 class IntegerGreaterOrEqualThan(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerGreaterOrEqualThan'] = 'IntegerGreaterOrEqualThan'
     value: int
 
-    def is_intersected(self, other):
+    def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerGreaterThan):
@@ -72,14 +72,14 @@ class IntegerGreaterOrEqualThan(BaseIntegerPlainMatcher):
         elif isinstance(other, IntegerLessOrEqualThan):
             return self.value <= other.value
         else:
-            return other.is_intersected(self)
+            return other.is_intersected_with(self)
 
 
 class IntegerLessThan(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerLessThan'] = 'IntegerLessThan'
     value: int
 
-    def is_intersected(self, other):
+    def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerGreaterThan):
@@ -91,14 +91,14 @@ class IntegerLessThan(BaseIntegerPlainMatcher):
         elif isinstance(other, IntegerLessOrEqualThan):
             return True
         else:
-            return other.is_intersected(self)
+            return other.is_intersected_with(self)
 
 
 class IntegerLessOrEqualThan(BaseIntegerPlainMatcher):
     type_of: Literal['IntegerLessOrEqualThan'] = 'IntegerLessOrEqualThan'
     value: int
 
-    def is_intersected(self, other):
+    def is_intersected_with(self, other):
         assert isinstance(other, BaseIntegerPlainMatcher)
 
         if isinstance(other, IntegerGreaterThan):
@@ -110,7 +110,7 @@ class IntegerLessOrEqualThan(BaseIntegerPlainMatcher):
         elif isinstance(other, IntegerLessOrEqualThan):
             return True
         else:
-            return other.is_intersected(self)
+            return other.is_intersected_with(self)
 
 
 class IntegerAny(BaseIntegerPlainMatcher, BaseAnyPlainMatcher):

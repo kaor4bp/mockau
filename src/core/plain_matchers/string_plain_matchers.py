@@ -2,7 +2,9 @@ import re
 from functools import cached_property
 from typing import Annotated, Literal, Union
 
+import exrex
 from pydantic import Field
+from pyformlang.finite_automaton import EpsilonNFA
 from pyformlang.regular_expression import PythonRegex
 
 from core.plain_matchers.base_plain_matcher import (
@@ -14,76 +16,201 @@ from core.plain_matchers.base_plain_matcher import (
 )
 
 
+def is_pattern_equal_to_string(value: str, pattern: str) -> bool:
+    return all(value == generated_value for generated_value in exrex.generate(pattern))
+
+
 class BaseStringPlainMatcher(BasePlainMatcher):
-    def is_subset(self, other):
-        return self.is_intersected(other)
+    def is_subset_of(self, other):
+        if isinstance(other, StringAny):
+            return True
+        elif isinstance(other, StringNot):
+            return not self.is_subset_of(other.matcher)
+        elif isinstance(other, StringAnd):
+            for matcher in other.matchers:
+                if not self.is_subset_of(matcher):
+                    return False
+            else:
+                return True
+        elif isinstance(other, StringOr):
+            for matcher in other.matchers:
+                if self.is_subset_of(matcher):
+                    return True
+            else:
+                return False
+        else:
+            raise AssertionError('Unsupported')
 
 
 class StringEqualTo(BaseStringPlainMatcher):
     type_of: Literal['StringEqualTo'] = 'StringEqualTo'
     value: str
+    ignore_case: bool = False
 
-    def is_intersected(self, other):
+    def is_subset_of(self, other):
         assert isinstance(other, BaseStringPlainMatcher)
 
         if isinstance(other, StringEqualTo):
-            return self.value == other.value
+            if other.ignore_case:
+                return self.value.lower() == other.value.lower()
+            else:
+                return self.value == other.value
         elif isinstance(other, StringContains):
-            return bool(other.value in self.value)
+            if other.ignore_case:
+                return bool(other.value.lower() in self.value.lower())
+            else:
+                return bool(other.value in self.value)
         elif isinstance(other, StringPattern):
-            return bool(re.fullmatch(other.pattern, self.value))
+            if other.ignore_case:
+                return bool(re.fullmatch(other.pattern.lower(), self.value, re.IGNORECASE))
+            else:
+                return bool(re.fullmatch(other.pattern, self.value))
         else:
-            return other.is_intersected(self)
+            return super().is_subset_of(other)
+
+    def is_intersected_with(self, other):
+        assert isinstance(other, BaseStringPlainMatcher)
+
+        if isinstance(other, StringEqualTo):
+            if self.ignore_case or other.ignore_case:
+                return self.value.lower() == other.value.lower()
+            else:
+                return self.value == other.value
+        elif isinstance(other, StringContains):
+            if self.ignore_case or other.ignore_case:
+                return bool(other.value.lower() in self.value.lower())
+            else:
+                return bool(other.value in self.value)
+        elif isinstance(other, StringPattern):
+            if self.ignore_case or other.ignore_case:
+                return bool(re.fullmatch(other.pattern.lower(), self.value, re.IGNORECASE))
+            else:
+                return bool(re.fullmatch(other.pattern, self.value))
+        else:
+            return other.is_intersected_with(self)
 
 
 class StringPattern(BaseStringPlainMatcher):
     type_of: Literal['StringPattern'] = 'StringPattern'
     pattern: str
+    ignore_case: bool = False
 
     @cached_property
-    def pattern_dfa(self):
+    def pattern_dfa(self) -> EpsilonNFA:
         return PythonRegex(self.pattern).to_epsilon_nfa().minimize()
 
-    def is_intersected(self, other):
+    @cached_property
+    def case_insensitive_pattern_dfa(self):
+        return PythonRegex(self.pattern.lower()).to_epsilon_nfa().minimize()
+
+    def is_subset_of(self, other):
         assert isinstance(other, BaseStringPlainMatcher)
 
         if isinstance(other, StringEqualTo):
-            return re.fullmatch(self.pattern, other.value)
+            if other.ignore_case:
+                return bool(
+                    re.fullmatch(self.pattern.lower(), other.value, re.IGNORECASE)
+                    and is_pattern_equal_to_string(other.value, self.pattern)
+                )
+            else:
+                return bool(
+                    re.fullmatch(self.pattern, other.value) and is_pattern_equal_to_string(self.pattern, other.value)
+                )
         elif isinstance(other, StringPattern):
-            intersection_1 = self.pattern_dfa.get_intersection(other.pattern_dfa)
-            intersection_2 = other.pattern_dfa.get_intersection(self.pattern_dfa)
+            if other.ignore_case:
+                difference = self.case_insensitive_pattern_dfa.get_difference(other.case_insensitive_pattern_dfa)
+            else:
+                difference = self.pattern_dfa.get_difference(other.pattern_dfa)
+            return bool(difference.is_empty())
+        elif isinstance(other, StringContains):
+            if other.ignore_case:
+                difference = self.case_insensitive_pattern_dfa.get_difference(other.case_insensitive_pattern_dfa)
+            else:
+                difference = self.pattern_dfa.get_difference(other.pattern_dfa)
+            return bool(difference.is_empty())
+        else:
+            return super().is_subset_of(other)
+
+    def is_intersected_with(self, other):
+        assert isinstance(other, BaseStringPlainMatcher)
+
+        if isinstance(other, StringEqualTo):
+            if self.ignore_case or other.ignore_case:
+                return bool(re.fullmatch(self.pattern.lower(), other.value, re.IGNORECASE))
+            else:
+                return bool(re.fullmatch(self.pattern, other.value))
+        elif isinstance(other, StringPattern):
+            if self.ignore_case or other.ignore_case:
+                intersection_1 = self.case_insensitive_pattern_dfa.get_intersection(other.case_insensitive_pattern_dfa)
+                intersection_2 = other.case_insensitive_pattern_dfa.get_intersection(self.case_insensitive_pattern_dfa)
+            else:
+                intersection_1 = self.pattern_dfa.get_intersection(other.pattern_dfa)
+                intersection_2 = other.pattern_dfa.get_intersection(self.pattern_dfa)
             return bool(not intersection_1.is_empty() or not intersection_2.is_empty())
         elif isinstance(other, StringContains):
-            regex1_dfa = PythonRegex(self.pattern).to_epsilon_nfa().minimize()
-            regex2_dfa = PythonRegex(f'.*{other.value}.*').to_epsilon_nfa().minimize()
-            intersection_1 = regex1_dfa.get_intersection(regex2_dfa)
-            intersection_2 = regex2_dfa.get_intersection(regex1_dfa)
+            if self.ignore_case or other.ignore_case:
+                intersection_1 = self.case_insensitive_pattern_dfa.get_intersection(other.case_insensitive_pattern_dfa)
+                intersection_2 = other.case_insensitive_pattern_dfa.get_intersection(self.case_insensitive_pattern_dfa)
+            else:
+                intersection_1 = self.pattern_dfa.get_intersection(other.pattern_dfa)
+                intersection_2 = other.pattern_dfa.get_intersection(self.pattern_dfa)
             return bool(not intersection_1.is_empty() or not intersection_2.is_empty())
         else:
-            return other.is_intersected(self)
+            return other.is_intersected_with(self)
 
 
 class StringContains(BaseStringPlainMatcher):
     type_of: Literal['StringContains'] = 'StringContains'
     value: str
+    ignore_case: bool = False
 
     @cached_property
     def pattern_dfa(self):
         return PythonRegex(f'.*{self.value}.*').to_epsilon_nfa().minimize()
 
-    def is_intersected(self, other):
+    @cached_property
+    def case_insensitive_pattern_dfa(self):
+        return PythonRegex(f'.*{self.value.lower()}.*').to_epsilon_nfa().minimize()
+
+    def is_subset_of(self, other):
         assert isinstance(other, BaseStringPlainMatcher)
 
         if isinstance(other, StringEqualTo):
-            return self.value in other.value
+            return False
         elif isinstance(other, StringPattern):
-            intersection_1 = self.pattern_dfa.get_intersection(other.pattern_dfa)
-            intersection_2 = other.pattern_dfa.get_intersection(self.pattern_dfa)
+            if other.ignore_case:
+                intersection = self.case_insensitive_pattern_dfa.get_intersection(other.case_insensitive_pattern_dfa)
+            else:
+                intersection = self.pattern_dfa.get_intersection(other.pattern_dfa)
+            return bool(not intersection.is_empty())
+        elif isinstance(other, StringContains):
+            if other.ignore_case:
+                return self.value.lower() == other.value.lower()
+            else:
+                return self.value == other.value
+        else:
+            return super().is_subset_of(other)
+
+    def is_intersected_with(self, other):
+        assert isinstance(other, BaseStringPlainMatcher)
+
+        if isinstance(other, StringEqualTo):
+            if self.ignore_case or other.ignore_case:
+                return self.value.lower() in other.value.lower()
+            else:
+                return self.value in other.value
+        elif isinstance(other, StringPattern):
+            if self.ignore_case or other.ignore_case:
+                intersection_1 = self.case_insensitive_pattern_dfa.get_intersection(other.case_insensitive_pattern_dfa)
+                intersection_2 = other.case_insensitive_pattern_dfa.get_intersection(self.case_insensitive_pattern_dfa)
+            else:
+                intersection_1 = self.pattern_dfa.get_intersection(other.pattern_dfa)
+                intersection_2 = other.pattern_dfa.get_intersection(self.pattern_dfa)
             return bool(not intersection_1.is_empty() or not intersection_2.is_empty())
         elif isinstance(other, StringContains):
             return True
         else:
-            return other.is_intersected(self)
+            return other.is_intersected_with(self)
 
 
 class StringAny(BaseStringPlainMatcher, BaseAnyPlainMatcher):
