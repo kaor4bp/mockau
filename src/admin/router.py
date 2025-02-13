@@ -96,6 +96,9 @@ async def create_actions(body: list[t_HttpAction], request: Request):
 async def get_content(file_id, decompress: bool = True):
     file_path = get_data_file_path_by_id(file_id)
 
+    if not file_path.exists():
+        return JSONResponse(content={'error': 'not found'}, status_code=404)
+
     with open(file_path, 'rb') as f:
         content = f.read()
 
