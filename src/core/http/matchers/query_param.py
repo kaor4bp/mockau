@@ -3,8 +3,9 @@ from pydantic import Field
 from core.http.interaction.schemas import HttpQueryParam
 from core.matchers.abstract_matcher import AbstractMatcher
 from core.matchers.string_matcher import t_StringMatcher
-from core.plain_matchers.object_plain_matchers import ObjectAnd, ObjectOr, ObjectPlainMatcher
-from core.plain_matchers.types import t_PlainMatcher
+from core.predicates.base_predicate import t_Predicate
+from core.predicates.collections.object_predicates import ObjectEqualTo
+from core.predicates.logical.logical_predicates import AndPredicate, OrPredicate
 from schemas.variables import VariablesContext, variables_context_transaction
 
 
@@ -25,21 +26,18 @@ class QueryParamItemMatcher(AbstractMatcher):
         else:
             return False
 
-    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
-        object_plain_matcher = {'key': self.key.to_plain_matcher(context=context)}
+    def to_predicate(self, *, context: VariablesContext) -> t_Predicate:
+        object_plain_matcher = {'key': self.key.to_predicate(context=context)}
         if self.value:
-            object_plain_matcher['value'] = self.value.to_plain_matcher(context=context)
-        return ObjectPlainMatcher(
-            obj=object_plain_matcher,
-            obj_name=f'{self.__class__.__module__}#{self.__class__.__name__}',
-        )
+            object_plain_matcher['value'] = self.value.to_predicate(context=context)
+        return ObjectEqualTo(value=object_plain_matcher)
 
 
 class QueryParamAndMatcher(AbstractMatcher):
     all_of: list['t_QueryParamMatcherContainer']
 
-    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
-        return ObjectAnd(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.all_of])
+    def to_predicate(self, *, context: VariablesContext) -> t_Predicate:
+        return AndPredicate(predicates=[matcher.to_predicate(context=context) for matcher in self.all_of])
 
     @variables_context_transaction
     def is_matched(self, value, *, context: VariablesContext) -> bool:
@@ -52,8 +50,8 @@ class QueryParamAndMatcher(AbstractMatcher):
 class QueryParamOrMatcher(AbstractMatcher):
     any_of: list['t_QueryParamMatcherContainer']
 
-    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
-        return ObjectOr(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.any_of])
+    def to_predicate(self, *, context: VariablesContext) -> t_Predicate:
+        return OrPredicate(predicates=[matcher.to_predicate(context=context) for matcher in self.any_of])
 
     @variables_context_transaction
     def is_matched(self, value, *, context: VariablesContext) -> bool:

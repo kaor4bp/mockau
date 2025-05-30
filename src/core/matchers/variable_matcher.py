@@ -3,8 +3,9 @@ import re
 from pydantic import Field
 
 from core.matchers.abstract_matcher import AbstractMatcher
-from core.plain_matchers.string_plain_matchers import StringAny, StringPattern
-from core.plain_matchers.types import t_PlainMatcher
+from core.predicates.base_predicate import t_Predicate
+from core.predicates.logical.logical_predicates import AnyPredicate
+from core.predicates.scalars import StringPattern
 from schemas.variables import VariablesContext, variables_context_transaction
 from utils.string_utils import split_string
 
@@ -12,11 +13,14 @@ from utils.string_utils import split_string
 class SetVariableMatcher(AbstractMatcher):
     set_variable: str | None = Field(default=None, examples=['/some/path/${variable_1}/.*'])
 
-    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
+    def __hash__(self):
+        return self.model_dump_json().__hash__()
+
+    def to_predicate(self, *, context: VariablesContext) -> t_Predicate:
         variable_names = re.findall(r'\${\w+}', self.set_variable)
 
         if not variable_names:
-            return StringAny()
+            return AnyPredicate()
 
         pattern = self.set_variable
         for variable_name in variable_names:

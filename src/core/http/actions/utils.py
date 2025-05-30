@@ -11,9 +11,7 @@ def verify_http_actions_consistency(actions: list[t_HttpActionModel]) -> None:
         return
 
     action_plain_matchers_mapping = {
-        action.id: action.http_request.to_plain_matcher(
-            context=VariablesContext(variables_group=action.variables_group)
-        )
+        action.id: action.http_request.to_predicate(context=VariablesContext(variables_group=action.variables_group))
         for action in actions
     }
 

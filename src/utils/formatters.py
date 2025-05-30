@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 MAX_BODY_SIZE_BYTES = 100 * 1024
 
@@ -22,3 +23,7 @@ def format_bytes_size_to_human_readable(size_bytes: int, force_sign: bool = Fals
     s = round(size_bytes / p, 2)
 
     return f'{sign}{s} {size_name[i]}'
+
+
+def get_params_argv(params: dict[str, Any]):
+    return {'argvalues': list(params.values()), 'ids': list(params.keys())}

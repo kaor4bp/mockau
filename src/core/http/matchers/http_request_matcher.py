@@ -9,8 +9,8 @@ from core.http.matchers.query_param import t_QueryParamMatcherContainer
 from core.http.matchers.socket_address import SocketAddressMatcher
 from core.matchers.abstract_matcher import AbstractMatcher
 from core.matchers.string_matcher import t_StringMatcher
-from core.plain_matchers.object_plain_matchers import ObjectPlainMatcher
-from core.plain_matchers.types import t_PlainMatcher
+from core.predicates.base_predicate import t_Predicate
+from core.predicates.collections.object_predicates import ObjectEqualTo
 from schemas.variables import VariablesContext, variables_context_transaction
 
 
@@ -28,22 +28,19 @@ class HttpRequestMatcher(AbstractMatcher):
 
     # body: Optional[t_Content] = Field(discriminator='type_of')
 
-    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
+    def to_predicate(self, *, context: VariablesContext) -> t_Predicate:
         object_plain_matcher = {}
         if self.path:
-            object_plain_matcher['path'] = self.path.to_plain_matcher(context=context)
+            object_plain_matcher['path'] = self.path.to_predicate(context=context)
         if self.query_params:
-            object_plain_matcher['query_params'] = self.query_params.to_plain_matcher(context=context)
+            object_plain_matcher['query_params'] = self.query_params.to_predicate(context=context)
         if self.socket_address:
-            object_plain_matcher['socket_address'] = self.socket_address.to_plain_matcher(context=context)
+            object_plain_matcher['socket_address'] = self.socket_address.to_predicate(context=context)
         if self.method:
-            object_plain_matcher['method'] = self.method.to_plain_matcher(context=context)
+            object_plain_matcher['method'] = self.method.to_predicate(context=context)
         if self.headers:
-            object_plain_matcher['headers'] = self.headers.to_plain_matcher(context=context)
-        return ObjectPlainMatcher(
-            obj=object_plain_matcher,
-            obj_name=f'{self.__class__.__module__}#{self.__class__.__name__}',
-        )
+            object_plain_matcher['headers'] = self.headers.to_predicate(context=context)
+        return ObjectEqualTo(value=object_plain_matcher)
 
     @variables_context_transaction
     def is_matched(self, http_request: HttpRequest, *, context: VariablesContext) -> bool:

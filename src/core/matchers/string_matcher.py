@@ -4,15 +4,8 @@ from typing import Annotated, Optional
 from pydantic import Field
 
 from core.matchers.variable_matcher import SetVariableMatcher
-from core.plain_matchers.string_plain_matchers import (
-    StringAnd,
-    StringAny,
-    StringContains,
-    StringEqualTo,
-    StringNot,
-    StringOr,
-    StringPattern,
-)
+from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
+from core.predicates.scalars import StringContains, StringEqualTo, StringPattern
 from schemas.variables import VariablesContext, variables_context_transaction
 
 
@@ -56,38 +49,34 @@ class StringMatcher(SetVariableMatcher):
         ),
     ]
 
-    def to_plain_matcher(self, *, context: VariablesContext):
-        plain_matchers = []
+    def to_predicate(self, *, context: VariablesContext):
+        predicates = []
 
         if self.pattern is not None:
-            plain_matchers.append(StringPattern(pattern=self.pattern, ignore_case=self.ignore_case))
+            predicates.append(StringPattern(pattern=self.pattern, ignore_case=self.ignore_case))
         if self.equal_to is not None:
-            plain_matchers.append(StringEqualTo(value=self.equal_to, ignore_case=self.ignore_case))
+            predicates.append(StringEqualTo(value=self.equal_to, ignore_case=self.ignore_case))
         if self.contains is not None:
-            plain_matchers.append(StringContains(value=self.contains, ignore_case=self.ignore_case))
+            predicates.append(StringContains(value=self.contains, ignore_case=self.ignore_case))
         if self.startswith is not None:
-            plain_matchers.append(StringPattern(pattern=f'{self.startswith}.*', ignore_case=self.ignore_case))
+            predicates.append(StringPattern(pattern=f'{self.startswith}.*', ignore_case=self.ignore_case))
         if self.endswith is not None:
-            plain_matchers.append(StringPattern(pattern=f'.*{self.endswith}', ignore_case=self.ignore_case))
+            predicates.append(StringPattern(pattern=f'.*{self.endswith}', ignore_case=self.ignore_case))
         if self.and_ is not None:
-            plain_matchers.append(
-                StringAnd(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.and_])
-            )
+            predicates.append(AndPredicate(predicates=[matcher.to_predicate(context=context) for matcher in self.and_]))
         if self.or_ is not None:
-            plain_matchers.append(
-                StringOr(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.and_])
-            )
+            predicates.append(OrPredicate(predicates=[matcher.to_predicate(context=context) for matcher in self.and_]))
         if self.not_ is not None:
-            plain_matchers.append(StringNot(matcher=self.not_.to_plain_matcher(context=context)))
+            predicates.append(NotPredicate(predicate=self.not_.to_predicate(context=context)))
         if self.set_variable is not None:
-            plain_matchers.append(super().to_plain_matcher(context=context))
+            predicates.append(super().to_predicate(context=context))
 
-        if len(plain_matchers) == 0:
-            return StringAny()
-        elif len(plain_matchers) == 1:
-            return plain_matchers[0]
+        if len(predicates) == 0:
+            return AnyPredicate()
+        elif len(predicates) == 1:
+            return predicates[0]
         else:
-            return StringAnd(matchers=plain_matchers)
+            return AndPredicate(predicates=predicates)
 
     @variables_context_transaction
     def is_matched(self, value, *, context: VariablesContext) -> bool:

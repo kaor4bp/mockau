@@ -8,9 +8,12 @@ import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import BackgroundTasks, FastAPI, Request
+from pydantic import TypeAdapter
 from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
+from core.http.actions.types import t_HttpActionModel
+from core.http.actions.utils import verify_http_actions_consistency
 from core.http.interaction.schemas import HttpRequest
 from core.http.processor.http_processor_pipeline import HttpProcessorPipeline
 from core.http.tasks.task_cleanup_content_files import task_cleanup_content_files
@@ -52,16 +55,16 @@ async def lifespan(app: MockauFastAPI):
     #     print(f'Verify HttpActions consistency of "{de.name}"')
     #     verify_http_actions_consistency(actions)
     #
-    # query = (
-    #     app.state.clients.mongo_actions_client.find(filters={'entrypoint': 'default', 'active': True})
-    #     .sort({'priority': -1})
-    #     .batch_size(100)
-    # )
-    # actions = []
-    # async for document in query:
-    #     actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
-    # print(f'Verify HttpActions consistency of "default"')
-    # verify_http_actions_consistency(actions)
+    query = (
+        app.state.clients.mongo_actions_client.find(filters={'entrypoint': 'default', 'active': True})
+        .sort({'priority': -1})
+        .batch_size(100)
+    )
+    actions = []
+    async for document in query:
+        actions.append(TypeAdapter(t_HttpActionModel).validate_python(document))
+    print('Verify HttpActions consistency of "default"')
+    verify_http_actions_consistency(actions)
 
     scheduler = BackgroundScheduler()
     scheduler.start()

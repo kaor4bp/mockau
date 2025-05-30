@@ -4,18 +4,15 @@ from typing import Self
 from pydantic import ValidationError, model_validator
 
 from core.matchers.variable_matcher import SetVariableMatcher
-from core.plain_matchers.integer_plain_matchers import (
-    IntegerAnd,
-    IntegerAny,
+from core.predicates.base_predicate import t_Predicate
+from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
+from core.predicates.scalars import (
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
     IntegerLessOrEqualThan,
     IntegerLessThan,
-    IntegerNot,
-    IntegerOr,
 )
-from core.plain_matchers.types import t_IntegerPlainMatcher, t_PlainMatcher
 from schemas.variables import VariablesContext, variables_context_transaction
 
 
@@ -36,38 +33,32 @@ class IntegerMatcher(SetVariableMatcher):
             raise ValidationError('Using of patterns for set_variable in IntegerMatcher is prohibited')
         return self
 
-    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
-        plain_matchers = []
+    def to_predicate(self, *, context: VariablesContext) -> t_Predicate:
+        predicates = []
 
         if self.equal_to:
-            plain_matchers.append(IntegerEqualTo(value=self.equal_to))
+            predicates.append(IntegerEqualTo(value=self.equal_to))
         if self.gte is not None:
-            plain_matchers.append(IntegerGreaterOrEqualThan(value=self.gte))
+            predicates.append(IntegerGreaterOrEqualThan(value=self.gte))
         if self.gt is not None:
-            plain_matchers.append(IntegerGreaterThan(value=self.gt))
+            predicates.append(IntegerGreaterThan(value=self.gt))
         if self.lte is not None:
-            plain_matchers.append(IntegerLessOrEqualThan(value=self.lte))
+            predicates.append(IntegerLessOrEqualThan(value=self.lte))
         if self.lt is not None:
-            plain_matchers.append(IntegerLessThan(value=self.lt))
+            predicates.append(IntegerLessThan(value=self.lt))
         if self.and_:
-            plain_matchers.append(
-                IntegerAnd(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.and_])
-            )
+            predicates.append(AndPredicate(predicates=[matcher.to_predicate(context=context) for matcher in self.and_]))
         if self.or_:
-            plain_matchers.append(
-                IntegerOr(matchers=[matcher.to_plain_matcher(context=context) for matcher in self.or_])
-            )
+            predicates.append(OrPredicate(predicates=[matcher.to_predicate(context=context) for matcher in self.or_]))
         if self.not_:
-            plain_matchers.append(
-                IntegerNot[t_IntegerPlainMatcher](matcher=self.not_.to_plain_matcher(context=context))
-            )
+            predicates.append(NotPredicate(predicate=self.not_.to_predicate(context=context)))
 
-        if len(plain_matchers) == 0:
-            return IntegerAny()
-        elif len(plain_matchers) == 1:
-            return plain_matchers[0]
+        if len(predicates) == 0:
+            return AnyPredicate()
+        elif len(predicates) == 1:
+            return predicates[0]
         else:
-            return IntegerAnd(matchers=plain_matchers)
+            return AndPredicate(predicates=predicates)
 
     @variables_context_transaction
     def is_matched(self, value: int, *, context: VariablesContext) -> bool:

@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
 from core.bases.base_schema import BaseSchema
-from core.plain_matchers.types import t_PlainMatcher
+from core.predicates.base_predicate import t_Predicate
 from schemas.variables import VariablesContext
 
 
@@ -11,5 +11,5 @@ class AbstractMatcher(BaseSchema):
         pass
 
     @abstractmethod
-    def to_plain_matcher(self, *, context: VariablesContext) -> t_PlainMatcher:
+    def to_predicate(self, *, context: VariablesContext) -> t_Predicate:
         pass
