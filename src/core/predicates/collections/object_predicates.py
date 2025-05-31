@@ -80,7 +80,6 @@ class BaseObjectPredicate(BaseCollectionPredicate):
                         continue
 
                     key_var = object_var.get_key_context(key_index)
-                    local_constraints.append(z3.Length(key_var.get_variable(PredicateType.String)) < 20)
                     local_constraints.append(key.to_z3(key_var))
 
                     val = self.value[key]
@@ -88,8 +87,6 @@ class BaseObjectPredicate(BaseCollectionPredicate):
 
                     type_val = z3.EmptySet(z3.StringSort())
                     for pt in val.predicate_types:
-                        if pt is PredicateType.String:
-                            local_constraints.append(z3.Length(val_var.get_variable(pt)) < 20)
                         type_val = z3.SetAdd(type_val, z3.StringVal(pt.value))
                     intersection = z3.SetIntersect(type_val, object_var.get_type_sequence_var(key_index))
                     local_constraints.append(z3.Not(intersection == z3.EmptySet(z3.StringSort())))

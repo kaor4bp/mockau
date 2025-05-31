@@ -58,6 +58,7 @@ class VariableContext:
     def __init__(self) -> None:
         self._variables = {}
         self._var_id = uuid4()
+        self._type_var = z3.String(f'type_{self._var_id}')
 
     def _get_z3_var(self, predicate_type: PredicateType) -> z3.ExprRef:
         match predicate_type:
@@ -79,6 +80,9 @@ class VariableContext:
             self._variables[predicate_type] = self._get_z3_var(predicate_type)
         return self._variables[predicate_type]
 
+    def create_typed_constraint(self, expression, predicate_type: PredicateType):
+        return z3.And(z3.Implies(self._type_var == predicate_type.value, expression), expression)
+
 
 class BasePredicate(BaseSchema, ABC):
     internal_id: UUID = Field(default_factory=uuid4, exclude=True)
@@ -94,90 +98,42 @@ class BasePredicate(BaseSchema, ABC):
     def predicate_types(self) -> set[PredicateType]: ...
 
     def is_subset_of(self, other: t_Predicate) -> bool:
-        if len(self.predicate_types) > len(other.predicate_types):
-            return False
-
         solver = z3.Solver()
-        solver.set("timeout", 1000)
+        solver.set("timeout", 100000)
 
-        for pt in self.predicate_types:
-            if pt == PredicateType.Null:
-                continue
-            if pt == PredicateType.Any:
-                return True
-            if pt not in other.predicate_types:
-                continue
+        ctx = VariableContext()
+        solver.add(z3.And(self.to_z3(ctx), z3.Not(other.to_z3(ctx))))
 
-            solver.reset()
-            ctx = VariableContext()
-            solver.add(z3.Not(other.to_z3(ctx)))
-            solver.add(self.to_z3(ctx))
-
-            result = solver.check()
-            # assert result != z3.unknown
-            if result in [z3.unsat, z3.unknown]:
-                return True
-        else:
-            return False
+        result = solver.check()
+        assert result != z3.unknown
+        return result in [z3.unsat, z3.unknown]
 
     def is_superset_of(self, other: t_Predicate) -> bool:
-        if len(self.predicate_types) < len(other.predicate_types):
-            return False
-
         solver = z3.Solver()
         ctx = VariableContext()
-        solver.set("timeout", 1000)
+        solver.set("timeout", 100000)
 
-        for pt in self.predicate_types:
-            if pt == PredicateType.Null:
-                continue
-            if pt == PredicateType.Any:
-                return True
-            if pt not in other.predicate_types:
-                continue
+        solver.add(other.to_z3(ctx))
+        solver.add(z3.Not(self.to_z3(ctx)))
 
-            solver.reset()
-            solver.add(other.to_z3(ctx))
-            solver.add(z3.Not(self.to_z3(ctx)))
-
-            result = solver.check()
-            # assert result != z3.unknown
-            if result in [z3.unsat, z3.unknown]:
-                return True
-        else:
-            return False
+        result = solver.check()
+        assert result != z3.unknown
+        return result in [z3.unsat, z3.unknown]
 
     def is_intersected_with(self, other: t_Predicate) -> bool:
         solver = z3.Solver()
         ctx = VariableContext()
-        solver.set("timeout", 1000)
+        solver.set("timeout", 100000)
 
-        for pt in self.predicate_types:
-            if pt == PredicateType.Null:
-                continue
-            if pt == PredicateType.Any:
-                return True
-            if pt not in other.predicate_types:
-                continue
+        solver.add(other.to_z3(ctx))
+        solver.add(self.to_z3(ctx))
 
-            solver.reset()
-            solver.add(other.to_z3(ctx))
-            solver.add(self.to_z3(ctx))
-
-            result = solver.check()
-            # assert result != z3.unknown
-            if result == z3.sat:
-                return True
-        else:
-            return False
+        result = solver.check()
+        assert result != z3.unknown
+        return result == z3.sat
 
     def is_matched(self, value) -> bool:
         for pt in self.predicate_types:
-            if pt == {PredicateType.Null}:
-                continue
-            if self.predicate_types == {PredicateType.Any}:
-                return True
-
             solver = z3.Solver()
             ctx = VariableContext()
             var = ctx.get_variable(pt)

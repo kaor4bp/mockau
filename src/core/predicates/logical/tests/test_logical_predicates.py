@@ -1,7 +1,7 @@
 import pytest
 
 from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
-from core.predicates.scalars import StringContains, StringEqualTo
+from core.predicates.scalars import StringContains, StringEqualTo, StringPattern
 from core.predicates.scalars.integer_predicates import (
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
@@ -17,7 +17,7 @@ OrPredicate.model_rebuild()
 
 EQUIVALENTS = {
     'x = 1 | contains(x, hello) EQUIV (!(x > 1) && !(x < 1)) | contains(x, world)': [
-        OrPredicate(predicates=[IntegerEqualTo(value=1), StringContains(value='hello')]),
+        OrPredicate(predicates=[IntegerEqualTo(value=1), StringContains(value='hello', max_length=10)]),
         OrPredicate(
             predicates=[
                 AndPredicate(
@@ -26,7 +26,7 @@ EQUIVALENTS = {
                         NotPredicate(predicate=IntegerLessThan(value=1)),
                     ]
                 ),
-                StringContains(value='world'),
+                StringPattern(pattern='.*hello.*', max_length=10),
             ]
         ),
     ],
