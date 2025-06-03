@@ -1,16 +1,10 @@
 import itertools
-from typing import Any, Generator, Self
+from typing import Any, Self
 
 import z3
 from pydantic import model_validator
 
-from core.predicates.base_predicate import (
-    BaseCollectionPredicate,
-    BasePredicate,
-    ObjectContext,
-    PredicateType,
-    VariableContext,
-)
+from core.predicates.base_predicate import BaseCollectionPredicate, BasePredicate, PredicateType, VariableContext
 from core.predicates.helpers import value_to_predicate
 
 
@@ -44,73 +38,41 @@ class BaseObjectPredicate(BaseCollectionPredicate):
         pass
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        object_var = ctx.get_variable(predicate_type=PredicateType.Object)
+        all_keys = z3.EmptySet(z3.StringSort())
+        all_keys_list = []
         constraints = []
-        for constraint in self.to_z3_iter(ctx):
-            constraints.append(constraint)
-        return z3.Or(constraints)
 
-    def to_z3_iter(self, ctx: VariableContext) -> Generator[z3.ExprRef, None, None]:
-        object_var: ObjectContext = ctx.get_variable(predicate_type=PredicateType.Object)
+        for key_predicate, value_predicate in self.value.items():
+            key_ctx = ctx.create_child_context()
+            value_ctx = ctx.create_child_context()
+            ctx.push_to_global_constraints(key_predicate.to_z3(key_ctx))
+            constraints.append(value_predicate.to_z3(value_ctx))
 
-        extra_quantities = [0]
+            key_var = key_ctx.get_variable(PredicateType.String)
+            all_keys_list.append(key_var)
+            all_keys = z3.SetAdd(all_keys, key_var)
+            ctx.push_to_global_constraints(z3.Select(object_var, key_var) == value_ctx.json_type_variable)
+
         if isinstance(self, ObjectContainsSubset):
-            for i in range(10 - len(self.value.keys())):
-                extra_quantities.append(i + 1)
+            constraints += [
+                ctx.JsonType.get_object_keys_quantity(ctx.json_type_variable) >= z3.IntVal(len(self.value.keys())),
+                z3.IsSubset(all_keys, ctx.JsonType.get_object_keys(ctx.json_type_variable)),
+            ]
+        elif isinstance(self, ObjectEqualTo):
+            constraints += [
+                ctx.JsonType.get_object_keys_quantity(ctx.json_type_variable) == z3.IntVal(len(self.value.keys())),
+                ctx.JsonType.get_object_keys(ctx.json_type_variable) == all_keys,
+            ]
+        else:
+            raise NotImplementedError(f'to_z3 for ObjectPredicate {self} not implemented yet')
 
-        for extra_quantity in extra_quantities:
-            all_keys = list(self.value.keys())
+        constraints += [
+            z3.Distinct(object_var),
+            z3.Distinct(all_keys),
+        ]
 
-            if isinstance(self, ObjectContainsSubset):
-                all_keys = list(self.value.keys()) + ['any' for _ in range(extra_quantity)]
-
-            all_keys_set = z3.EmptySet(z3.StringSort())
-            for index, key in enumerate(self.value.keys()):
-                key_var = object_var.get_key_context(index)
-                all_keys_set = z3.SetAdd(all_keys_set, key_var.get_variable(PredicateType.String))
-
-            for keys in generate_unique_permutations(all_keys):
-                local_constraints = [z3.Distinct(all_keys_set)]
-                values_iterators = []
-
-                for key_index, key in enumerate(keys):
-                    if isinstance(key, str):
-                        object_var.get_value_context(key_index)
-                        object_var.get_type_sequence_var(key_index)
-                        object_var.get_key_context(key_index)
-                        continue
-
-                    key_var = object_var.get_key_context(key_index)
-                    local_constraints.append(key.to_z3(key_var))
-
-                    val = self.value[key]
-                    val_var = object_var.get_value_context(key_index)
-
-                    type_val = z3.EmptySet(z3.StringSort())
-                    for pt in val.predicate_types:
-                        type_val = z3.SetAdd(type_val, z3.StringVal(pt.value))
-                    intersection = z3.SetIntersect(type_val, object_var.get_type_sequence_var(key_index))
-                    local_constraints.append(z3.Not(intersection == z3.EmptySet(z3.StringSort())))
-
-                    local_constraints.append(val.to_z3(val_var))
-
-                if isinstance(self, ObjectEqualTo):
-                    local_constraints.append(object_var.all_keys_variable == all_keys_set)
-                    local_constraints.append(object_var.all_keys_quantity_variable == z3.IntVal(len(keys)))
-                    # intersection = z3.SetIntersect(object_var.all_keys_variable, all_keys_set)
-                    # difference = z3.SetDifference(object_var.all_keys_variable, all_keys_set)
-                    # local_constraints.append(intersection == all_keys_set)
-                    # local_constraints.append(difference == z3.EmptySet(z3.StringSort()))
-                elif isinstance(self, ObjectContainsSubset):
-                    local_constraints.append(z3.IsSubset(all_keys_set, object_var.all_keys_variable))
-                    local_constraints.append(object_var.all_keys_quantity_variable == z3.IntVal(len(keys)))
-                else:
-                    raise AssertionError('Unsupported predicate')
-
-                if not values_iterators:
-                    yield z3.And(*local_constraints)
-                else:
-                    for sub_local_constraints in itertools.product(*values_iterators):
-                        yield z3.And(*local_constraints, *sub_local_constraints)
+        return z3.And(*constraints)
 
 
 class ObjectEqualTo(BaseObjectPredicate):

@@ -15,7 +15,7 @@ class IntegerEqualTo(BaseIntegerPredicate):
 
     def to_z3(self, ctx: VariableContext):
         var = ctx.get_variable(self.predicate_type)
-        return ctx.create_typed_constraint(var == self.value, self.predicate_type)
+        return var == self.value
 
 
 class IntegerGreaterThan(BaseIntegerPredicate):
@@ -24,7 +24,7 @@ class IntegerGreaterThan(BaseIntegerPredicate):
 
     def to_z3(self, ctx: VariableContext):
         var = ctx.get_variable(self.predicate_type)
-        return ctx.create_typed_constraint(var > self.value, self.predicate_type)
+        return var > self.value
 
 
 class IntegerGreaterOrEqualThan(BaseIntegerPredicate):
@@ -33,7 +33,7 @@ class IntegerGreaterOrEqualThan(BaseIntegerPredicate):
 
     def to_z3(self, ctx: VariableContext):
         var = ctx.get_variable(self.predicate_type)
-        return ctx.create_typed_constraint(var >= self.value, self.predicate_type)
+        return var >= self.value
 
 
 class IntegerLessThan(BaseIntegerPredicate):
@@ -42,7 +42,7 @@ class IntegerLessThan(BaseIntegerPredicate):
 
     def to_z3(self, ctx: VariableContext):
         var = ctx.get_variable(self.predicate_type)
-        return ctx.create_typed_constraint(var < self.value, self.predicate_type)
+        return var < self.value
 
 
 class IntegerLessOrEqualThan(BaseIntegerPredicate):
@@ -51,4 +51,4 @@ class IntegerLessOrEqualThan(BaseIntegerPredicate):
 
     def to_z3(self, ctx: VariableContext):
         var = ctx.get_variable(self.predicate_type)
-        return ctx.create_typed_constraint(var <= self.value, self.predicate_type)
+        return var <= self.value

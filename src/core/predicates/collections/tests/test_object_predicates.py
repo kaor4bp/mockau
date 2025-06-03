@@ -119,6 +119,10 @@ INTERSECTIONS = {
         ),
         ObjectEqualTo(value={'lol': 'hello world'}),
     ],
+    'not': [
+        NotPredicate(predicate=ObjectContainsSubset(value={'hello': StringContains(value='world')})),
+        ObjectEqualTo(value={'name': StringContains(value='Maria')}),
+    ],
 }
 
 EQUIVALENTS = {

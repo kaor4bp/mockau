@@ -24,64 +24,121 @@ class PredicateType(Enum):
     Any = 'Any'
 
 
-class ObjectContext:
-    def __init__(self) -> None:
-        self.variables = {}
-        self._object_id = uuid4()
-
-        self.key_variables = []
-        self.value_variables = []
-        self.type_variables = []
-        self.all_keys_variable = z3.Const(f'obj_{self._object_id}_set_all_keys', z3.SetSort(z3.StringSort()))
-        self.all_keys_quantity_variable = z3.Const(f'obj_{self._object_id}_set_all_keys_quantity', z3.IntSort())
-
-    def get_key_context(self, index: int):
-        if len(self.key_variables) <= index:
-            self.key_variables.append(VariableContext())
-            return self.get_key_context(index)
-        return self.key_variables[index]
-
-    def get_value_context(self, index: int):
-        if len(self.value_variables) <= index:
-            self.value_variables.append(VariableContext())
-            return self.get_value_context(index)
-        return self.value_variables[index]
-
-    def get_type_sequence_var(self, index: int):
-        if len(self.type_variables) <= index:
-            self.type_variables.append(z3.Const(f'obj_{self._object_id}_type_seq_{index}', z3.SetSort(z3.StringSort())))
-            return self.get_type_sequence_var(index)
-        return self.type_variables[index]
-
-
 class VariableContext:
-    def __init__(self) -> None:
-        self._variables = {}
-        self._var_id = uuid4()
-        self._type_var = z3.String(f'type_{self._var_id}')
+    _JSON_TYPES = {}
+    MAX_NESTING_LEVEL = 100
 
-    def _get_z3_var(self, predicate_type: PredicateType) -> z3.ExprRef:
-        match predicate_type:
-            case PredicateType.Boolean:
-                return z3.Bool(f'bool_{self._var_id}')
-            case PredicateType.Integer:
-                return z3.Int(f'int_{self._var_id}')
-            case PredicateType.Real:
-                return z3.Real(f'real_{self._var_id}')
-            case PredicateType.String:
-                return z3.String(f'str_{self._var_id}')
-            case PredicateType.Object:
-                return ObjectContext()
-            case _:
-                raise NotImplementedError(f'Lol - {predicate_type.value} is not supported yet. ')
+    @classmethod
+    def _build_json_type(cls, level: int = -1):
+        if cls._JSON_TYPES.get(level):
+            return cls._JSON_TYPES[level]
+
+        JsonType = z3.Datatype(f'JsonType_{level}')
+
+        JsonType.declare('int', ('get_int', z3.IntSort()))
+        JsonType.declare('bool', ('get_bool', z3.BoolSort()))
+        JsonType.declare('str', ('get_str', z3.StringSort()))
+        JsonType.declare('real', ('get_real', z3.RealSort()))
+
+        if level > 0:
+            NestedJsonType = cls._build_json_type(level - 1)
+            NestedJsonArraySort = z3.ArraySort(z3.StringSort(), NestedJsonType)
+            JsonType.declare(
+                'object',
+                ('get_object', NestedJsonArraySort),
+                ('get_object_keys_quantity', z3.IntSort()),
+                ('get_object_keys', z3.SetSort(z3.StringSort())),
+            )
+
+        JsonType = JsonType.create()
+        cls._JSON_TYPES[level] = JsonType
+        return JsonType
+
+    def __init__(self, level: int | None = None) -> None:
+        if not self._JSON_TYPES:
+            self._build_json_type(level=self.MAX_NESTING_LEVEL)
+        if not level:
+            level = max(self._JSON_TYPES.keys())
+        self._level = level
+
+        self._var_id = uuid4()
+        self._var = z3.Const(f'json_var_{self._var_id}', self.JsonType)
+
+        self._children = []
+        self._var_type_constraints = {}
+        self._global_constraints = []
+
+    @property
+    def JsonType(self):
+        return self._JSON_TYPES[self._level]
+
+    @property
+    def json_type_variable(self):
+        return self._var
+
+    def create_child_context(self) -> 'VariableContext':
+        child_context = VariableContext(level=self._level - 1)
+        self._children.append(child_context)
+        return child_context
+
+    def push_to_global_constraints(self, expr) -> None:
+        self._global_constraints.append(expr)
+
+    def _allow_var_type_for_variable(self, predicate_type: PredicateType) -> None:
+        if predicate_type not in self._var_type_constraints.keys():
+            self._var_type_constraints[predicate_type] = self._generate_type_expression(predicate_type)
 
     def get_variable(self, predicate_type: PredicateType):
-        if predicate_type not in self._variables.keys():
-            self._variables[predicate_type] = self._get_z3_var(predicate_type)
-        return self._variables[predicate_type]
+        self._allow_var_type_for_variable(predicate_type)
 
-    def create_typed_constraint(self, expression, predicate_type: PredicateType):
-        return z3.And(z3.Implies(self._type_var == predicate_type.value, expression), expression)
+        if predicate_type is PredicateType.String:
+            return self.JsonType.get_str(self._var)
+        elif predicate_type is PredicateType.Integer:
+            return self.JsonType.get_int(self._var)
+        elif predicate_type is PredicateType.Real:
+            return self.JsonType.get_real(self._var)
+        elif predicate_type is PredicateType.Boolean:
+            return self.JsonType.get_bool(self._var)
+        elif predicate_type is PredicateType.Object:
+            return self.JsonType.get_object(self._var)
+        else:
+            raise NotImplementedError(f'get_variable for predicate type {predicate_type} not implemented yet')
+
+    def _generate_type_expression(
+        self,
+        predicate_type: PredicateType,
+    ) -> z3.BoolRef:
+        type_expressions = {
+            PredicateType.String: self.JsonType.is_str(self._var),
+            PredicateType.Integer: self.JsonType.is_int(self._var),
+            PredicateType.Real: self.JsonType.is_real(self._var),
+            PredicateType.Boolean: self.JsonType.is_bool(self._var),
+            PredicateType.Object: self.JsonType.is_object(self._var),
+        }
+
+        type_expr = z3.And(
+            [
+                type_expr if type_pt == predicate_type else z3.Not(type_expr)
+                for type_pt, type_expr in type_expressions.items()
+            ]
+        )
+        return type_expr
+
+    def to_global_constraints(self) -> z3.BoolRef:
+        type_expressions = list(self._var_type_constraints.values())
+        type_one_of_expr = type_expressions.pop(0)
+        for type_expr in type_expressions:
+            type_one_of_expr = z3.Xor(type_one_of_expr, type_expr)
+        type_one_of_expr = z3.simplify(type_one_of_expr)
+
+        child_constraints = [child.to_global_constraints() for child in self._children]
+        return z3.simplify(
+            z3.And(
+                type_one_of_expr,
+                *self._global_constraints,
+                *child_constraints,
+            )
+        )
 
 
 class BasePredicate(BaseSchema, ABC):
@@ -103,8 +160,10 @@ class BasePredicate(BaseSchema, ABC):
 
         ctx = VariableContext()
         solver.add(z3.And(self.to_z3(ctx), z3.Not(other.to_z3(ctx))))
+        solver.add(ctx.to_global_constraints())
 
         result = solver.check()
+        # solver.model().eval(ctx.get_variable(PredicateType.Object)[z3.StringVal('lol')], model_completion=True)
         assert result != z3.unknown
         return result in [z3.unsat, z3.unknown]
 
@@ -115,6 +174,7 @@ class BasePredicate(BaseSchema, ABC):
 
         solver.add(other.to_z3(ctx))
         solver.add(z3.Not(self.to_z3(ctx)))
+        solver.add(ctx.to_global_constraints())
 
         result = solver.check()
         assert result != z3.unknown
@@ -127,6 +187,7 @@ class BasePredicate(BaseSchema, ABC):
 
         solver.add(other.to_z3(ctx))
         solver.add(self.to_z3(ctx))
+        solver.add(ctx.to_global_constraints())
 
         result = solver.check()
         assert result != z3.unknown
@@ -139,6 +200,7 @@ class BasePredicate(BaseSchema, ABC):
             var = ctx.get_variable(pt)
             solver.add(self.to_z3(ctx))
             solver.add(var == value)
+            solver.add(ctx.to_global_constraints())
             if solver.check() == z3.sat:
                 return True
         else:

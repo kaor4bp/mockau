@@ -16,7 +16,7 @@ AndPredicate.model_rebuild()
 OrPredicate.model_rebuild()
 
 EQUIVALENTS = {
-    'x = 1 | contains(x, hello) EQUIV (!(x > 1) && !(x < 1)) | contains(x, world)': [
+    'x = 1 | contains(x, hello) EQUIV (!(x > 1) && !(x < 1)) | contains(x, hello)': [
         OrPredicate(predicates=[IntegerEqualTo(value=1), StringContains(value='hello', max_length=10)]),
         OrPredicate(
             predicates=[

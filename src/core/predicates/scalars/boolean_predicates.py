@@ -15,4 +15,4 @@ class BooleanEqualTo(BaseBooleanPredicate):
 
     def to_z3(self, ctx: VariableContext):
         var = ctx.get_variable(self.predicate_type)
-        return ctx.create_typed_constraint(var == self.value, self.predicate_type)
+        return var == self.value

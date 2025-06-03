@@ -33,7 +33,7 @@ class StringEqualTo(BaseStringPredicate):
         else:
             expr = var == self.value
 
-        return ctx.create_typed_constraint(expr, self.predicate_type)
+        return expr
 
 
 class StringPattern(BaseStringPredicate):
@@ -47,7 +47,7 @@ class StringPattern(BaseStringPredicate):
         z3_regex = ConvertEREToZ3Regex(self.pattern, is_case_sensitive=not self.ignore_case).convert()
         expr = z3.And(z3.InRe(var, z3_regex), z3.Length(var) <= self.max_length)
 
-        return ctx.create_typed_constraint(expr, self.predicate_type)
+        return expr
 
 
 class StringContains(BaseStringPredicate):
@@ -83,4 +83,4 @@ class StringContains(BaseStringPredicate):
             expr = z3.Contains(var, self.value)
 
         expr = z3.And(expr, z3.Length(var) <= self.max_length)
-        return ctx.create_typed_constraint(expr, self.predicate_type)
+        return expr
