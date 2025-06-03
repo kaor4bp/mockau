@@ -361,11 +361,12 @@ NOT_MATCHED = {
     ],
 }
 
-# class TestObjectIsMatched:
-#     @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(MATCHED))
-#     def test_matched_values_are_matched(self, predicate, value):
-#         assert predicate.is_matched(value)
-#
-#     @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(NOT_MATCHED))
-#     def test_not_matched_values_are_not_matched(self, predicate, value):
-#         assert not predicate.is_matched(value)
+
+class TestObjectIsMatched:
+    @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(MATCHED))
+    def test_matched_values_are_matched(self, predicate, value):
+        assert predicate.is_matched(value)
+
+    @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(NOT_MATCHED))
+    def test_not_matched_values_are_not_matched(self, predicate, value):
+        assert not predicate.is_matched(value)

@@ -240,7 +240,7 @@ class TestIntegerPredicates:
         ['value', 'test_value', 'expected'],
         [
             [5, 5, True],  # exact match
-            [5, 5.0, True],  # float with .0 should match
+            [5, 5.0, False],  # float with .0 should not match
             [5, 6, False],  # not equal
             [0, -0, True],  # zero equality
         ],

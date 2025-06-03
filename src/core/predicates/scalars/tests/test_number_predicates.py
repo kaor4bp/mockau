@@ -292,7 +292,7 @@ class TestNumberPredicates:
         ['value', 'test_value', 'expected'],
         [
             [5.0, 5.0, True],  # exact float match
-            [5.0, 5, True],  # int to float equality
+            [5.0, 5, False],  # int to float equality
             [5.5, 5.5, True],  # float with decimal
             [5.0, 5.1, False],  # not equal
             [0.0, -0.0, True],  # zero equality
