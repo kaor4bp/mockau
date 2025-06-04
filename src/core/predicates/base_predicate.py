@@ -12,6 +12,8 @@ from core.predicates.helpers import value_to_predicate
 PredicateTypeVar = TypeVar('PredicateTypeVar', bound='BasePredicate')
 DEFAULT_SOLVER_TIMEOUT = 100000
 
+t_Predicate = TypeVar('t_Predicate', bound='BasePredicate')
+
 
 class PredicateType(Enum):
     """Enumeration representing data types for predicates.
