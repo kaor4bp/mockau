@@ -15,6 +15,8 @@ from utils.formatters import get_params_argv
 
 NOT_INTERSECTIONS = {
     '1': [ObjectEqualTo(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek', 'hello': 'world'})],
+    '2': [ObjectEqualTo(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 2})],
+    '3': [ObjectContainsSubset(value={'lol': 'kek'}), ObjectContainsSubset(value={'lol': 2})],
     'nested dict': [
         ObjectEqualTo(
             value={
