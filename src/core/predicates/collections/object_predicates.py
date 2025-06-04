@@ -63,7 +63,6 @@ class BaseObjectPredicate(BaseCollectionPredicate):
         """
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
         all_defined_keys_set = z3.EmptySet(z3.StringSort())
-        all_defined_keys_list = []
         object_constraints = []
 
         for key_pred, value_pred in self.value.items():
@@ -73,7 +72,6 @@ class BaseObjectPredicate(BaseCollectionPredicate):
             object_constraints.append(value_pred.to_z3(value_context))
 
             current_key_variable = key_context.get_variable(PredicateType.String)
-            all_defined_keys_list.append(current_key_variable)
             all_defined_keys_set = z3.SetAdd(all_defined_keys_set, current_key_variable)
             ctx.push_to_global_constraints(
                 z3.Select(z3_object_variable, current_key_variable) == value_context.json_type_variable.z3_variable
