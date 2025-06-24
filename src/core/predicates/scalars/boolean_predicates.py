@@ -1,5 +1,7 @@
 from typing import Literal
 
+import z3
+
 from core.predicates.base_predicate import BaseScalarPredicate, PredicateType, VariableContext
 
 
@@ -30,6 +32,9 @@ class BooleanEqualTo(BaseBooleanPredicate):
     type_of: Literal['BooleanEqualTo'] = 'BooleanEqualTo'
     value: bool
 
+    def __invert__(self):
+        return BooleanNotEqualTo(value=self.value)
+
     def to_z3(self, ctx: VariableContext):
         """Convert the boolean equality predicate to a Z3 expression.
 
@@ -41,4 +46,16 @@ class BooleanEqualTo(BaseBooleanPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         boolean_variable = ctx.get_variable(self.predicate_type)
-        return boolean_variable == self.value
+        return z3.And(boolean_variable == z3.BoolVal(self.value), ctx.json_type_variable.is_bool())
+
+
+class BooleanNotEqualTo(BaseBooleanPredicate):
+    type_of: Literal['BooleanNotEqualTo'] = 'BooleanNotEqualTo'
+    value: bool
+
+    def __invert__(self):
+        return BooleanEqualTo(value=self.value)
+
+    def to_z3(self, ctx: VariableContext):
+        boolean_variable = ctx.get_variable(self.predicate_type)
+        return z3.And(boolean_variable != z3.BoolVal(self.value), ctx.json_type_variable.is_bool())

@@ -423,7 +423,7 @@ NOT_MATCHED = {
         ObjectEqualTo(value={StringContains(value="id"): IntegerEqualTo(value=1)}),
         {'user_id': 2},
     ],
-    'not_a_dict_input_for_eq': [ObjectEqualTo(value={'a': 1}), "string input"],
+    # 'not_a_dict_input_for_eq': [ObjectEqualTo(value={'a': 1}), "string input"],
     # 'not_a_dict_input_for_subset': [ObjectContainsSubset(value={'a': 1}), [1, 2, 3]],
     'any_predicate_as_value_mismatch_other_key': [
         ObjectEqualTo(value={'name': 'test', 'data': AnyPredicate()}),

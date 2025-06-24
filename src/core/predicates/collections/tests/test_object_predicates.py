@@ -1,6 +1,6 @@
 import pytest
 
-from core.predicates.collections.object_predicates import ObjectContainsSubset, ObjectEqualTo
+from core.predicates.collections.object_predicates import ObjectContainsSubset, ObjectEqualTo, ObjectHasValue
 from core.predicates.logical.logical_predicates import AndPredicate, NotPredicate, OrPredicate
 from core.predicates.scalars import (
     IntegerEqualTo,
@@ -29,23 +29,36 @@ NOT_INTERSECTIONS = {
             }
         ),
     ],
-    # 'nested dict strict/unstrict': [
-    #     ObjectEqualTo(
-    #         value={
-    #             StringContains(value='llo'): {'lol': 'kek'},
-    #         }
-    #     ),
-    #     ObjectContainsSubset(
-    #         value={
-    #             StringContains(value='hello'): ObjectContainsSubset(
-    #                 value={'lol': StringContains(value='kek'), 'kek': 2}),
-    #         }
-    #     )
-    # ],
+    'nested dict strict/unstrict': [
+        ObjectEqualTo(
+            value={
+                StringContains(value='llo'): {'lol': 'kek'},
+            }
+        ),
+        ObjectContainsSubset(
+            value={
+                StringContains(value='hello'): ObjectContainsSubset(
+                    value={'lol': StringContains(value='kek'), 'kek': 2}
+                ),
+            }
+        ),
+    ],
+    'deeply_nested_objects_with_conflicting_values': [
+        ObjectContainsSubset(value={'a': {'b': {'c': IntegerEqualTo(value=1)}}}),
+        ObjectContainsSubset(value={'a': {'b': {'c': IntegerEqualTo(value=2)}}}),
+    ],
+    'not_contains_object_and_equal_to_object': [
+        NotPredicate(predicate=ObjectContainsSubset(value={'a': 1})),
+        ObjectEqualTo(value={'a': 1}),
+    ],
 }
 
 INTERSECTIONS = {
     '1': [ObjectEqualTo(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek'})],
+    '2': [ObjectContainsSubset(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek'})],
+    '4': [ObjectContainsSubset(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek', 'hello': 'world'})],
+    '5': [ObjectContainsSubset(value={'lol': 'kek'}), ObjectContainsSubset(value={'lol': 'kek'})],
+    '6': [ObjectContainsSubset(value={'lol': 'kek', 'hello': 'world'}), ObjectContainsSubset(value={'lol': 'kek'})],
     'nested dict': [
         ObjectEqualTo(
             value={
@@ -125,6 +138,10 @@ INTERSECTIONS = {
         NotPredicate(predicate=ObjectContainsSubset(value={'hello': StringContains(value='world')})),
         ObjectEqualTo(value={'name': StringContains(value='Maria')}),
     ],
+    'not_2': [
+        ObjectContainsSubset(value={'hello': StringContains(value='world')}),
+        NotPredicate(predicate=ObjectEqualTo(value={'name': StringContains(value='Maria')})),
+    ],
 }
 
 EQUIVALENTS = {
@@ -161,6 +178,10 @@ EQUIVALENTS = {
             ]
         ),
     ],
+    '6': [
+        ObjectEqualTo(value={'lol': 'kek', 'hello': 'world'}),
+        ObjectEqualTo(value={'hello': 'world', 'lol': 'kek'}),
+    ],
     '1 < x < 5 EQUIV 1 <= x <= 5 && x != 1 && x != 5': [
         AndPredicate(
             predicates=[
@@ -183,6 +204,38 @@ SUPERSETS = {
     '1': [ObjectContainsSubset(value={'lol': 'kek'}), ObjectContainsSubset(value={'lol': 'kek', 'hello': 'world'})],
     '2': [ObjectContainsSubset(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek'})],
     '3': [ObjectEqualTo(value={'lol': StringContains(value='kek')}), ObjectEqualTo(value={'lol': 'kek'})],
+    '10': [
+        ObjectContainsSubset(value={'lol': IntegerGreaterThan(value=1)}),
+        ObjectContainsSubset(value={'lol': IntegerGreaterThan(value=2)}),
+    ],
+    '11': [
+        ObjectEqualTo(value={'lol': IntegerGreaterThan(value=1)}),
+        ObjectEqualTo(value={'lol': IntegerGreaterThan(value=2)}),
+    ],
+    '12': [
+        ObjectEqualTo(value={'lol': {'kek': IntegerGreaterThan(value=1)}}),
+        ObjectEqualTo(value={'lol': {'kek': IntegerGreaterThan(value=2)}}),
+    ],
+    '13': [
+        ObjectContainsSubset(value={'lol': {'kek': IntegerGreaterThan(value=1)}}),
+        ObjectEqualTo(value={'lol': {'kek': IntegerGreaterThan(value=2)}}),
+    ],
+    '14': [
+        ObjectContainsSubset(value={'lol': IntegerGreaterThan(value=1)}),
+        ObjectEqualTo(value={'lol': IntegerGreaterThan(value=2)}),
+    ],
+    '15': [
+        ObjectEqualTo(value={'lol': 'kek', 'hello': StringContains(value='world')}),
+        ObjectEqualTo(value={'hello': 'world', 'lol': 'kek'}),
+    ],
+    '16': [
+        ObjectContainsSubset(value={'a': IntegerGreaterThan(value=0)}),
+        ObjectContainsSubset(value={'a': IntegerEqualTo(value=1), 'b': IntegerEqualTo(value=2)}),
+    ],
+    '17': [
+        ObjectHasValue(predicate=IntegerGreaterThan(value=0)),
+        ObjectContainsSubset(value={'a': IntegerGreaterThan(value=0), 'b': 'hello'}),
+    ],
     # '4': [
     #     NestedObjectEqualTo(value={'hello': 'world'}),
     #     ObjectEqualTo(value={'lol': {'hello': 'world'}})

@@ -6,6 +6,22 @@ import z3
 from core.predicates.base_predicate import BaseLogicalPredicate, BaseScalarPredicate, PredicateType, VariableContext
 
 
+class NonePredicate(BaseLogicalPredicate):
+    """Predicate that matches no value and no type."""
+
+    type_of: Literal['NonePredicate'] = 'NonePredicate'
+
+    @property
+    def predicate_types(self):
+        return {PredicateType.Null}
+
+    def to_z3(self, ctx: VariableContext):
+        return z3.BoolVal(False)
+
+    def __invert__(self):
+        return AnyPredicate()
+
+
 class AnyPredicate(BaseScalarPredicate):
     """Predicate that matches any value and any type.
 
@@ -15,6 +31,9 @@ class AnyPredicate(BaseScalarPredicate):
     """
 
     type_of: Literal['AnyPredicate'] = 'AnyPredicate'
+
+    def __invert__(self):
+        return NonePredicate()
 
     @property
     def predicate_types(self):
@@ -53,28 +72,11 @@ class NotPredicate(BaseLogicalPredicate):
 
     @property
     def predicate_types(self) -> set[PredicateType]:
-        """Get supported predicate types for this class.
-
-        The predicate types are inherited from the inner predicate.
-
-        :return: Set of supported types from the inner predicate.
-        :rtype: set[PredicateType]
-
-        .. Docstring created by Gemini 2.5 Flash
-        """
         return self.predicate.predicate_types
 
     def to_z3(self, ctx: VariableContext):
-        """Convert the NOT predicate to a Z3 expression.
-
-        :param ctx: The variable context for Z3 expressions.
-        :type ctx: VariableContext
-        :return: A Z3 expression representing the logical NOT of the inner predicate.
-        :rtype: z3.ExprRef
-
-        .. Docstring created by Gemini 2.5 Flash
-        """
-        return z3.Not(self.predicate.to_z3(ctx))
+        inverted_predicate = ~self.predicate
+        return inverted_predicate.to_z3(ctx)
 
 
 class AndPredicate(BaseLogicalPredicate):
@@ -107,6 +109,9 @@ class AndPredicate(BaseLogicalPredicate):
             return intersected_types
         else:
             return {PredicateType.Null}
+
+    def __invert__(self):
+        return OrPredicate(predicates=[NotPredicate(predicate=p) for p in self.predicates])
 
     def to_z3(self, ctx: VariableContext):
         """Convert the AND predicate to a Z3 expression.
@@ -150,6 +155,9 @@ class OrPredicate(BaseLogicalPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         return set.union(*[inner_predicate.predicate_types for inner_predicate in self.predicates])
+
+    def __invert__(self):
+        return AndPredicate(predicates=[NotPredicate(predicate=p) for p in self.predicates])
 
     def to_z3(self, ctx: VariableContext):
         """Convert the OR predicate to a Z3 expression.

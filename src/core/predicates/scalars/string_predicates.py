@@ -59,6 +59,9 @@ class StringEqualTo(BaseStringPredicate):
     value: str
     ignore_case: bool = False
 
+    def __invert__(self):
+        return StringNotEqualTo(value=self.value, ignore_case=self.ignore_case)
+
     def to_z3(self, ctx: VariableContext):
         """Convert the string equality predicate to a Z3 expression.
 
@@ -74,9 +77,28 @@ class StringEqualTo(BaseStringPredicate):
             case_insensitive_regex = ConvertEREToZ3Regex(self.value, is_case_sensitive=False).convert()
             z3_expression = InRe(string_variable, case_insensitive_regex)
         else:
-            z3_expression = string_variable == self.value
+            z3_expression = string_variable == z3.StringVal(self.value)
 
-        return z3_expression
+        return z3.And(z3_expression, ctx.json_type_variable.is_str())
+
+
+class StringNotEqualTo(BaseStringPredicate):
+    type_of: Literal['StringNotEqualTo'] = 'StringNotEqualTo'
+    value: str
+    ignore_case: bool = False
+
+    def __invert__(self):
+        return StringEqualTo(value=self.value, ignore_case=self.ignore_case)
+
+    def to_z3(self, ctx: VariableContext):
+        string_variable = ctx.get_variable(self.predicate_type)
+        if self.ignore_case:
+            case_insensitive_regex = ConvertEREToZ3Regex(self.value, is_case_sensitive=False).convert()
+            z3_expression = InRe(string_variable, case_insensitive_regex)
+        else:
+            z3_expression = string_variable == z3.StringVal(self.value)
+
+        return z3.And(z3.Not(z3_expression), ctx.json_type_variable.is_str())
 
 
 class StringPattern(BaseStringPredicate):
@@ -92,6 +114,9 @@ class StringPattern(BaseStringPredicate):
     ignore_case: bool = False
     max_length: int = DEFAULT_REGEX_STRING_MAX_LENGTH
 
+    def __invert__(self):
+        return StringNotPattern(pattern=self.pattern, ignore_case=self.ignore_case, max_length=self.max_length)
+
     def to_z3(self, ctx: VariableContext):
         """Convert the string pattern predicate to a Z3 expression.
 
@@ -106,7 +131,24 @@ class StringPattern(BaseStringPredicate):
         pattern_regex = ConvertEREToZ3Regex(self.pattern, is_case_sensitive=not self.ignore_case).convert()
         z3_expression = z3.And(z3.InRe(string_variable, pattern_regex), z3.Length(string_variable) <= self.max_length)
 
-        return z3_expression
+        return z3.And(z3_expression, ctx.json_type_variable.is_str())
+
+
+class StringNotPattern(BaseStringPredicate):
+    type_of: Literal['StringNotPattern'] = 'StringNotPattern'
+    pattern: str
+    ignore_case: bool = False
+    max_length: int = DEFAULT_REGEX_STRING_MAX_LENGTH
+
+    def __invert__(self):
+        return StringPattern(pattern=self.pattern, ignore_case=self.ignore_case, max_length=self.max_length)
+
+    def to_z3(self, ctx: VariableContext):
+        string_variable = ctx.get_variable(self.predicate_type)
+        pattern_regex = ConvertEREToZ3Regex(self.pattern, is_case_sensitive=not self.ignore_case).convert()
+        z3_expression = z3.And(z3.InRe(string_variable, pattern_regex), z3.Length(string_variable) <= self.max_length)
+
+        return z3.And(z3.Not(z3_expression), ctx.json_type_variable.is_str())
 
 
 class StringContains(BaseStringPredicate):
@@ -121,6 +163,9 @@ class StringContains(BaseStringPredicate):
     value: str
     ignore_case: bool = False
     max_length: int = DEFAULT_REGEX_STRING_MAX_LENGTH
+
+    def __invert__(self):
+        return StringNotContains(value=self.value, ignore_case=self.ignore_case, max_length=self.max_length)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the string contains predicate to a Z3 expression.
@@ -148,6 +193,36 @@ class StringContains(BaseStringPredicate):
             )
         else:
             contains_expression = z3.Contains(string_variable, self.value)
+            # contains_expression = InRe(string_variable, z3.Concat(any_character_regex, z3.Re(z3.StringVal(self.value)), any_character_regex))
 
         contains_expression = z3.And(contains_expression, z3.Length(string_variable) <= self.max_length)
-        return contains_expression
+        return z3.And(contains_expression, ctx.json_type_variable.is_str())
+
+
+class StringNotContains(StringContains):
+    type_of: Literal['StringNotContains'] = 'StringNotContains'
+
+    def __invert__(self):
+        return StringContains(value=self.value, ignore_case=self.ignore_case, max_length=self.max_length)
+
+    def to_z3(self, ctx: VariableContext):
+        string_variable = ctx.get_variable(self.predicate_type)
+        any_character_regex = z3.AllChar(z3.ReSort(z3.StringSort()))
+
+        if self.ignore_case:
+            contains_expression = InRe(
+                string_variable,
+                z3.simplify(
+                    z3.Concat(
+                        z3.Star(any_character_regex),
+                        string_to_case_insensitive_z3_regex(self.value),
+                        z3.Star(any_character_regex),
+                    )
+                ),
+            )
+        else:
+            contains_expression = z3.Contains(string_variable, self.value)
+            # contains_expression = InRe(string_variable, z3.Concat(any_character_regex, z3.Re(z3.StringVal(self.value)), any_character_regex))
+
+        contains_expression = z3.And(contains_expression, z3.Length(string_variable) <= self.max_length)
+        return z3.And(z3.Not(contains_expression), ctx.json_type_variable.is_str())

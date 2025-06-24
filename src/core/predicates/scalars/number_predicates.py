@@ -32,6 +32,9 @@ class NumberEqualTo(BaseNumberPredicate):
     type_of: Literal['NumberEqualTo'] = 'NumberEqualTo'
     value: float
 
+    def __invert__(self):
+        return NumberNotEqualTo(value=self.value)
+
     def to_z3(self, ctx: VariableContext):
         """Convert the number equality predicate to a Z3 expression.
 
@@ -43,7 +46,19 @@ class NumberEqualTo(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return real_variable == z3.RealVal(self.value)
+        return z3.And(real_variable == z3.RealVal(self.value), ctx.json_type_variable.is_real())
+
+
+class NumberNotEqualTo(BaseNumberPredicate):
+    type_of: Literal['NumberNotEqualTo'] = 'NumberNotEqualTo'
+    value: float
+
+    def __invert__(self):
+        return NumberEqualTo(value=self.value)
+
+    def to_z3(self, ctx: VariableContext):
+        real_variable = ctx.get_variable(self.predicate_type)
+        return z3.And(real_variable != z3.RealVal(self.value), ctx.json_type_variable.is_real())
 
 
 class NumberGreaterThan(BaseNumberPredicate):
@@ -54,6 +69,9 @@ class NumberGreaterThan(BaseNumberPredicate):
 
     type_of: Literal['NumberGreaterThan'] = 'NumberGreaterThan'
     value: float
+
+    def __invert__(self):
+        return NumberLessOrEqualThan(value=self.value)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the number greater-than predicate to a Z3 expression.
@@ -66,7 +84,7 @@ class NumberGreaterThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return real_variable > z3.RealVal(self.value)
+        return z3.And(real_variable > z3.RealVal(self.value), ctx.json_type_variable.is_real())
 
 
 class NumberGreaterOrEqualThan(BaseNumberPredicate):
@@ -77,6 +95,9 @@ class NumberGreaterOrEqualThan(BaseNumberPredicate):
 
     type_of: Literal['NumberGreaterOrEqualThan'] = 'NumberGreaterOrEqualThan'
     value: float
+
+    def __invert__(self):
+        return NumberLessThan(value=self.value)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the number greater-than-or-equal-to predicate to a Z3 expression.
@@ -89,7 +110,7 @@ class NumberGreaterOrEqualThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return real_variable >= z3.RealVal(self.value)
+        return z3.And(real_variable >= z3.RealVal(self.value), ctx.json_type_variable.is_real())
 
 
 class NumberLessThan(BaseNumberPredicate):
@@ -100,6 +121,9 @@ class NumberLessThan(BaseNumberPredicate):
 
     type_of: Literal['NumberLessThan'] = 'NumberLessThan'
     value: float
+
+    def __invert__(self):
+        return NumberGreaterOrEqualThan(value=self.value)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the number less-than predicate to a Z3 expression.
@@ -112,7 +136,7 @@ class NumberLessThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return real_variable < z3.RealVal(self.value)
+        return z3.And(real_variable < z3.RealVal(self.value), ctx.json_type_variable.is_real())
 
 
 class NumberLessOrEqualThan(BaseNumberPredicate):
@@ -123,6 +147,9 @@ class NumberLessOrEqualThan(BaseNumberPredicate):
 
     type_of: Literal['NumberLessOrEqualThan'] = 'NumberLessOrEqualThan'
     value: float
+
+    def __invert__(self):
+        return NumberGreaterThan(value=self.value)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the number less-than-or-equal-to predicate to a Z3 expression.
@@ -135,4 +162,4 @@ class NumberLessOrEqualThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return real_variable <= z3.RealVal(self.value)
+        return z3.And(real_variable <= z3.RealVal(self.value), ctx.json_type_variable.is_real())

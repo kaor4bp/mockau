@@ -50,7 +50,10 @@ brotli = "^1.1.0"
 aiofiles = "^24.1.0"
 cryptography = "^44.0.1"
 exrex = "^0.12.0"
-z3-solver = "^4.14.1.0"
+pytest-repeat = "^0.9.4"
+river = "^0.22.0"
+z3-solver = "^4.15.0.0"
+deap = "^1.4.3"
 
 
 [build-system]
