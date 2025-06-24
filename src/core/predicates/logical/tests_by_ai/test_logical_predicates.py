@@ -354,10 +354,11 @@ class TestLogicalPredicatesIsMatched:
             # Mixed types - Or can be true if one matches
             [[IntegerEqualTo(value=5), StringEqualTo(value="hello")], 5, None, None, True],
             [[IntegerEqualTo(value=5), StringEqualTo(value="hello")], None, "hello", None, True],
-            # [[IntegerEqualTo(value=5), StringEqualTo(value="hello")], 6, "world", None, False],
+            [[IntegerEqualTo(value=5), StringEqualTo(value="hello")], 6, "world", None, False],
             [[], 123, "abc", 1.23, False],  # Or of no conditions is False
             [[StringPattern(pattern="^\\d+$")], None, "123", None, True],  # Single predicate in list
         ],
+        ids=lambda x: repr(x),
     )
     def test_or_predicate(self, predicates_list, test_value_int, test_value_str, test_value_num, expected_matched):
         or_predicate = OrPredicate(predicates=predicates_list)
@@ -379,17 +380,7 @@ class TestLogicalPredicatesIsMatched:
             assert or_predicate.is_matched("anything") == expected_matched
 
     # AnyPredicate tests
-    @pytest.mark.parametrize(
-        'test_value',
-        [
-            123,
-            "string",
-            0.0,
-            True,
-            # None,
-            # [1,2,3]
-        ],
-    )
+    @pytest.mark.parametrize('test_value', [123, "string", 0.0, True, None, [1, 2, 3]], ids=lambda x: str(x))
     def test_any_predicate(self, test_value):
         any_predicate = AnyPredicate()
         assert any_predicate.is_matched(test_value) is True

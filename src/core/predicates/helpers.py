@@ -3,6 +3,7 @@ def value_to_predicate(value):
     from core.predicates.collections.array_predicates import ArrayStrictEqualTo
     from core.predicates.collections.object_predicates import ObjectEqualTo
     from core.predicates.scalars import BooleanEqualTo, IntegerEqualTo, NumberEqualTo, StringEqualTo
+    from core.predicates.scalars.null_predicates import IsNull
 
     if isinstance(value, BasePredicate):
         return value
@@ -19,5 +20,7 @@ def value_to_predicate(value):
         return ObjectEqualTo(value=value)
     elif isinstance(value, list):
         return ArrayStrictEqualTo(value=value)
+    elif value is None:
+        return IsNull()
     else:
         raise ValueError(f'Unsupported value type: {type(value)}')

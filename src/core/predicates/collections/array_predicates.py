@@ -160,6 +160,7 @@ class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
         or_constraints.append(z3.Length(array_var) != z3.IntVal(len(self.value)))
 
         ctx.set_array_len(len(self.value))
+        ctx.add_unbounded_array(array_var)
 
         constraints.append(ctx.json_type_variable.is_array())
 
@@ -189,7 +190,8 @@ class ArrayContains(BaseArrayPredicate):
             constraints.append(index_var < z3.Length(array_var))
 
         ctx.set_array_len(len(self.value) * 2)
-        constraints.append(z3.Length(array_var) < z3.IntVal(ctx.default_array_len))
+        ctx.add_unbounded_array(array_var)
+
         constraints.append(z3.Distinct(indexes_seq))
         constraints.append(ctx.json_type_variable.is_array())
 
@@ -213,7 +215,8 @@ class ArrayNotContains(BaseArrayPredicate):
             or_constraints.append(z3.Not(z3.Contains(array_var, z3.Unit(child_ctx.json_type_variable.z3_variable))))
 
         ctx.set_array_len(len(self.value) * 2)
-        constraints.append(z3.Length(array_var) < z3.IntVal(ctx.default_array_len))
+        ctx.add_unbounded_array(array_var)
+
         constraints.append(ctx.json_type_variable.is_array())
 
         return z3.And(*constraints, z3.Or(*or_constraints))

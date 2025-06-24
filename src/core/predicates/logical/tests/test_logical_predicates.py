@@ -15,6 +15,13 @@ NotPredicate.model_rebuild()
 AndPredicate.model_rebuild()
 OrPredicate.model_rebuild()
 
+NOT_INTERSECTIONS = {
+    'not_with_preserve_type_true': [
+        IntegerEqualTo(value=1),
+        NotPredicate(predicate=StringEqualTo(value='world'), preserve_type=True),
+    ]
+}
+
 EQUIVALENTS = {
     'x = 1 | contains(x, hello) EQUIV (!(x > 1) && !(x < 1)) | contains(x, hello)': [
         OrPredicate(predicates=[IntegerEqualTo(value=1), StringContains(value='hello', max_length=10)]),
@@ -68,7 +75,25 @@ INTERSECTIONS = {
             ]
         ),
     ],
+    'not_with_preserve_type_false': [
+        IntegerEqualTo(value=1),
+        NotPredicate(predicate=StringEqualTo(value='world'), preserve_type=False),
+    ],
+    'not_with_preserve_type_true': [
+        StringEqualTo(value='hello'),
+        NotPredicate(predicate=StringEqualTo(value='world'), preserve_type=True),
+    ],
 }
+
+
+class TestObjectIsNotIntersectedWith:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(NOT_INTERSECTIONS))
+    def test_not_intersections_are_not_intersected(self, p1, p2):
+        assert not p1.is_intersected_with(p2)
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(NOT_INTERSECTIONS))
+    def test_not_intersections_are_symmetrical_not_intersected(self, p1, p2):
+        assert not p2.is_intersected_with(p1)
 
 
 class TestIntegerIsSubsetOf:

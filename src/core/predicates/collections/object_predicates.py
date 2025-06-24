@@ -81,6 +81,7 @@ class ObjectEqualTo(BaseObjectPredicate):
 
             key_var = key_context.get_variable(PredicateType.String)
             my_arr = z3.Store(my_arr, key_var, value_context.json_type_variable.z3_variable)
+            ctx.register_key_var(key_var)
 
         constraints.append(z3_object_variable == my_arr)
         constraints.append(ctx.json_type_variable.is_object())
@@ -110,6 +111,8 @@ class ObjectNotEqualTo(BaseObjectPredicate):
             key_var = key_context.get_variable(PredicateType.String)
             or_constraints.append(z3_object_variable[key_var] == value_context.json_type_variable.z3_variable)
             all_keys_set = z3.SetAdd(all_keys_set, key_var)
+
+            ctx.register_key_var(key_var)
 
         j = z3.String(f'j_{uuid4()}')
         child_ctx = ctx.create_child_context()
@@ -147,6 +150,8 @@ class ObjectContainsSubset(BaseObjectPredicate):
             key_var = key_context.get_variable(PredicateType.String)
             constraints.append(value_context.json_type_variable.z3_variable == z3_object_variable[key_var])
 
+            ctx.register_key_var(key_var)
+
         constraints.append(ctx.json_type_variable.is_object())
 
         return z3.And(*constraints)
@@ -178,6 +183,7 @@ class ObjectNotContainsSubset(BaseObjectPredicate):
                 z3_object_variable[key_var] == value_context.json_type_variable.z3_variable,
                 z3_object_variable[key_var] == undefined_var,
             ]
+            ctx.register_key_var(key_var)
 
         constraints.append(ctx.json_type_variable.is_object())
 
@@ -210,6 +216,7 @@ class ObjectHasValue(BaseCollectionPredicate):
         key_var = z3.String(f'key_{uuid4()}')
         constraints.append(z3_object_variable[key_var] == child_ctx.json_type_variable.z3_variable)
         constraints.append(ctx.json_type_variable.is_object())
+        ctx.register_key_var(key_var)
 
         return z3.And(*constraints)
 

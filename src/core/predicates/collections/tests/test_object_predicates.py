@@ -9,6 +9,7 @@ from core.predicates.scalars import (
     IntegerLessOrEqualThan,
     IntegerLessThan,
     StringContains,
+    StringEqualTo,
     StringPattern,
 )
 from utils.formatters import get_params_argv
@@ -122,6 +123,19 @@ INTERSECTIONS = {
             value={
                 'hello': IntegerGreaterThan(value=24),
                 'hello_world': IntegerLessThan(value=3),
+            }
+        ),
+    ],
+    'predicate keys can be equal 2': [
+        ObjectEqualTo(
+            value={
+                StringEqualTo(value='hello'): IntegerGreaterThan(value=4),
+                StringEqualTo(value='hello'): IntegerGreaterThan(value=1),
+            }
+        ),
+        ObjectEqualTo(
+            value={
+                'hello': IntegerGreaterThan(value=24),
             }
         ),
     ],

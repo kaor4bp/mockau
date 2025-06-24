@@ -13,7 +13,7 @@ class NonePredicate(BaseLogicalPredicate):
 
     @property
     def predicate_types(self):
-        return {PredicateType.Null}
+        return {PredicateType.Undefined}
 
     def to_z3(self, ctx: VariableContext):
         return z3.BoolVal(False)
@@ -69,6 +69,7 @@ class NotPredicate(BaseLogicalPredicate):
 
     type_of: Literal['NotPredicate'] = 'NotPredicate'
     predicate: Any
+    preserve_type: bool = True
 
     @property
     def predicate_types(self) -> set[PredicateType]:
@@ -76,7 +77,40 @@ class NotPredicate(BaseLogicalPredicate):
 
     def to_z3(self, ctx: VariableContext):
         inverted_predicate = ~self.predicate
-        return inverted_predicate.to_z3(ctx)
+        additional_constraints = []
+
+        if self.preserve_type is False and PredicateType.Any not in self.predicate_types:
+            all_types = {
+                PredicateType.Null,
+                PredicateType.Boolean,
+                PredicateType.Integer,
+                PredicateType.Real,
+                PredicateType.String,
+                PredicateType.Object,
+                PredicateType.Array,
+            }
+            other_types = all_types - self.predicate_types
+
+            for other_type in other_types:
+                ctx.get_variable(other_type)
+
+                if other_type == PredicateType.Null:
+                    additional_constraints.append(ctx.json_type_variable.is_null())
+                elif other_type == PredicateType.Boolean:
+                    additional_constraints.append(ctx.json_type_variable.is_bool())
+                elif other_type == PredicateType.Integer:
+                    additional_constraints.append(ctx.json_type_variable.is_int())
+                elif other_type == PredicateType.Real:
+                    additional_constraints.append(ctx.json_type_variable.is_real())
+                elif other_type == PredicateType.String:
+                    additional_constraints.append(ctx.json_type_variable.is_str())
+                elif other_type == PredicateType.Object:
+                    additional_constraints.append(ctx.json_type_variable.is_object())
+                elif other_type == PredicateType.Array:
+                    additional_constraints.append(ctx.json_type_variable.is_array())
+                else:
+                    raise ValueError(f"Unknown predicate type: {other_type}")
+        return z3.Or(inverted_predicate.to_z3(ctx), *additional_constraints)
 
 
 class AndPredicate(BaseLogicalPredicate):
