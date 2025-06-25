@@ -30,6 +30,10 @@ class BasePredicate(BaseSchema, ABC):
     def __invert__(self):
         return _DefaultInvertedPredicate(predicate=self)
 
+    @abstractmethod
+    def verify(self, value):
+        pass
+
     def __hash__(self):
         """Generate hash from internal ID.
 
@@ -71,8 +75,18 @@ class BasePredicate(BaseSchema, ABC):
         ...
 
     def _solver_iter(self):
+        z3_solver = z3.Solver()
+        z3_solver.set("timeout", 5 * 1000)
+        z3_solver.push()
+        # z3_solver.set("max_memory", 1024)
+
+        try:
+            yield z3_solver, dict(tactic='smt', timeout=5)
+        finally:
+            z3_solver.reset()
+
         params = []
-        for set_timeout in [5, 10, 600]:
+        for set_timeout in [600]:
             for set_tactic in [
                 'qfauflia',
                 'simplify',
@@ -91,18 +105,45 @@ class BasePredicate(BaseSchema, ABC):
             else:
                 z3_solver = z3.Tactic(param['tactic']).solver()
             z3_solver.set("timeout", param['timeout'] * 1000)
+            z3_solver.push()
 
             print(f'Using tactic {param["tactic"]} with timeout {param["timeout"]}')
-            yield z3_solver, param
+            try:
+                yield z3_solver, param
+            finally:
+                z3_solver.reset()
 
         z3_solver = z3.Solver()
         z3_solver.set("timeout", DEFAULT_SOLVER_TIMEOUT * 1000)
+        z3_solver.push()
         # z3_solver.set("max_memory", 1024)
 
         try:
             yield z3_solver, dict(tactic='smt', timeout=DEFAULT_SOLVER_TIMEOUT)
         finally:
             z3_solver.reset()
+
+    def is_consistent(self) -> bool:
+        check_result = z3.unknown
+
+        for z3_solver, param in self._solver_iter():
+            ctx = VariableContext()
+
+            z3_solver.add(self.to_z3(ctx))
+            z3_solver.add(ctx.to_global_constraints())
+
+            check_result = z3_solver.check()
+
+            if check_result == z3.sat:
+                val = ctx.evaluate_value(z3_solver)
+                print(val)
+                # assert self.verify(val)
+
+            if check_result != z3.unknown:
+                break
+
+        assert check_result != z3.unknown
+        return check_result == z3.sat
 
     def is_subset_of(self, other: PredicateTypeVar) -> bool:
         """Check if predicate is subset of another.
@@ -112,8 +153,10 @@ class BasePredicate(BaseSchema, ABC):
         :return: True if subset, False otherwise
         :rtype: bool
 
-        .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024), modified by Gemini 2.5 Flash
+        .. Docstring created by Gemini 2.5 Flash
         """
+
+        check_result = z3.unknown
 
         for z3_solver, param in self._solver_iter():
             ctx = VariableContext()
@@ -125,7 +168,10 @@ class BasePredicate(BaseSchema, ABC):
             check_result = z3_solver.check()
 
             if check_result == z3.sat:
-                print(ctx.evaluate_value(z3_solver))
+                val = ctx.evaluate_value(z3_solver)
+                print(val)
+                # assert self.verify(val)
+                # assert (~other).verify(val)
 
             if check_result != z3.unknown:
                 break
@@ -141,8 +187,10 @@ class BasePredicate(BaseSchema, ABC):
         :return: True if superset, False otherwise
         :rtype: bool
 
-        .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024), modified by Gemini 2.5 Flash
+        .. Docstring created by Gemini 2.5 Flash
         """
+
+        check_result = z3.unknown
 
         for z3_solver, param in self._solver_iter():
             ctx = VariableContext()
@@ -154,7 +202,10 @@ class BasePredicate(BaseSchema, ABC):
             check_result = z3_solver.check()
 
             if check_result == z3.sat:
-                print(ctx.evaluate_value(z3_solver))
+                val = ctx.evaluate_value(z3_solver)
+                print(val)
+                # assert (~self).verify(val)
+                # assert other.verify(val)
 
             if check_result != z3.unknown:
                 break
@@ -170,8 +221,10 @@ class BasePredicate(BaseSchema, ABC):
         :return: True if intersect, False otherwise
         :rtype: bool
 
-        .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024), modified by Gemini 2.5 Flash
+        .. Docstring created by Gemini 2.5 Flash
         """
+
+        check_result = z3.unknown
 
         for z3_solver, param in self._solver_iter():
             ctx = VariableContext()
@@ -183,7 +236,10 @@ class BasePredicate(BaseSchema, ABC):
             check_result = z3_solver.check()
 
             if check_result == z3.sat:
-                print(ctx.evaluate_value(z3_solver))
+                val = ctx.evaluate_value(z3_solver)
+                print(val)
+                # assert self.verify(val)
+                # assert other.verify(val)
 
             if check_result != z3.unknown:
                 break
@@ -192,24 +248,7 @@ class BasePredicate(BaseSchema, ABC):
         return check_result == z3.sat
 
     # def is_matched(self, value) -> bool:
-    #     value_as_predicate = value_to_predicate(value)
-    #
-    #     for z3_solver, param in self._solver_iter():
-    #         self_context = VariableContext()
-    #         value_context = VariableContext()
-    #
-    #         z3_solver.add(self.to_z3(self_context))
-    #         z3_solver.add(value_as_predicate.to_z3(value_context))
-    #         z3_solver.add(self_context.to_global_constraints())
-    #         z3_solver.add(value_context.to_global_constraints())
-    #         z3_solver.add(self_context.json_type_variable.z3_variable == value_context.json_type_variable.z3_variable)
-    #
-    #         check_result = z3_solver.check()
-    #         if check_result != z3.unknown:
-    #             break
-    #
-    #     assert check_result != z3.unknown
-    #     return check_result == z3.sat
+    #     return self.verify(value)
 
     def is_matched(self, value) -> bool:
         value_as_predicate = value_to_predicate(value)
@@ -228,7 +267,9 @@ class BasePredicate(BaseSchema, ABC):
                 break
 
         assert check_result != z3.unknown
-        return check_result == z3.sat
+        result = check_result == z3.sat
+        assert result == self.verify(value)
+        return result
 
     def is_equivalent_to(self, other):
         """Check if predicates are equivalent.
@@ -248,6 +289,9 @@ class _DefaultInvertedPredicate(BasePredicate):
 
     def __invert__(self):
         return self.predicate
+
+    def verify(self, value):
+        return not self.predicate.verify(value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         return z3.Not(self.predicate.to_z3(ctx))

@@ -35,6 +35,9 @@ class BooleanEqualTo(BaseBooleanPredicate):
     def __invert__(self):
         return BooleanNotEqualTo(value=self.value)
 
+    def verify(self, value):
+        return isinstance(value, bool) and value == self.value
+
     def to_z3(self, ctx: VariableContext):
         """Convert the boolean equality predicate to a Z3 expression.
 
@@ -55,6 +58,9 @@ class BooleanNotEqualTo(BaseBooleanPredicate):
 
     def __invert__(self):
         return BooleanEqualTo(value=self.value)
+
+    def verify(self, value):
+        return isinstance(value, bool) and value != self.value
 
     def to_z3(self, ctx: VariableContext):
         boolean_variable = ctx.get_variable(self.predicate_type)

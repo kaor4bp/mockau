@@ -13,6 +13,7 @@ from core.predicates.base_predicate import (
     t_Predicate,
 )
 from core.predicates.helpers import value_to_predicate
+from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
 
 
 class BaseArrayPredicate(BaseCollectionPredicate, ABC):
@@ -47,6 +48,17 @@ class BaseArrayItemPredicate(BaseCollectionPredicate):
 class ArrayStrictEqualTo(BaseArrayPredicate):
     type_of: Literal['ArrayStrictEqualTo'] = 'ArrayStrictEqualTo'
 
+    def verify(self, value: list):
+        if not isinstance(value, list):
+            return False
+
+        if len(value) != len(self.value):
+            return False
+        for item_predicate, item in zip(self.value, value):
+            if not item_predicate.verify(item):
+                return False
+        return True
+
     def __invert__(self):
         return ArrayNotStrictEqualTo(value=self.value)
 
@@ -72,6 +84,17 @@ class ArrayStrictEqualTo(BaseArrayPredicate):
 
 class ArrayNotStrictEqualTo(BaseArrayPredicate):
     type_of: Literal['ArrayStrictEqualTo'] = 'ArrayStrictEqualTo'
+
+    def verify(self, value: list):
+        if not isinstance(value, list):
+            return False
+
+        if len(value) != len(self.value):
+            return False
+        for item_predicate, item in zip(self.value, value):
+            if not item_predicate.verify(item):
+                return True
+        return False
 
     def __invert__(self):
         return ArrayStrictEqualTo(value=self.value)
@@ -100,13 +123,30 @@ class ArrayNotStrictEqualTo(BaseArrayPredicate):
 class ArrayEqualToWithoutOrder(BaseArrayPredicate):
     type_of: Literal['ArrayEqualToWithoutOrder'] = 'ArrayEqualToWithoutOrder'
 
+    def verify(self, value: list):
+        if not isinstance(value, list):
+            return False
+
+        if len(value) != len(self.value):
+            return False
+
+        graph = {}
+        for item_predicate in self.value:
+            graph[item_predicate] = []
+            for item in value:
+                if item_predicate.verify(item):
+                    graph[item_predicate].append(item)
+
+        best_combination = KuhnMatchingAlgorithm(graph).find_max_matching()
+        return len(best_combination.keys()) == len(self.value)
+
     def __invert__(self):
         return ArrayNotEqualToWithoutOrder(value=self.value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
-        value_indexes = z3.Const(f'all_indexes_{uuid4()}', z3.SeqSort(z3.IntSort()))
         constraints = []
+        all_index_vars = []
 
         for item in self.value:
             index_var = z3.Int(f'index_{uuid4()}')
@@ -118,9 +158,10 @@ class ArrayEqualToWithoutOrder(BaseArrayPredicate):
             )
             constraints.append(index_var >= z3.IntVal(0))
             constraints.append(index_var < z3.Length(array_var))
-            value_indexes = z3.Concat(value_indexes, z3.Unit(index_var))
+            for v in all_index_vars:
+                constraints.append(index_var != v)
+            all_index_vars.append(index_var)
 
-        constraints.append(z3.Distinct(value_indexes))
         constraints.append(z3.Length(array_var) == z3.IntVal(len(self.value)))
         constraints.append(ctx.json_type_variable.is_array())
 
@@ -132,12 +173,29 @@ class ArrayEqualToWithoutOrder(BaseArrayPredicate):
 class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
     type_of: Literal['ArrayEqualToWithoutOrder'] = 'ArrayEqualToWithoutOrder'
 
+    def verify(self, value: list):
+        if not isinstance(value, list):
+            return False
+
+        if len(value) != len(self.value):
+            return True
+
+        graph = {}
+        for item_predicate in self.value:
+            graph[item_predicate] = []
+            for item in value:
+                if item_predicate.verify(item):
+                    graph[item_predicate].append(item)
+
+        best_combination = KuhnMatchingAlgorithm(graph).find_max_matching()
+        return len(best_combination.keys()) < len(self.value)
+
     def __invert__(self):
         return ArrayEqualToWithoutOrder(value=self.value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
-        value_indexes = z3.Const(f'all_indexes_{uuid4()}', z3.SeqSort(z3.IntSort()))
+        all_index_vars = []
         constraints = []
         or_constraints = []
 
@@ -154,9 +212,10 @@ class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
             ]
             constraints.append(index_var >= z3.IntVal(0))
             constraints.append(index_var < z3.Length(array_var))
-            value_indexes = z3.Concat(value_indexes, z3.Unit(index_var))
+            for v in all_index_vars:
+                constraints.append(index_var != v)
+            all_index_vars.append(index_var)
 
-        constraints.append(z3.Distinct(value_indexes))
         or_constraints.append(z3.Length(array_var) != z3.IntVal(len(self.value)))
 
         ctx.set_array_len(len(self.value))
@@ -170,18 +229,32 @@ class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
 class ArrayContains(BaseArrayPredicate):
     type_of: Literal['ArrayContains'] = 'ArrayContains'
 
+    def verify(self, value: list):
+        if not isinstance(value, list):
+            return False
+
+        for item_predicate in self.value:
+            for item in value:
+                if item_predicate.verify(item):
+                    break
+            else:
+                return False
+        return True
+
     def __invert__(self):
         return ArrayNotContains(value=self.value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         constraints = []
         array_var = ctx.get_variable(PredicateType.Array)
-        indexes_seq = z3.Const(f'indexes_{uuid4()}', z3.SeqSort(z3.IntSort()))
+        all_index_vars = []
 
         for item in self.value:
             index_var = z3.Int(f'index_{uuid4()}')
 
-            indexes_seq = z3.Concat(indexes_seq, z3.Unit(index_var))
+            for v in all_index_vars:
+                constraints.append(index_var != v)
+            all_index_vars.append(index_var)
 
             child_ctx = ctx.create_child_context()
             constraints.append(item.to_z3(child_ctx))
@@ -192,7 +265,6 @@ class ArrayContains(BaseArrayPredicate):
         ctx.set_array_len(len(self.value) * 2)
         ctx.add_unbounded_array(array_var)
 
-        constraints.append(z3.Distinct(indexes_seq))
         constraints.append(ctx.json_type_variable.is_array())
 
         return z3.And(*constraints)
@@ -200,6 +272,17 @@ class ArrayContains(BaseArrayPredicate):
 
 class ArrayNotContains(BaseArrayPredicate):
     type_of: Literal['ArrayNotContains'] = 'ArrayNotContains'
+
+    def verify(self, value: list):
+        if not isinstance(value, list):
+            return False
+
+        for item_predicate in self.value:
+            for item in value:
+                if not item_predicate.verify(item):
+                    return True
+
+        return False
 
     def __invert__(self):
         return ArrayContains(value=self.value)

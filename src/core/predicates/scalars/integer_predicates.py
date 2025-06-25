@@ -32,6 +32,9 @@ class IntegerEqualTo(BaseIntegerPredicate):
     type_of: Literal['IntegerEqualTo'] = 'IntegerEqualTo'
     value: int
 
+    def verify(self, value):
+        return isinstance(value, int) and value == self.value
+
     def __invert__(self):
         return IntegerNotEqualTo(value=self.value)
 
@@ -53,6 +56,9 @@ class IntegerNotEqualTo(BaseIntegerPredicate):
     type_of: Literal['IntegerNotEqualTo'] = 'IntegerNotEqualTo'
     value: int
 
+    def verify(self, value):
+        return isinstance(value, int) and value != self.value
+
     def __invert__(self):
         return IntegerEqualTo(value=self.value)
 
@@ -69,6 +75,9 @@ class IntegerGreaterThan(BaseIntegerPredicate):
 
     type_of: Literal['IntegerGreaterThan'] = 'IntegerGreaterThan'
     value: int
+
+    def verify(self, value):
+        return isinstance(value, int) and value > self.value
 
     def __invert__(self):
         return IntegerLessOrEqualThan(value=self.value)
@@ -96,6 +105,9 @@ class IntegerGreaterOrEqualThan(BaseIntegerPredicate):
     type_of: Literal['IntegerGreaterOrEqualThan'] = 'IntegerGreaterOrEqualThan'
     value: int
 
+    def verify(self, value):
+        return isinstance(value, int) and value >= self.value
+
     def __invert__(self):
         return IntegerLessThan(value=self.value)
 
@@ -122,6 +134,9 @@ class IntegerLessThan(BaseIntegerPredicate):
     type_of: Literal['IntegerLessThan'] = 'IntegerLessThan'
     value: int
 
+    def verify(self, value):
+        return isinstance(value, int) and value < self.value
+
     def __invert__(self):
         return IntegerGreaterOrEqualThan(value=self.value)
 
@@ -147,6 +162,9 @@ class IntegerLessOrEqualThan(BaseIntegerPredicate):
 
     type_of: Literal['IntegerLessOrEqualThan'] = 'IntegerLessOrEqualThan'
     value: int
+
+    def verify(self, value):
+        return isinstance(value, int) and value <= self.value
 
     def __invert__(self):
         return IntegerGreaterThan(value=self.value)

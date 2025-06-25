@@ -68,7 +68,7 @@ class JsonDatatype:
         :return: Constructed Z3 Datatype
         :rtype: z3.DatatypeRef
 
-        .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024), modified by Gemini 2.5 Flash
+        .. Docstring created by Gemini 2.5 Flash
         """
 
         json_datatype = z3.Datatype(f'JsonType_{level}')

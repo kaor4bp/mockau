@@ -27,4 +27,15 @@ class PredicateType(Enum):
     Undefined = 'Undefined'
 
 
+PREDICATE_TYPE_TO_PYTHON_TYPE = {
+    PredicateType.Boolean: bool,
+    PredicateType.Integer: int,
+    PredicateType.Real: float,
+    PredicateType.String: str,
+    PredicateType.Object: dict,
+    PredicateType.Array: list,
+    PredicateType.Null: type(None),
+    PredicateType.Any: object,
+}
+
 DEFAULT_SOLVER_TIMEOUT = 100

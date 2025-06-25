@@ -1,5 +1,9 @@
+import json
+import pathlib
+
 import pytest
 
+from core.predicates.collections.array_predicates import ArrayContains
 from core.predicates.collections.object_predicates import ObjectContainsSubset, ObjectEqualTo, ObjectHasValue
 from core.predicates.logical.logical_predicates import AndPredicate, NotPredicate, OrPredicate
 from core.predicates.scalars import (
@@ -13,6 +17,20 @@ from core.predicates.scalars import (
     StringPattern,
 )
 from utils.formatters import get_params_argv
+
+CURRENT_DIR = pathlib.Path(__file__).parent.resolve()
+BIG_JSON_REQUEST_1_FILE_PATH = CURRENT_DIR.joinpath('./big_json_request_1.json')
+
+INCONSISTENTS = {
+    'two_equal_string_equal_to_cannot_have_unique_keys': [
+        ObjectEqualTo(
+            value={
+                StringEqualTo(value='hello'): IntegerGreaterThan(value=4),
+                StringEqualTo(value='hello'): IntegerGreaterThan(value=1),
+            }
+        )
+    ]
+}
 
 NOT_INTERSECTIONS = {
     '1': [ObjectEqualTo(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek', 'hello': 'world'})],
@@ -55,6 +73,28 @@ NOT_INTERSECTIONS = {
 }
 
 INTERSECTIONS = {
+    'big_json_request_1': [
+        ObjectContainsSubset(
+            value={
+                'options': ObjectContainsSubset(value={'label_format': StringEqualTo(value='PDF')}),
+                'from_address': ObjectContainsSubset(
+                    value={
+                        'name': OrPredicate(
+                            predicates=[StringContains(value='Bernadette'), StringContains(value='Maria')]
+                        ),
+                        'city': 'Pasadena',
+                    }
+                ),
+                'rates': ArrayContains(
+                    value=[
+                        ObjectContainsSubset(value={'carrier': 'USPS', 'service': 'Priority'}),
+                    ]
+                ),
+                'object': 'Shipment',
+            }
+        ),
+        ObjectEqualTo(value=json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text())),
+    ],
     '1': [ObjectEqualTo(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek'})],
     '2': [ObjectContainsSubset(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek'})],
     '4': [ObjectContainsSubset(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek', 'hello': 'world'})],
@@ -123,19 +163,6 @@ INTERSECTIONS = {
             value={
                 'hello': IntegerGreaterThan(value=24),
                 'hello_world': IntegerLessThan(value=3),
-            }
-        ),
-    ],
-    'predicate keys can be equal 2': [
-        ObjectEqualTo(
-            value={
-                StringEqualTo(value='hello'): IntegerGreaterThan(value=4),
-                StringEqualTo(value='hello'): IntegerGreaterThan(value=1),
-            }
-        ),
-        ObjectEqualTo(
-            value={
-                'hello': IntegerGreaterThan(value=24),
             }
         ),
     ],
@@ -299,65 +326,70 @@ class TestObjectIsNotIntersectedWith:
 
 
 class TestObjectIsSubsetOf:
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_one_equivalent_is_subset_of_another(self, m1, m2):
-        assert m1.is_subset_of(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_one_equivalent_is_subset_of_another(self, p1, p2):
+        assert p1.is_subset_of(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_subset_is_subset_of_superset(self, m1, m2):
-        assert m2.is_subset_of(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_subset_is_subset_of_superset(self, p1, p2):
+        assert p2.is_subset_of(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_superset_is_not_subset_of_subset(self, m1, m2):
-        assert not m1.is_subset_of(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_superset_is_not_subset_of_subset(self, p1, p2):
+        assert not p1.is_subset_of(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_subset_of_equivalents_is_symmetric(self, m1, m2):
-        assert m2.is_subset_of(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_subset_of_equivalents_is_symmetric(self, p1, p2):
+        assert p2.is_subset_of(p1)
 
 
 class TestObjectIsSupersetOf:
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_superset_is_superset_of_subset(self, m1, m2):
-        assert m1.is_superset_of(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_superset_is_superset_of_subset(self, p1, p2):
+        assert p1.is_superset_of(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_subset_is_not_superset_of_superset(self, m1, m2):
-        assert not m2.is_superset_of(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_subset_is_not_superset_of_superset(self, p1, p2):
+        assert not p2.is_superset_of(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_one_equivalent_is_superset_of_another(self, m1, m2):
-        assert m1.is_superset_of(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_one_equivalent_is_superset_of_another(self, p1, p2):
+        assert p1.is_superset_of(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_superset_of_equivalents_is_symmetric(self, m1, m2):
-        assert m2.is_superset_of(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_superset_of_equivalents_is_symmetric(self, p1, p2):
+        assert p2.is_superset_of(p1)
 
 
 class TestObjectIsIntersectedWith:
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(INTERSECTIONS))
-    def test_intersections_are_intersected(self, m1, m2):
-        assert m1.is_intersected_with(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
+    def test_is_consistent(self, p1, p2):
+        assert p1.is_consistent()
+        assert p2.is_consistent()
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(INTERSECTIONS))
-    def test_intersections_are_symmetrical_intersected(self, m1, m2):
-        assert m2.is_intersected_with(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
+    def test_intersections_are_intersected(self, p1, p2):
+        assert p1.is_intersected_with(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_equivalents_are_intersected(self, m1, m2):
-        assert m1.is_intersected_with(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
+    def test_intersections_are_symmetrical_intersected(self, p1, p2):
+        assert p2.is_intersected_with(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_equivalents_are_symmetrically_intersected(self, m1, m2):
-        assert m2.is_intersected_with(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_equivalents_are_intersected(self, p1, p2):
+        assert p1.is_intersected_with(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_superset_and_subset_are_intersected(self, m1, m2):
-        assert m2.is_intersected_with(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_equivalents_are_symmetrically_intersected(self, p1, p2):
+        assert p2.is_intersected_with(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_subset_and_superset_are_symmetrically_intersectable(self, m1, m2):
-        assert m1.is_intersected_with(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_superset_and_subset_are_intersected(self, p1, p2):
+        assert p2.is_intersected_with(p1)
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_subset_and_superset_are_symmetrically_intersectable(self, p1, p2):
+        assert p1.is_intersected_with(p2)
 
 
 MATCHED = {
@@ -392,6 +424,28 @@ MATCHED = {
     'or predicate': [
         OrPredicate(predicates=[ObjectEqualTo(value={'key1': 'wrong'}), ObjectEqualTo(value={'key1': 'correct'})]),
         {'key1': 'correct'},
+    ],
+    'big_json_request_1': [
+        ObjectContainsSubset(
+            value={
+                'options': ObjectContainsSubset(value={'label_format': StringEqualTo(value='PDF')}),
+                'from_address': ObjectContainsSubset(
+                    value={
+                        'name': OrPredicate(
+                            predicates=[StringContains(value='Bernadette'), StringContains(value='Maria')]
+                        ),
+                        'city': 'Pasadena',
+                    }
+                ),
+                'rates': ArrayContains(
+                    value=[
+                        ObjectContainsSubset(value={'carrier': 'USPS', 'service': 'Priority'}),
+                    ]
+                ),
+                'object': 'Shipment',
+            }
+        ),
+        json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text()),
     ],
 }
 
@@ -433,9 +487,19 @@ NOT_MATCHED = {
 
 class TestObjectIsMatched:
     @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(MATCHED))
+    def test_is_consistent(self, predicate, value):
+        assert predicate.is_consistent()
+
+    @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(MATCHED))
     def test_matched_values_are_matched(self, predicate, value):
         assert predicate.is_matched(value)
 
     @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(NOT_MATCHED))
     def test_not_matched_values_are_not_matched(self, predicate, value):
         assert not predicate.is_matched(value)
+
+
+class TestObjectInconsistency:
+    @pytest.mark.parametrize(['predicate'], **get_params_argv(INCONSISTENTS))
+    def test_is_consistent_is_false(self, predicate):
+        assert not predicate.is_consistent()

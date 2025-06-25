@@ -4,12 +4,14 @@ from typing import Any, Literal
 import z3
 
 from core.predicates.base_predicate import BaseLogicalPredicate, BaseScalarPredicate, PredicateType, VariableContext
+from core.predicates.consts import PREDICATE_TYPE_TO_PYTHON_TYPE
 
 
-class NonePredicate(BaseLogicalPredicate):
-    """Predicate that matches no value and no type."""
+class VoidPredicate(BaseLogicalPredicate):
+    type_of: Literal['VoidPredicate'] = 'VoidPredicate'
 
-    type_of: Literal['NonePredicate'] = 'NonePredicate'
+    def verify(self, value):
+        raise ValueError("VoidPredicate cannot be used for verification -- it is impossible value")
 
     @property
     def predicate_types(self):
@@ -32,8 +34,11 @@ class AnyPredicate(BaseScalarPredicate):
 
     type_of: Literal['AnyPredicate'] = 'AnyPredicate'
 
+    def verify(self, value):
+        return True
+
     def __invert__(self):
-        return NonePredicate()
+        return VoidPredicate()
 
     @property
     def predicate_types(self):
@@ -70,6 +75,24 @@ class NotPredicate(BaseLogicalPredicate):
     type_of: Literal['NotPredicate'] = 'NotPredicate'
     predicate: Any
     preserve_type: bool = True
+
+    def verify(self, value):
+        all_types = {
+            PredicateType.Null,
+            PredicateType.Boolean,
+            PredicateType.Integer,
+            PredicateType.Real,
+            PredicateType.String,
+            PredicateType.Object,
+            PredicateType.Array,
+        }
+        other_types = all_types - self.predicate_types
+
+        constraints = [not self.predicate.verify(value)]
+        if not self.preserve_type:
+            for other_type in other_types:
+                constraints.append(isinstance(value, PREDICATE_TYPE_TO_PYTHON_TYPE[other_type]))
+        return any(constraints)
 
     @property
     def predicate_types(self) -> set[PredicateType]:
@@ -126,6 +149,9 @@ class AndPredicate(BaseLogicalPredicate):
     type_of: Literal['AndPredicate'] = 'AndPredicate'
     predicates: list
 
+    def verify(self, value):
+        return all(p.verify(value) for p in self.predicates)
+
     @property
     def predicate_types(self) -> set[PredicateType]:
         """Get supported predicate types for this class.
@@ -176,6 +202,9 @@ class OrPredicate(BaseLogicalPredicate):
 
     type_of: Literal['OrPredicate'] = 'OrPredicate'
     predicates: list
+
+    def verify(self, value):
+        return any(p.verify(value) for p in self.predicates)
 
     @property
     def predicate_types(self) -> set[PredicateType]:

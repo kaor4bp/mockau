@@ -32,6 +32,9 @@ class NumberEqualTo(BaseNumberPredicate):
     type_of: Literal['NumberEqualTo'] = 'NumberEqualTo'
     value: float
 
+    def verify(self, value):
+        return isinstance(value, float) and value == self.value
+
     def __invert__(self):
         return NumberNotEqualTo(value=self.value)
 
@@ -53,6 +56,9 @@ class NumberNotEqualTo(BaseNumberPredicate):
     type_of: Literal['NumberNotEqualTo'] = 'NumberNotEqualTo'
     value: float
 
+    def verify(self, value):
+        return isinstance(value, float) and value != self.value
+
     def __invert__(self):
         return NumberEqualTo(value=self.value)
 
@@ -69,6 +75,9 @@ class NumberGreaterThan(BaseNumberPredicate):
 
     type_of: Literal['NumberGreaterThan'] = 'NumberGreaterThan'
     value: float
+
+    def verify(self, value):
+        return isinstance(value, float) and value > self.value
 
     def __invert__(self):
         return NumberLessOrEqualThan(value=self.value)
@@ -96,6 +105,9 @@ class NumberGreaterOrEqualThan(BaseNumberPredicate):
     type_of: Literal['NumberGreaterOrEqualThan'] = 'NumberGreaterOrEqualThan'
     value: float
 
+    def verify(self, value):
+        return isinstance(value, float) and value >= self.value
+
     def __invert__(self):
         return NumberLessThan(value=self.value)
 
@@ -122,6 +134,9 @@ class NumberLessThan(BaseNumberPredicate):
     type_of: Literal['NumberLessThan'] = 'NumberLessThan'
     value: float
 
+    def verify(self, value):
+        return isinstance(value, float) and value < self.value
+
     def __invert__(self):
         return NumberGreaterOrEqualThan(value=self.value)
 
@@ -147,6 +162,9 @@ class NumberLessOrEqualThan(BaseNumberPredicate):
 
     type_of: Literal['NumberLessOrEqualThan'] = 'NumberLessOrEqualThan'
     value: float
+
+    def verify(self, value):
+        return isinstance(value, float) and value <= self.value
 
     def __invert__(self):
         return NumberGreaterThan(value=self.value)

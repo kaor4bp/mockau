@@ -201,97 +201,97 @@ class TestObjectIsNotIntersectedWith:  # For cases that should explicitly not in
 
 
 class TestObjectIsSubsetOf:
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_one_equivalent_is_subset_of_another(self, m1, m2):
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_one_equivalent_is_subset_of_another(self, p1, p2):
         # For the AnyPredicate special case in EQUIVALENTS:
-        if m1 == ObjectContainsSubset(value={}) and m2 == AnyPredicate():
+        if p1 == ObjectContainsSubset(value={}) and p2 == AnyPredicate():
             # ObjectContainsSubset({}) is a subset of AnyPredicate() (matches all dicts vs matches all)
             # but AnyPredicate() is not necessarily a subset of ObjectContainsSubset({})
             # This specific equivalence needs careful thought for subset relationship.
             # Let's assume AnyPredicate is broader or equal.
-            assert m1.is_subset_of(m2)
-            # The reverse, m2.is_subset_of(m1), might be false if AnyPredicate can match non-dicts.
+            assert p1.is_subset_of(p2)
+            # The reverse, p2.is_subset_of(p1), might be false if AnyPredicate can match non-dicts.
             return
-        assert m1.is_subset_of(m2)
+        assert p1.is_subset_of(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_subset_is_subset_of_superset(self, m1, m2):  # m2 is subset, m1 is superset
-        assert m2.is_subset_of(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_subset_is_subset_of_superset(self, p1, p2):  # p2 is subset, p1 is superset
+        assert p2.is_subset_of(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_superset_is_not_subset_of_subset(self, m1, m2):  # m1 is superset, m2 is subset
-        if not m1.is_equivalent_to(m2):  # Unless they are equivalent (e.g. AnyPredicate)
-            assert not m1.is_subset_of(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_superset_is_not_subset_of_subset(self, p1, p2):  # p1 is superset, p2 is subset
+        if not p1.is_equivalent_to(p2):  # Unless they are equivalent (e.g. AnyPredicate)
+            assert not p1.is_subset_of(p2)
         else:
-            assert m1.is_subset_of(m2)
+            assert p1.is_subset_of(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_subset_of_equivalents_is_symmetric(self, m1, m2):
-        if m1 == ObjectContainsSubset(value={}) and m2 == AnyPredicate():
-            assert m1.is_subset_of(m2)  # ObjectContainsSubset({}) is subset of Any
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_subset_of_equivalents_is_symmetric(self, p1, p2):
+        if p1 == ObjectContainsSubset(value={}) and p2 == AnyPredicate():
+            assert p1.is_subset_of(p2)  # ObjectContainsSubset({}) is subset of Any
             # AnyPredicate is not subset of ObjectContainsSubset({}) if Any can match non-dicts
             if isinstance(AnyPredicate().is_matched("string"), bool):  # Crude check if Any can match non-dict
-                assert not m2.is_subset_of(m1)
+                assert not p2.is_subset_of(p1)
             else:  # If Any only works for dicts in this context
-                assert m2.is_subset_of(m1)
+                assert p2.is_subset_of(p1)
 
             return
-        assert m2.is_subset_of(m1)
+        assert p2.is_subset_of(p1)
 
 
 class TestObjectIsSupersetOf:
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_superset_is_superset_of_subset(self, m1, m2):  # m1 is superset, m2 is subset
-        assert m1.is_superset_of(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_superset_is_superset_of_subset(self, p1, p2):  # p1 is superset, p2 is subset
+        assert p1.is_superset_of(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_subset_is_not_superset_of_superset(self, m1, m2):  # m2 is subset, m1 is superset
-        if not m2.is_equivalent_to(m1):
-            assert not m2.is_superset_of(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_subset_is_not_superset_of_superset(self, p1, p2):  # p2 is subset, p1 is superset
+        if not p2.is_equivalent_to(p1):
+            assert not p2.is_superset_of(p1)
         else:
-            assert m2.is_superset_of(m1)
+            assert p2.is_superset_of(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_one_equivalent_is_superset_of_another(self, m1, m2):
-        if m2 == ObjectContainsSubset(value={}) and m1 == AnyPredicate():
-            assert m1.is_superset_of(m2)  # Any is superset of ObjectContainsSubset({})
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_one_equivalent_is_superset_of_another(self, p1, p2):
+        if p2 == ObjectContainsSubset(value={}) and p1 == AnyPredicate():
+            assert p1.is_superset_of(p2)  # Any is superset of ObjectContainsSubset({})
             return
-        assert m1.is_superset_of(m2)
+        assert p1.is_superset_of(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_superset_of_equivalents_is_symmetric(self, m1, m2):
-        if m1 == ObjectContainsSubset(value={}) and m2 == AnyPredicate():
-            assert m1.is_superset_of(m2)
-            # Check if AnyPredicate (m2) is superset of ObjectContainsSubset({}) (m1)
-            assert m2.is_superset_of(m1)  # If Any can match non-dicts, this holds.
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_superset_of_equivalents_is_symmetric(self, p1, p2):
+        if p1 == ObjectContainsSubset(value={}) and p2 == AnyPredicate():
+            assert p1.is_superset_of(p2)
+            # Check if AnyPredicate (p2) is superset of ObjectContainsSubset({}) (p1)
+            assert p2.is_superset_of(p1)  # If Any can match non-dicts, this holds.
             return
-        assert m2.is_superset_of(m1)
+        assert p2.is_superset_of(p1)
 
 
 class TestObjectIsIntersectedWith:
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(INTERSECTIONS))
-    def test_intersections_are_intersected(self, m1, m2):
-        assert m1.is_intersected_with(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
+    def test_intersections_are_intersected(self, p1, p2):
+        assert p1.is_intersected_with(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(INTERSECTIONS))
-    def test_intersections_are_symmetrical_intersected(self, m1, m2):
-        assert m2.is_intersected_with(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
+    def test_intersections_are_symmetrical_intersected(self, p1, p2):
+        assert p2.is_intersected_with(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_equivalents_are_intersected(self, m1, m2):
-        assert m1.is_intersected_with(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_equivalents_are_intersected(self, p1, p2):
+        assert p1.is_intersected_with(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_equivalents_are_symmetrically_intersected(self, m1, m2):
-        assert m2.is_intersected_with(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_equivalents_are_symmetrically_intersected(self, p1, p2):
+        assert p2.is_intersected_with(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_superset_and_subset_are_intersected(self, m1, m2):
-        assert m2.is_intersected_with(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_superset_and_subset_are_intersected(self, p1, p2):
+        assert p2.is_intersected_with(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_subset_and_superset_are_symmetrically_intersectable(self, m1, m2):
-        assert m1.is_intersected_with(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_subset_and_superset_are_symmetrically_intersectable(self, p1, p2):
+        assert p1.is_intersected_with(p2)
 
     @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(NOT_INTERSECTIONS))
     def test_not_intersections_are_not_intersected_explicit(self, p1, p2):  # Renamed to avoid clash
@@ -304,29 +304,29 @@ class TestObjectIsIntersectedWith:
 
 # TestObjectIsEquivalentTo is missing from original, adding it.
 class TestObjectIsEquivalentTo:
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_equivalents_are_equivalent(self, m1, m2):
-        assert m1.is_equivalent_to(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_equivalents_are_equivalent(self, p1, p2):
+        assert p1.is_equivalent_to(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(EQUIVALENTS))
-    def test_equivalents_are_symmetrically_equivalent(self, m1, m2):
-        assert m2.is_equivalent_to(m1)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_equivalents_are_symmetrically_equivalent(self, p1, p2):
+        assert p2.is_equivalent_to(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_subset_is_not_equivalent_to_superset(self, m1, m2):
-        if m1.is_equivalent_to(m2):
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_subset_is_not_equivalent_to_superset(self, p1, p2):
+        if p1.is_equivalent_to(p2):
             return  # Handles AnyPredicate cases
-        assert not m2.is_equivalent_to(m1)
+        assert not p2.is_equivalent_to(p1)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(SUPERSETS))
-    def test_superset_is_not_equivalent_to_subset(self, m1, m2):
-        if m1.is_equivalent_to(m2):
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_superset_is_not_equivalent_to_subset(self, p1, p2):
+        if p1.is_equivalent_to(p2):
             return
-        assert not m1.is_equivalent_to(m2)
+        assert not p1.is_equivalent_to(p2)
 
-    @pytest.mark.parametrize(['m1', 'm2'], **get_params_argv(NOT_INTERSECTIONS))
-    def test_non_intersecting_are_not_equivalent(self, m1, m2):
-        assert not m1.is_equivalent_to(m2)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(NOT_INTERSECTIONS))
+    def test_non_intersecting_are_not_equivalent(self, p1, p2):
+        assert not p1.is_equivalent_to(p2)
 
 
 MATCHED = {

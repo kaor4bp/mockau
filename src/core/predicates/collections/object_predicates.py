@@ -12,6 +12,7 @@ from core.predicates.base_predicate import (
     t_Predicate,
 )
 from core.predicates.helpers import value_to_predicate
+from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
 
 
 class BaseObjectPredicate(BaseCollectionPredicate):
@@ -61,6 +62,22 @@ class BaseObjectPredicate(BaseCollectionPredicate):
 class ObjectEqualTo(BaseObjectPredicate):
     type_of: Literal['ObjectEqualTo'] = 'ObjectEqualTo'
 
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        graph = {}
+
+        for pred_k, pred_v in self.value.items():
+            graph[pred_k] = []
+            for k, v in value.items():
+                if pred_k.verify(k) and pred_v.verify(v):
+                    graph[pred_k].append(pred_v)
+                    break
+
+        best_candidate = KuhnMatchingAlgorithm(graph).find_max_matching()
+        return len(best_candidate.keys()) == len(self.value.keys()) == len(value.keys())
+
     def __invert__(self):
         return ObjectNotEqualTo(value=self.value)
 
@@ -70,6 +87,9 @@ class ObjectEqualTo(BaseObjectPredicate):
         child_ctx = ctx.create_child_context()
         child_ctx.get_variable(PredicateType.Undefined)
         my_arr = z3.K(z3.StringSort(), child_ctx.json_type_variable.z3_variable)
+
+        existing_key_vars = []
+        key_constraints = []
 
         constraints = []
 
@@ -83,14 +103,33 @@ class ObjectEqualTo(BaseObjectPredicate):
             my_arr = z3.Store(my_arr, key_var, value_context.json_type_variable.z3_variable)
             ctx.register_key_var(key_var)
 
+            for v in existing_key_vars:
+                key_constraints.append(key_var != v)
+            existing_key_vars.append(key_var)
+
         constraints.append(z3_object_variable == my_arr)
         constraints.append(ctx.json_type_variable.is_object())
-
-        return z3.And(*constraints)
+        return z3.And(*constraints, z3.simplify(z3.And(*key_constraints)))
 
 
 class ObjectNotEqualTo(BaseObjectPredicate):
     type_of: Literal['ObjectEqualTo'] = 'ObjectEqualTo'
+
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        graph = {}
+
+        for pred_k, pred_v in self.value.items():
+            graph[pred_k] = []
+            for k, v in value.items():
+                if pred_k.verify(k) and pred_v.verify(v):
+                    graph[pred_k].append(pred_v)
+                    break
+
+        best_candidate = KuhnMatchingAlgorithm(graph).find_max_matching()
+        return len(best_candidate.keys()) != len(self.value.keys()) and len(best_candidate.keys()) != len(value.keys())
 
     def __invert__(self):
         return ObjectEqualTo(value=self.value)
@@ -98,6 +137,7 @@ class ObjectNotEqualTo(BaseObjectPredicate):
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
         all_keys_set = z3.EmptySet(z3.StringSort())
+        existing_key_vars = []
 
         constraints = []
         or_constraints = []
@@ -111,8 +151,11 @@ class ObjectNotEqualTo(BaseObjectPredicate):
             key_var = key_context.get_variable(PredicateType.String)
             or_constraints.append(z3_object_variable[key_var] == value_context.json_type_variable.z3_variable)
             all_keys_set = z3.SetAdd(all_keys_set, key_var)
-
             ctx.register_key_var(key_var)
+
+            for v in existing_key_vars:
+                constraints.append(key_var != v)
+            existing_key_vars.append(key_var)
 
         j = z3.String(f'j_{uuid4()}')
         child_ctx = ctx.create_child_context()
@@ -134,12 +177,29 @@ class ObjectNotEqualTo(BaseObjectPredicate):
 class ObjectContainsSubset(BaseObjectPredicate):
     type_of: Literal['ObjectContainsSubset'] = 'ObjectContainsSubset'
 
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        graph = {}
+
+        for pred_k, pred_v in self.value.items():
+            graph[pred_k] = []
+            for k, v in value.items():
+                if pred_k.verify(k) and pred_v.verify(v):
+                    graph[pred_k].append(pred_v)
+                    break
+
+        best_candidate = KuhnMatchingAlgorithm(graph).find_max_matching()
+        return len(best_candidate.keys()) >= len(self.value.keys())
+
     def __invert__(self):
         return ObjectNotContainsSubset(value=self.value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
         constraints = []
+        existing_key_vars = []
 
         for key_pred, value_pred in self.value.items():
             key_context = ctx.create_child_context()
@@ -149,8 +209,11 @@ class ObjectContainsSubset(BaseObjectPredicate):
 
             key_var = key_context.get_variable(PredicateType.String)
             constraints.append(value_context.json_type_variable.z3_variable == z3_object_variable[key_var])
-
             ctx.register_key_var(key_var)
+
+            for v in existing_key_vars:
+                constraints.append(key_var != v)
+            existing_key_vars.append(key_var)
 
         constraints.append(ctx.json_type_variable.is_object())
 
@@ -160,12 +223,29 @@ class ObjectContainsSubset(BaseObjectPredicate):
 class ObjectNotContainsSubset(BaseObjectPredicate):
     type_of: Literal['ObjectContainsSubset'] = 'ObjectContainsSubset'
 
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        graph = {}
+
+        for pred_k, pred_v in self.value.items():
+            graph[pred_k] = []
+            for k, v in value.items():
+                if pred_k.verify(k) and pred_v.verify(v):
+                    graph[pred_k].append(pred_v)
+                    break
+
+        best_candidate = KuhnMatchingAlgorithm(graph).find_max_matching()
+        return len(best_candidate.keys()) < len(self.value.keys())
+
     def __invert__(self):
         return ObjectContainsSubset(value=self.value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
         constraints = []
+        existing_key_vars = []
 
         child_ctx = ctx.create_child_context()
         child_ctx.get_variable(PredicateType.Undefined)
@@ -184,6 +264,9 @@ class ObjectNotContainsSubset(BaseObjectPredicate):
                 z3_object_variable[key_var] == undefined_var,
             ]
             ctx.register_key_var(key_var)
+            for v in existing_key_vars:
+                constraints.append(key_var != v)
+            existing_key_vars.append(key_var)
 
         constraints.append(ctx.json_type_variable.is_object())
 
@@ -193,6 +276,15 @@ class ObjectNotContainsSubset(BaseObjectPredicate):
 class ObjectHasValue(BaseCollectionPredicate):
     type_of: Literal['ObjectHasValue'] = 'ObjectHasValue'
     predicate: t_Predicate | str | int | bool | None
+
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        for v in value.values():
+            if self.predicate.verify(v):
+                return True
+        return False
 
     def __invert__(self):
         return ObjectHasNoValue(predicate=self.predicate)
@@ -224,6 +316,15 @@ class ObjectHasValue(BaseCollectionPredicate):
 class ObjectHasNoValue(BaseCollectionPredicate):
     type_of: Literal['ObjectHasValue'] = 'ObjectHasValue'
     predicate: t_Predicate | str | int | bool | None
+
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        for v in value.values():
+            if self.predicate.verify(v):
+                return False
+        return True
 
     def __invert__(self):
         return ObjectHasValue(predicate=self.predicate)

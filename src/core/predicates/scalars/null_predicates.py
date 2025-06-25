@@ -1,8 +1,7 @@
 from typing import Literal
 
-import z3
-
 from core.predicates.base_predicate import BaseScalarPredicate, PredicateType, VariableContext
+from core.predicates.logical.logical_predicates import VoidPredicate
 
 
 class BaseNullPredicate(BaseScalarPredicate):
@@ -14,20 +13,14 @@ class BaseNullPredicate(BaseScalarPredicate):
 class IsNull(BaseNullPredicate):
     type_of: Literal['IsNull'] = 'IsNull'
 
+    def verify(self, value):
+        return value is None
+
     def __invert__(self):
-        return IsNotNull()
+        # `Not(IsNull)` usually means "non-null values."
+        # But with `preserve_type=True`, we'd need a null-like type that isn't null — a logical impossibility
+        return VoidPredicate()
 
     def to_z3(self, ctx: VariableContext):
         ctx.get_variable(self.predicate_type)
         return ctx.json_type_variable.is_null()
-
-
-class IsNotNull(BaseNullPredicate):
-    type_of: Literal['IsNotNull'] = 'IsNotNull'
-
-    def __invert__(self):
-        return IsNull()
-
-    def to_z3(self, ctx: VariableContext):
-        ctx.get_variable(self.predicate_type)
-        return z3.Not(ctx.json_type_variable.is_null())

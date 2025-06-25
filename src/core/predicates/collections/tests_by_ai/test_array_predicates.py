@@ -158,8 +158,8 @@ SUPERSETS = {
     ],
     'contains_fewer_items_is_superset': [ArrayContains(value=['a', 'b']), ArrayContains(value=['a', 'b', 'c'])],
     'strict_equal_with_broader_pattern_is_superset': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern=r'\w+')]),
-        ArrayStrictEqualTo(value=[StringPattern(pattern=r'[a-z]+')]),
+        ArrayStrictEqualTo(value=[StringPattern(pattern='\w+')]),
+        ArrayStrictEqualTo(value=[StringPattern(pattern='[a-z]+')]),
     ],
     'string_contains_is_superset_of_string_equal': [
         ArrayStrictEqualTo(value=[StringContains(value='hello')]),
