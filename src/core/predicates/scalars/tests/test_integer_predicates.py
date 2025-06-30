@@ -10,10 +10,6 @@ from core.predicates.scalars.integer_predicates import (
 )
 from utils.formatters import get_params_argv
 
-NotPredicate.model_rebuild()
-AndPredicate.model_rebuild()
-OrPredicate.model_rebuild()
-
 EQUIVALENTS = {
     'x = 1 EQUIV !(x > 1) && !(x < 1)': [
         IntegerEqualTo(value=1),

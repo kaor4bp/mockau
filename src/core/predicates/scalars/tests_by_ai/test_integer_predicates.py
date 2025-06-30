@@ -11,11 +11,6 @@ from core.predicates.scalars.integer_predicates import (
 )
 from utils.formatters import get_params_argv
 
-# Rebuild Pydantic models to correctly resolve forward references
-NotPredicate.model_rebuild()
-AndPredicate.model_rebuild()
-OrPredicate.model_rebuild()
-
 EQUIVALENTS = {
     'x_eq_1_equiv_not_gt_1_and_not_lt_1': [
         IntegerEqualTo(value=1),

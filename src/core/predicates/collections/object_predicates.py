@@ -12,7 +12,11 @@ from core.predicates.base_predicate import (
     t_Predicate,
 )
 from core.predicates.helpers import value_to_predicate
+from core.predicates.json_datatype import JsonDatatype
+from core.predicates.logical.logical_predicates import NotPredicate
 from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
+
+_DEFAULT_NESTED_PREDICATES_EXTRA_NESTING = 2
 
 
 class BaseObjectPredicate(BaseCollectionPredicate):
@@ -58,6 +62,9 @@ class BaseObjectPredicate(BaseCollectionPredicate):
         """
         return {PredicateType.Object}
 
+    def get_max_nesting_level(self):
+        return max([item.get_max_nesting_level() for item in self.value.values()] + [1]) + 1
+
 
 class ObjectEqualTo(BaseObjectPredicate):
     type_of: Literal['ObjectEqualTo'] = 'ObjectEqualTo'
@@ -95,8 +102,8 @@ class ObjectEqualTo(BaseObjectPredicate):
 
         for key_pred, value_pred in self.value.items():
             key_context = ctx.create_child_context()
-            value_context = ctx.create_child_context()
             constraints.append(key_pred.to_z3(key_context))
+            value_context = ctx.create_child_context()
             constraints.append(value_pred.to_z3(value_context))
 
             key_var = key_context.get_variable(PredicateType.String)
@@ -109,7 +116,8 @@ class ObjectEqualTo(BaseObjectPredicate):
 
         constraints.append(z3_object_variable == my_arr)
         constraints.append(ctx.json_type_variable.is_object())
-        return z3.And(*constraints, z3.simplify(z3.And(*key_constraints)))
+
+        return z3.And(*constraints, *key_constraints)
 
 
 class ObjectNotEqualTo(BaseObjectPredicate):
@@ -144,12 +152,13 @@ class ObjectNotEqualTo(BaseObjectPredicate):
 
         for key_pred, value_pred in self.value.items():
             key_context = ctx.create_child_context()
-            value_context = ctx.create_child_context()
             constraints.append(key_pred.to_z3(key_context))
-            constraints.append((~value_pred).to_z3(value_context))
+            value_context = ctx.create_child_context()
+            constraints.append(NotPredicate(predicate=value_pred, preserve_type=False).to_z3(value_context))
 
             key_var = key_context.get_variable(PredicateType.String)
             or_constraints.append(z3_object_variable[key_var] == value_context.json_type_variable.z3_variable)
+
             all_keys_set = z3.SetAdd(all_keys_set, key_var)
             ctx.register_key_var(key_var)
 
@@ -161,14 +170,19 @@ class ObjectNotEqualTo(BaseObjectPredicate):
         child_ctx = ctx.create_child_context()
         child_ctx.get_variable(PredicateType.Undefined)
         or_constraints.append(
-            z3.ForAll(
-                j,
-                z3.Implies(
-                    z3.Not(z3.IsMember(j, all_keys_set)),
-                    z3_object_variable[j] != child_ctx.json_type_variable.z3_variable,
-                ),
+            z3.And(
+                z3.Not(z3.IsMember(j, all_keys_set)), z3_object_variable[j] != child_ctx.json_type_variable.z3_variable
             )
         )
+        # or_constraints.append(
+        #     z3.ForAll(
+        #         j,
+        #         z3.Implies(
+        #             z3.Not(z3.IsMember(j, all_keys_set)),
+        #             z3_object_variable[j] != child_ctx.json_type_variable.z3_variable,
+        #         ),
+        #     )
+        # )
         constraints.append(ctx.json_type_variable.is_object())
 
         return z3.And(*constraints, z3.Or(*or_constraints))
@@ -256,7 +270,7 @@ class ObjectNotContainsSubset(BaseObjectPredicate):
             key_context = ctx.create_child_context()
             value_context = ctx.create_child_context()
             constraints.append(key_pred.to_z3(key_context))
-            constraints.append((~value_pred).to_z3(value_context))
+            constraints.append(NotPredicate(predicate=value_pred, preserve_type=False).to_z3(value_context))
 
             key_var = key_context.get_variable(PredicateType.String)
             or_constraints += [
@@ -312,6 +326,9 @@ class ObjectHasValue(BaseCollectionPredicate):
 
         return z3.And(*constraints)
 
+    def get_max_nesting_level(self):
+        return self.predicate.get_max_nesting_level() + 1
+
 
 class ObjectHasNoValue(BaseCollectionPredicate):
     type_of: Literal['ObjectHasValue'] = 'ObjectHasValue'
@@ -345,7 +362,7 @@ class ObjectHasNoValue(BaseCollectionPredicate):
         or_constraints = []
 
         child_ctx = ctx.create_child_context()
-        constraints.append((~self.predicate).to_z3(child_ctx))
+        constraints.append(NotPredicate(predicate=self.predicate, preserve_type=False).to_z3(child_ctx))
 
         j = z3.String(f'j_{uuid4()}')
         or_constraints.append(
@@ -357,3 +374,357 @@ class ObjectHasNoValue(BaseCollectionPredicate):
         constraints.append(ctx.json_type_variable.is_object())
 
         return z3.And(*constraints, z3.Or(*or_constraints))
+
+    def get_max_nesting_level(self):
+        return self.predicate.get_max_nesting_level() + 1
+
+
+class NestedObjectEqualTo(BaseObjectPredicate):
+    type_of: Literal['NestedObjectEqualTo'] = 'NestedObjectEqualTo'
+    max_depth: int = 10
+
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        for k, v in value.items():
+            if isinstance(v, dict):
+                if ObjectEqualTo(value=self.value).verify(v):
+                    return True
+                elif self.verify(v):
+                    return True
+            if isinstance(v, list):
+                for item in v:
+                    if isinstance(item, dict) and self.verify(item):
+                        return True
+        return False
+
+    def __invert__(self):
+        return NestedObjectNotEqualTo(value=self.value, max_depth=self.max_depth)
+
+    def get_max_nesting_level(self):
+        return (
+            max([item.get_max_nesting_level() for item in self.value.values()] + [1])
+            + _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+        )
+
+    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        main_predicate = ObjectEqualTo(value=self.value)
+        constraints = []
+        initial_level = ctx.json_type_variable.level
+        ctx.get_variable(PredicateType.Object)
+
+        for sub_level in range(self.max_depth):
+            child_ctx = ctx.create_child_context()
+
+            object_iterator = z3.String(f'iter_obj_{uuid4()}')
+            array_iterator = z3.Int(f'iter_arr_{uuid4()}')
+            if sub_level < self.max_depth - 1 and ctx.get_max_nesting_level() >= sub_level + initial_level:
+                array_var = ctx.get_variable(PredicateType.Array)
+                object_var = ctx.get_variable(PredicateType.Object)
+                constraints.append(
+                    z3.Or(
+                        main_predicate.to_z3(ctx),
+                        z3.And(
+                            array_var[array_iterator] == child_ctx.json_type_variable.z3_variable,
+                            ctx.json_type_variable.is_array(),
+                            array_iterator < z3.Length(array_var),
+                            array_iterator >= 0,
+                        ),
+                        z3.And(
+                            object_var[object_iterator] == child_ctx.json_type_variable.z3_variable,
+                            ctx.json_type_variable.is_object(),
+                        ),
+                    )
+                )
+            else:
+                constraints.append(main_predicate.to_z3(ctx))
+            ctx = child_ctx
+
+        return z3.And(*constraints)
+
+
+class NestedObjectNotEqualTo(BaseObjectPredicate):
+    type_of: Literal['NestedObjectNotEqualTo'] = 'NestedObjectNotEqualTo'
+    max_depth: int = 10
+
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        for k, v in value.items():
+            if isinstance(v, dict):
+                if not ObjectEqualTo(value=self.value).verify(v):
+                    return False
+                elif not self.verify(v):
+                    return False
+            if isinstance(v, list):
+                for item in v:
+                    if isinstance(item, dict) and not self.verify(item):
+                        return False
+        return True
+
+    def __invert__(self):
+        return NestedObjectEqualTo(value=self.value, max_depth=self.max_depth)
+
+    def get_max_nesting_level(self):
+        return (
+            max([item.get_max_nesting_level() for item in self.value.values()] + [1])
+            + _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+        )
+
+    def _get_sub_predicate_constraints(self, level):
+        constraints = []
+        root_sibling_ctx = VariableContext()
+        sibling_ctx = root_sibling_ctx
+
+        for _ in range(level):
+            sibling_ctx = sibling_ctx.create_child_context()
+        constraints.append(ObjectNotEqualTo(value=self.value).to_z3(sibling_ctx))
+        constraints.append(sibling_ctx.root_parent.to_global_constraints())
+
+        del root_sibling_ctx
+
+        return sibling_ctx, constraints
+
+    def build_nested_for_all(self, ctx, cur_obj, level, recursion_level=0, start_level=0):
+        dts = JsonDatatype._Z3_JSON_DATATYPES
+
+        object_iterator = z3.String(f'object_iterator_{uuid4()}')
+        array_iterator = z3.Int(f'array_iterator_{uuid4()}')
+
+        nested_object_expression = z3.BoolVal(True)
+        nested_array_expression = z3.BoolVal(True)
+        if (
+            recursion_level < self.max_depth
+            and level < JsonDatatype.MAX_NESTING_LEVEL - 1
+            and ctx.get_max_nesting_level() >= level
+        ):
+            nested_object_expression = z3.ForAll(
+                [object_iterator],
+                self.build_nested_for_all(
+                    ctx=ctx,
+                    cur_obj=dts[level].get_object(cur_obj)[object_iterator],
+                    level=level + 1,
+                    recursion_level=recursion_level + 1,
+                    start_level=start_level,
+                ),
+            )
+            nested_array_expression = z3.ForAll(
+                [array_iterator],
+                z3.Implies(
+                    z3.And(array_iterator >= 0, array_iterator < z3.Length(dts[level].get_array(cur_obj))),
+                    self.build_nested_for_all(
+                        ctx=ctx,
+                        cur_obj=dts[level].get_array(cur_obj)[array_iterator],
+                        level=level + 1,
+                        recursion_level=recursion_level + 1,
+                        start_level=start_level,
+                    ),
+                ),
+            )
+
+        sub_predicate_expression = z3.BoolVal(True)
+        if start_level <= level:
+            sibling_ctx, sub_predicate_constraints = self._get_sub_predicate_constraints(level=level)
+            sub_predicate_constraints.append(sibling_ctx.json_type_variable.z3_variable == cur_obj)
+            sub_predicate_expression = z3.And(*sub_predicate_constraints)
+
+        return z3.And(
+            *[
+                z3.Implies(
+                    dts[level].is_object(cur_obj),
+                    z3.And(
+                        sub_predicate_expression,
+                        nested_object_expression,
+                    ),
+                ),
+                z3.Implies(
+                    dts[level].is_array(cur_obj),
+                    nested_array_expression,
+                ),
+            ]
+        )
+
+    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        return self.build_nested_for_all(
+            ctx=ctx,
+            level=ctx.json_type_variable.level,
+            cur_obj=ctx.json_type_variable.z3_variable,
+            start_level=ctx.json_type_variable.level,
+        )
+
+
+class NestedObjectContainsSubset(BaseObjectPredicate):
+    type_of: Literal['NestedObjectContainsSubset'] = 'NestedObjectContainsSubset'
+    max_depth: int = 10
+
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        for k, v in value.items():
+            if isinstance(v, dict):
+                if ObjectContainsSubset(value=self.value).verify(v):
+                    return True
+                elif self.verify(v):
+                    return True
+            if isinstance(v, list):
+                for item in v:
+                    if isinstance(item, dict) and self.verify(item):
+                        return True
+        return False
+
+    def __invert__(self):
+        return NesteObjectNotContainsSubset(value=self.value, max_depth=self.max_depth)
+
+    def get_max_nesting_level(self):
+        return (
+            max([item.get_max_nesting_level() for item in self.value.values()] + [1])
+            + _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+        )
+
+    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        main_predicate = ObjectContainsSubset(value=self.value)
+        constraints = []
+        initial_level = ctx.json_type_variable.level
+        ctx.get_variable(PredicateType.Object)
+
+        for sub_level in range(self.max_depth):
+            child_ctx = ctx.create_child_context()
+
+            object_iterator = z3.String(f'iter_obj_{uuid4()}')
+            array_iterator = z3.Int(f'iter_arr_{uuid4()}')
+            if sub_level < self.max_depth - 1 and ctx.get_max_nesting_level() >= sub_level + initial_level:
+                array_var = ctx.get_variable(PredicateType.Array)
+                object_var = ctx.get_variable(PredicateType.Object)
+                constraints.append(
+                    z3.Or(
+                        main_predicate.to_z3(ctx),
+                        z3.And(
+                            array_var[array_iterator] == child_ctx.json_type_variable.z3_variable,
+                            ctx.json_type_variable.is_array(),
+                            array_iterator < z3.Length(array_var),
+                            array_iterator >= 0,
+                        ),
+                        z3.And(
+                            object_var[object_iterator] == child_ctx.json_type_variable.z3_variable,
+                            ctx.json_type_variable.is_object(),
+                        ),
+                    )
+                )
+            else:
+                constraints.append(main_predicate.to_z3(ctx))
+            ctx = child_ctx
+
+        return z3.And(*constraints)
+
+
+class NesteObjectNotContainsSubset(BaseObjectPredicate):
+    type_of: Literal['NesteObjectNotContainsSubset'] = 'NesteObjectNotContainsSubset'
+    max_depth: int = 10
+
+    def verify(self, value: dict):
+        if not isinstance(value, dict):
+            return False
+
+        for k, v in value.items():
+            if isinstance(v, dict):
+                if not ObjectNotContainsSubset(value=self.value).verify(v):
+                    return False
+                elif not self.verify(v):
+                    return False
+            if isinstance(v, list):
+                for item in v:
+                    if isinstance(item, dict) and not self.verify(item):
+                        return False
+        return True
+
+    def __invert__(self):
+        return NestedObjectContainsSubset(value=self.value, max_depth=self.max_depth)
+
+    def get_max_nesting_level(self):
+        return (
+            max([item.get_max_nesting_level() for item in self.value.values()] + [1])
+            + _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+        )
+
+    def _get_sub_predicate_constraints(self, level):
+        constraints = []
+        root_sibling_ctx = VariableContext()
+        sibling_ctx = root_sibling_ctx
+        for _ in range(level):
+            sibling_ctx = sibling_ctx.create_child_context()
+        constraints.append(ObjectNotContainsSubset(value=self.value).to_z3(sibling_ctx))
+        constraints.append(sibling_ctx.root_parent.to_global_constraints())
+
+        del root_sibling_ctx
+
+        return sibling_ctx, constraints
+
+    def build_nested_for_all(self, ctx: VariableContext, cur_obj, level=0, recursion_level=0, start_level=0):
+        dts = JsonDatatype._Z3_JSON_DATATYPES
+
+        object_iterator = z3.String(f'iter_obj_{uuid4()}')
+        array_iterator = z3.Int(f'iter_arr_{uuid4()}')
+
+        nested_object_expression = z3.BoolVal(True)
+        nested_array_expression = z3.BoolVal(True)
+        if (
+            recursion_level < self.max_depth
+            and level < JsonDatatype.MAX_NESTING_LEVEL - 1
+            and ctx.get_max_nesting_level() >= level
+        ):
+            nested_object_expression = z3.ForAll(
+                [object_iterator],
+                self.build_nested_for_all(
+                    ctx=ctx,
+                    cur_obj=dts[level].get_object(cur_obj)[object_iterator],
+                    level=level + 1,
+                    recursion_level=recursion_level + 1,
+                    start_level=start_level,
+                ),
+            )
+            nested_array_expression = z3.ForAll(
+                [array_iterator],
+                z3.Implies(
+                    z3.And(array_iterator >= 0, array_iterator < z3.Length(dts[level].get_array(cur_obj))),
+                    self.build_nested_for_all(
+                        ctx=ctx,
+                        cur_obj=dts[level].get_array(cur_obj)[array_iterator],
+                        level=level + 1,
+                        recursion_level=recursion_level + 1,
+                        start_level=start_level,
+                    ),
+                ),
+            )
+
+        sub_predicate_expression = z3.BoolVal(True)
+        if start_level <= level:
+            sibling_ctx, sub_predicate_constraints = self._get_sub_predicate_constraints(level=level)
+            sub_predicate_constraints.append(sibling_ctx.json_type_variable.z3_variable == cur_obj)
+            sub_predicate_expression = z3.And(*sub_predicate_constraints)
+
+        return z3.And(
+            *[
+                z3.Implies(
+                    dts[level].is_object(cur_obj),
+                    z3.And(
+                        sub_predicate_expression,
+                        nested_object_expression,
+                    ),
+                ),
+                z3.Implies(
+                    dts[level].is_array(cur_obj),
+                    nested_array_expression,
+                ),
+            ]
+        )
+
+    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        return self.build_nested_for_all(
+            ctx=ctx,
+            cur_obj=ctx.json_type_variable.z3_variable,
+            start_level=ctx.json_type_variable.level,
+            level=ctx.json_type_variable.level,
+        )

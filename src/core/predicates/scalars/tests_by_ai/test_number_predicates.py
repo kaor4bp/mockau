@@ -11,11 +11,6 @@ from core.predicates.scalars.number_predicates import (
 )
 from utils.formatters import get_params_argv
 
-# Rebuild Pydantic models
-NotPredicate.model_rebuild()
-AndPredicate.model_rebuild()
-OrPredicate.model_rebuild()
-
 EQUIVALENTS = {
     'x_eq_1_float_equiv_not_gt_1_and_not_lt_1': [
         NumberEqualTo(value=1.0),

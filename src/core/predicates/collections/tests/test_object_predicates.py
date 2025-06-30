@@ -4,7 +4,13 @@ import pathlib
 import pytest
 
 from core.predicates.collections.array_predicates import ArrayContains
-from core.predicates.collections.object_predicates import ObjectContainsSubset, ObjectEqualTo, ObjectHasValue
+from core.predicates.collections.object_predicates import (
+    NestedObjectContainsSubset,
+    NestedObjectEqualTo,
+    ObjectContainsSubset,
+    ObjectEqualTo,
+    ObjectHasValue,
+)
 from core.predicates.logical.logical_predicates import AndPredicate, NotPredicate, OrPredicate
 from core.predicates.scalars import (
     IntegerEqualTo,
@@ -70,6 +76,32 @@ NOT_INTERSECTIONS = {
         NotPredicate(predicate=ObjectContainsSubset(value={'a': 1})),
         ObjectEqualTo(value={'a': 1}),
     ],
+    'nested_object_equal_to_and_object_equal_to': [
+        NestedObjectEqualTo(value={'a': 'b'}),
+        ObjectEqualTo(value={'a': 1}),
+    ],
+    'nested_object_equal_to_and_deep_object_equal_to': [
+        NestedObjectEqualTo(value={'a': 'b'}),
+        ObjectEqualTo(value={'a': [{'b': {'c': 'd'}}]}),
+    ],
+    'not_nested_object_equal_to_and_deep_object_equal_to_1': [
+        NotPredicate(predicate=NestedObjectEqualTo(value={'a': 'b'})),
+        ObjectEqualTo(value={'a': [{'b': {'c': 'd', 'e': {'a': 'b'}}}]}),
+    ],
+    'not_nested_object_equal_to_and_deep_object_equal_to_2': [
+        NotPredicate(predicate=NestedObjectEqualTo(value={'a': 'b'})),
+        ObjectEqualTo(value={'a': [{'b': {'c': 'd', 'e': [{'a': 'b'}]}}]}),
+    ],
+    '32': [
+        ObjectEqualTo(
+            value={
+                'a': 'b',
+                'c': NestedObjectContainsSubset(value={'a': 'b'}),
+            }
+        ),
+        ObjectEqualTo(value={'a': 'b', 'c': {'a': 123}}),
+    ],
+    '33': [NestedObjectContainsSubset(value={'a': 'b'}), ObjectEqualTo(value={'c': 'd'})],
 }
 
 INTERSECTIONS = {
@@ -183,6 +215,61 @@ INTERSECTIONS = {
         ObjectContainsSubset(value={'hello': StringContains(value='world')}),
         NotPredicate(predicate=ObjectEqualTo(value={'name': StringContains(value='Maria')})),
     ],
+    'nested_nested_object_equal_to': [
+        NestedObjectEqualTo(value={'a': NestedObjectEqualTo(value={'d': 'd_val'})}),
+        ObjectEqualTo(
+            value={
+                'a': {
+                    'b': [
+                        {'c': 'c_val'},
+                        {'a': {'b': [{'c': {'d': 'd_val'}}]}},
+                    ]
+                }
+            }
+        ),
+    ],
+    'object_equal_to_with_nested_object_equal_to': [
+        ObjectEqualTo(value={'a': NestedObjectEqualTo(value={'d': 'd_val'})}),
+        ObjectEqualTo(
+            value={
+                'a': {
+                    'b': [
+                        {'c': 'c_val'},
+                        {'a': {'b': [{'c': {'d': 'd_val'}}]}},
+                    ]
+                }
+            }
+        ),
+    ],
+    'nested_object_equal_to_and_nested_object_contains_subset_1': [
+        NestedObjectEqualTo(value={'a': 'b', 'c': 'd'}),
+        NestedObjectContainsSubset(value={'a': 'b'}),
+    ],
+    'nested_object_equal_to_and_nested_object_contains_subset_2': [
+        NestedObjectEqualTo(value={'a': 'b', 'c': 'd'}),
+        OrPredicate(predicates=[NestedObjectEqualTo(value={'e': 'f'}), ObjectEqualTo(value={'h': 'i'})]),
+    ],
+    'not_nested_object_equal_to_and_deep_object_equal_to_1': [
+        NotPredicate(predicate=NestedObjectEqualTo(value={'a': 'b'})),
+        ObjectEqualTo(value={'a': {'a': 'b', 'extra': True}}),
+    ],
+    'not_nested_object_equal_to_and_deep_object_equal_to_2': [
+        NotPredicate(predicate=NestedObjectEqualTo(value={'a': 'b'})),
+        ObjectEqualTo(value={'a': [{'b': {'c': 'd', 'e': [{'a': 'b', 'extra': True}]}}]}),
+    ],
+    'kek': [
+        NotPredicate(predicate=ObjectEqualTo(value={'a': 'b'})),
+        ObjectEqualTo(value={'a': {'c': 'd'}}),
+    ],
+    '34': [
+        ObjectEqualTo(
+            value={
+                'a': 'b',
+                'c': NotPredicate(predicate=NestedObjectContainsSubset(value={'a': 'b'})),
+            }
+        ),
+        ObjectEqualTo(value={'a': 'b', 'c': {'a': 'f'}}),
+    ],
 }
 
 EQUIVALENTS = {
@@ -277,41 +364,40 @@ SUPERSETS = {
         ObjectHasValue(predicate=IntegerGreaterThan(value=0)),
         ObjectContainsSubset(value={'a': IntegerGreaterThan(value=0), 'b': 'hello'}),
     ],
-    # '4': [
-    #     NestedObjectEqualTo(value={'hello': 'world'}),
-    #     ObjectEqualTo(value={'lol': {'hello': 'world'}})
-    # ],
-    # '5': [
-    #     NestedObjectEqualTo(value={'hello': 'world'}),
-    #     ObjectEqualTo(value={'hello': 'world'})
-    # ],
-    # '6': [
-    #     NestedObjectContainsSubset(value={'hello': 'world'}),
-    #     ObjectEqualTo(value={'hello': 'world'})
-    # ],
-    # '7': [
-    #     NestedObjectContainsSubset(value={'hello': 'world'}),
-    #     OrPredicate(predicates=[
-    #         ObjectEqualTo(value={'hello': 'world'}),
-    #         ObjectEqualTo(value={'lol': {'hello': 'world'}}),
-    #     ])
-    # ],
-    # '8': [
-    #     NestedObjectContainsSubset(value={'a3': 'some_val_1'}),
-    #     ObjectEqualTo(value={'a2': {'a3': 'some_val_1'}}),
-    # ],
-    # '9': [
-    #     ObjectEqualTo(
-    #         value={
-    #             'a1': NestedObjectContainsSubset(value={'a3': 'some_val_1'}),
-    #             'b1': 'some_val_2'
-    #         }
-    #     ),
-    #     ObjectEqualTo(value={
-    #         'a1': {'a2': {'a3': 'some_val_1'}},
-    #         'b1': 'some_val_2'
-    #     })
-    # ]
+    '4': [NestedObjectEqualTo(value={'hello': 'world'}), ObjectEqualTo(value={'lol': {'hello': 'world'}})],
+    '5': [NestedObjectEqualTo(value={'hello': 'world'}), ObjectEqualTo(value={'hello': 'world'})],
+    '6': [NestedObjectContainsSubset(value={'hello': 'world'}), ObjectEqualTo(value={'hello': 'world'})],
+    '7': [
+        NestedObjectContainsSubset(value={'hello': 'world'}),
+        OrPredicate(
+            predicates=[
+                ObjectEqualTo(value={'lol': {'hello': 'world'}}),
+                ObjectEqualTo(value={'hello': 'world'}),
+            ]
+        ),
+    ],
+    '8': [
+        NestedObjectContainsSubset(value={'a3': 'some_val_1'}),
+        ObjectEqualTo(value={'a2': {'a3': 'some_val_1'}}),
+    ],
+    '9': [
+        ObjectEqualTo(value={'a1': NestedObjectContainsSubset(value={'a3': 'some_val_1'}), 'b1': 'some_val_2'}),
+        ObjectEqualTo(value={'a1': {'a2': {'a3': 'some_val_1'}}, 'b1': 'some_val_2'}),
+    ],
+    '69': [
+        ObjectEqualTo(value={'a1': NestedObjectEqualTo(value={'a3': 'some_val_1'}), 'b1': 'some_val_2'}),
+        ObjectEqualTo(value={'a1': {'a2': {'a3': 'some_val_1'}}, 'b1': 'some_val_2'}),
+    ],
+    '70': [
+        ObjectEqualTo(
+            value={'a1': NestedObjectEqualTo(value={'a3': StringContains(value='hello')}), 'b1': 'some_val_2'}
+        ),
+        ObjectEqualTo(value={'a1': {'a2': {'a3': 'hello world!'}}, 'b1': 'some_val_2'}),
+    ],
+    '71': [
+        ObjectEqualTo(value={'a1': NestedObjectEqualTo(value={'a3': None}), 'b1': 'some_val_2'}),
+        ObjectEqualTo(value={'a1': {'a2': {'a3': None}}, 'b1': 'some_val_2'}),
+    ],
 }
 
 
@@ -425,7 +511,7 @@ MATCHED = {
         OrPredicate(predicates=[ObjectEqualTo(value={'key1': 'wrong'}), ObjectEqualTo(value={'key1': 'correct'})]),
         {'key1': 'correct'},
     ],
-    'big_json_request_1': [
+    'big_json_request_1 and object_contains_subset': [
         ObjectContainsSubset(
             value={
                 'options': ObjectContainsSubset(value={'label_format': StringEqualTo(value='PDF')}),
@@ -443,6 +529,28 @@ MATCHED = {
                     ]
                 ),
                 'object': 'Shipment',
+            }
+        ),
+        json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text()),
+    ],
+    'big_json_request_1 and nested_object_equal_to': [
+        NestedObjectEqualTo(
+            value={
+                'label_format': StringEqualTo(value='pdf', ignore_case=True),
+                'label_size': '4X6',
+                'postage_label_inline': False,
+                'currency': 'USD',
+                'payment': ObjectEqualTo(value={'type': 'SENDER'}),
+                'date_advance': IntegerGreaterOrEqualThan(value=0),
+            }
+        ),
+        json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text()),
+    ],
+    'big_json_request_1 and nested_object_contains_subset': [
+        NestedObjectContainsSubset(
+            value={
+                'payment': ObjectEqualTo(value={'type': 'SENDER'}),
+                'date_advance': IntegerGreaterOrEqualThan(value=0),
             }
         ),
         json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text()),
@@ -482,6 +590,7 @@ NOT_MATCHED = {
         OrPredicate(predicates=[ObjectEqualTo(value={'key1': 'wrong1'}), ObjectEqualTo(value={'key1': 'wrong2'})]),
         {'key1': 'also wrong'},
     ],
+    'nested object equal': [NestedObjectEqualTo(value={'a': 'b'}), {'c': {'d': 'f'}}],
 }
 
 

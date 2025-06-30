@@ -7,11 +7,6 @@ from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicat
 from core.predicates.scalars.string_predicates import StringContains, StringEqualTo, StringPattern
 from utils.formatters import get_params_argv  # Assuming this is the intended usage based on other files
 
-# Rebuild Pydantic models
-NotPredicate.model_rebuild()
-AndPredicate.model_rebuild()
-OrPredicate.model_rebuild()
-
 EQUIVALENTS = {
     'equal_to_identical': [StringEqualTo(value='hello'), StringEqualTo(value='hello')],
     'contains_identical': [StringContains(value='hello'), StringContains(value='hello')],

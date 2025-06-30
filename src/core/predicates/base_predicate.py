@@ -7,13 +7,15 @@ from typing_extensions import TypeVar
 
 from core.bases.base_schema import BaseSchema
 from core.predicates.consts import DEFAULT_SOLVER_TIMEOUT, PredicateType
-from core.predicates.helpers import value_to_predicate
 from core.predicates.variable_context import VariableContext
 
 PredicateTypeVar = TypeVar('PredicateTypeVar', bound='BasePredicate')
 
 
 t_Predicate = TypeVar('t_Predicate', bound='BasePredicate')
+
+_DEFAULT_SOLVER = z3.Solver()
+_DEFAULT_SOLVER.set("timeout", DEFAULT_SOLVER_TIMEOUT * 1000)
 
 
 class BasePredicate(BaseSchema, ABC):
@@ -49,6 +51,9 @@ class BasePredicate(BaseSchema, ABC):
         data_repr = ', '.join([f'{k}={v}' for k, v in data.items()])
         return f'{self.__class__.__name__}({data_repr})'
 
+    def get_max_nesting_level(self):
+        return 1
+
     @abstractmethod
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         """Convert predicate to Z3 expression (abstract).
@@ -74,71 +79,76 @@ class BasePredicate(BaseSchema, ABC):
         """
         ...
 
-    def _solver_iter(self):
+    def _get_anti_hang_solver(self):
         z3_solver = z3.Solver()
         z3_solver.set("timeout", 5 * 1000)
         z3_solver.push()
-        # z3_solver.set("max_memory", 1024)
+        z3_solver.set("max_memory", 256)
 
         try:
-            yield z3_solver, dict(tactic='smt', timeout=5)
+            print('Using anti hang solver')
+            yield z3_solver
+        except z3.Z3Exception as e:
+            print(f'Anti hang exception: {e}')
         finally:
             z3_solver.reset()
+            del z3_solver
 
-        params = []
-        for set_timeout in [600]:
-            for set_tactic in [
-                'qfauflia',
-                'simplify',
-                'propagate-values',
-                None,
-                'smt',
-                'solve-eqs',
-                'tseitin-cnf',
-                'ctx-solver-simplify',
-            ]:
-                params.append(dict(tactic=set_tactic, timeout=set_timeout))
-
-        for param in params:
-            if param['tactic'] is None:
-                z3_solver = z3.Solver()
-            else:
-                z3_solver = z3.Tactic(param['tactic']).solver()
-            z3_solver.set("timeout", param['timeout'] * 1000)
-            z3_solver.push()
-
-            print(f'Using tactic {param["tactic"]} with timeout {param["timeout"]}')
-            try:
-                yield z3_solver, param
-            finally:
-                z3_solver.reset()
-
-        z3_solver = z3.Solver()
-        z3_solver.set("timeout", DEFAULT_SOLVER_TIMEOUT * 1000)
-        z3_solver.push()
-        # z3_solver.set("max_memory", 1024)
-
+    def _solver_iter(self):
+        _DEFAULT_SOLVER.push()
         try:
-            yield z3_solver, dict(tactic='smt', timeout=DEFAULT_SOLVER_TIMEOUT)
+            print('Using default solver')
+            yield _DEFAULT_SOLVER
         finally:
-            z3_solver.reset()
+            _DEFAULT_SOLVER.reset()
+
+        yield from self._get_anti_hang_solver()
+
+        for set_tactic in [
+            'qfauflia',
+            'simplify',
+            'propagate-values',
+            None,
+            'smt',
+            'solve-eqs',
+            'tseitin-cnf',
+            'ctx-solver-simplify',
+        ]:
+            for set_timeout in [DEFAULT_SOLVER_TIMEOUT]:
+                if set_tactic is None:
+                    solver = z3.Solver()
+                else:
+                    solver = z3.Tactic(set_tactic).solver()
+                solver.set("timeout", set_timeout * 1000)
+
+                solver.push()
+                try:
+                    print(f'Using solver {set_tactic} with timeout {set_timeout}')
+                    yield solver
+                finally:
+                    solver.reset()
+                    del solver
+
+                yield from self._get_anti_hang_solver()
 
     def is_consistent(self) -> bool:
         check_result = z3.unknown
 
-        for z3_solver, param in self._solver_iter():
+        for z3_solver in self._solver_iter():
             ctx = VariableContext()
+            ctx.set_max_nesting_level(self.get_max_nesting_level())
 
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add(ctx.to_global_constraints())
 
             check_result = z3_solver.check()
 
-            if check_result == z3.sat:
-                val = ctx.evaluate_value(z3_solver)
-                print(val)
-                # assert self.verify(val)
+            # if check_result == z3.sat:
+            #     val = ctx.evaluate_value(z3_solver)
+            #     print(val)
+            #     # assert self.verify(val)
 
+            del ctx
             if check_result != z3.unknown:
                 break
 
@@ -156,10 +166,14 @@ class BasePredicate(BaseSchema, ABC):
         .. Docstring created by Gemini 2.5 Flash
         """
 
+        if not self.is_intersected_with(other):
+            return False
+
         check_result = z3.unknown
 
-        for z3_solver, param in self._solver_iter():
+        for z3_solver in self._solver_iter():
             ctx = VariableContext()
+            ctx.set_max_nesting_level(max([(~other).get_max_nesting_level(), self.get_max_nesting_level()]))
 
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add((~other).to_z3(ctx))
@@ -167,12 +181,13 @@ class BasePredicate(BaseSchema, ABC):
 
             check_result = z3_solver.check()
 
-            if check_result == z3.sat:
-                val = ctx.evaluate_value(z3_solver)
-                print(val)
-                # assert self.verify(val)
-                # assert (~other).verify(val)
+            # if check_result == z3.sat:
+            #     val = ctx.evaluate_value(z3_solver)
+            #     print(val)
+            #     # assert self.verify(val)
+            #     # assert (~other).verify(val)
 
+            del ctx
             if check_result != z3.unknown:
                 break
 
@@ -190,10 +205,14 @@ class BasePredicate(BaseSchema, ABC):
         .. Docstring created by Gemini 2.5 Flash
         """
 
+        if not self.is_intersected_with(other):
+            return False
+
         check_result = z3.unknown
 
-        for z3_solver, param in self._solver_iter():
+        for z3_solver in self._solver_iter():
             ctx = VariableContext()
+            ctx.set_max_nesting_level(max([other.get_max_nesting_level(), (~self).get_max_nesting_level()]))
 
             z3_solver.add(other.to_z3(ctx))
             z3_solver.add((~self).to_z3(ctx))
@@ -201,12 +220,13 @@ class BasePredicate(BaseSchema, ABC):
 
             check_result = z3_solver.check()
 
-            if check_result == z3.sat:
-                val = ctx.evaluate_value(z3_solver)
-                print(val)
-                # assert (~self).verify(val)
-                # assert other.verify(val)
+            # if check_result == z3.sat:
+            #     val = ctx.evaluate_value(z3_solver)
+            #     print(val)
+            #     # assert (~self).verify(val)
+            #     # assert other.verify(val)
 
+            del ctx
             if check_result != z3.unknown:
                 break
 
@@ -226,8 +246,9 @@ class BasePredicate(BaseSchema, ABC):
 
         check_result = z3.unknown
 
-        for z3_solver, param in self._solver_iter():
+        for z3_solver in self._solver_iter():
             ctx = VariableContext()
+            ctx.set_max_nesting_level(max([other.get_max_nesting_level(), self.get_max_nesting_level()]))
 
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add(other.to_z3(ctx))
@@ -235,11 +256,13 @@ class BasePredicate(BaseSchema, ABC):
 
             check_result = z3_solver.check()
 
-            if check_result == z3.sat:
-                val = ctx.evaluate_value(z3_solver)
-                print(val)
-                # assert self.verify(val)
-                # assert other.verify(val)
+            # if check_result == z3.sat:
+            #     val = ctx.evaluate_value(z3_solver)
+            #     print(val)
+            #     # assert self.verify(val)
+            #     # assert other.verify(val)
+
+            del ctx
 
             if check_result != z3.unknown:
                 break
@@ -247,29 +270,29 @@ class BasePredicate(BaseSchema, ABC):
         assert check_result != z3.unknown
         return check_result == z3.sat
 
-    # def is_matched(self, value) -> bool:
-    #     return self.verify(value)
-
     def is_matched(self, value) -> bool:
-        value_as_predicate = value_to_predicate(value)
+        return self.verify(value)
 
-        check_result = z3.unknown
-
-        for z3_solver, param in self._solver_iter():
-            ctx = VariableContext()
-
-            z3_solver.add(self.to_z3(ctx))
-            z3_solver.add(value_as_predicate.to_z3(ctx))
-            z3_solver.add(ctx.to_global_constraints())
-            check_result = z3_solver.check()
-
-            if check_result != z3.unknown:
-                break
-
-        assert check_result != z3.unknown
-        result = check_result == z3.sat
-        assert result == self.verify(value)
-        return result
+    # def is_matched(self, value) -> bool:
+    #     value_as_predicate = value_to_predicate(value)
+    #
+    #     check_result = z3.unknown
+    #
+    #     for z3_solver in self._solver_iter():
+    #         ctx = VariableContext()
+    #
+    #         z3_solver.add(self.to_z3(ctx))
+    #         z3_solver.add(value_as_predicate.to_z3(ctx))
+    #         z3_solver.add(ctx.to_global_constraints())
+    #         check_result = z3_solver.check()
+    #
+    #         if check_result != z3.unknown:
+    #             break
+    #
+    #     assert check_result != z3.unknown
+    #     result = check_result == z3.sat
+    #     assert result == self.verify(value)
+    #     return result
 
     def is_equivalent_to(self, other):
         """Check if predicates are equivalent.
@@ -281,7 +304,9 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
         """
-        return self.is_subset_of(other) and self.is_superset_of(other) and self.is_intersected_with(other)
+        # if not self.is_intersected_with(other):
+        #     return False
+        return self.is_subset_of(other) and self.is_superset_of(other)
 
 
 class _DefaultInvertedPredicate(BasePredicate):

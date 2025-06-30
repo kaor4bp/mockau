@@ -30,6 +30,9 @@ class BaseArrayPredicate(BaseCollectionPredicate, ABC):
     def predicate_types(self) -> set[PredicateType]:
         return {PredicateType.Array}
 
+    def get_max_nesting_level(self):
+        return max([item.get_max_nesting_level() for item in self.value] + [1]) + 1
+
 
 class BaseArrayItemPredicate(BaseCollectionPredicate):
     predicate: t_Predicate | str | int | bool | None
@@ -43,6 +46,9 @@ class BaseArrayItemPredicate(BaseCollectionPredicate):
     @property
     def predicate_types(self) -> set[PredicateType]:
         return {PredicateType.Array}
+
+    def get_max_nesting_level(self):
+        return self.predicate.get_max_nesting_level() + 1
 
 
 class ArrayStrictEqualTo(BaseArrayPredicate):

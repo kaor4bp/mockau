@@ -16,12 +16,6 @@ from core.predicates.scalars import (
 )
 from utils.formatters import get_params_argv
 
-# Rebuild Pydantic models
-NotPredicate.model_rebuild()
-AndPredicate.model_rebuild()
-OrPredicate.model_rebuild()
-AnyPredicate.model_rebuild()
-
 EQUIVALENTS = {
     'int_eq_1_or_str_contains_hello_equiv_compose': [
         OrPredicate(predicates=[IntegerEqualTo(value=1), StringContains(value='hello', max_length=10)]),

@@ -16,13 +16,6 @@ from core.predicates.scalars import (
 )
 from utils.formatters import get_params_argv
 
-# Rebuild Pydantic models
-NotPredicate.model_rebuild()
-AndPredicate.model_rebuild()
-OrPredicate.model_rebuild()
-ObjectEqualTo.model_rebuild()
-ObjectContainsSubset.model_rebuild()
-
 NOT_INTERSECTIONS = {
     'obj_eq_lol_kek_vs_obj_eq_lol_kek_hello_world': [  # Different key sets for ObjectEqualTo
         ObjectEqualTo(value={'lol': 'kek'}),

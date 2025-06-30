@@ -11,10 +11,6 @@ from core.predicates.scalars.integer_predicates import (
 )
 from utils.formatters import get_params_argv
 
-NotPredicate.model_rebuild()
-AndPredicate.model_rebuild()
-OrPredicate.model_rebuild()
-
 NOT_INTERSECTIONS = {
     'not_with_preserve_type_true': [
         IntegerEqualTo(value=1),
