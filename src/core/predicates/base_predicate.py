@@ -7,7 +7,7 @@ from typing_extensions import TypeVar
 
 from core.bases.base_schema import BaseSchema
 from core.predicates.consts import DEFAULT_SOLVER_TIMEOUT, PredicateType
-from core.predicates.variable_context import VariableContext
+from core.predicates.variable_context import PredicateLimitations, VariableContext
 
 PredicateTypeVar = TypeVar('PredicateTypeVar', bound='BasePredicate')
 
@@ -51,8 +51,8 @@ class BasePredicate(BaseSchema, ABC):
         data_repr = ', '.join([f'{k}={v}' for k, v in data.items()])
         return f'{self.__class__.__name__}({data_repr})'
 
-    def get_max_nesting_level(self):
-        return 1
+    def calculate_limitations(self) -> PredicateLimitations:
+        return PredicateLimitations()
 
     @abstractmethod
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
@@ -83,7 +83,6 @@ class BasePredicate(BaseSchema, ABC):
         z3_solver = z3.Solver()
         z3_solver.set("timeout", 5 * 1000)
         z3_solver.push()
-        z3_solver.set("max_memory", 256)
 
         try:
             print('Using anti hang solver')
@@ -136,7 +135,7 @@ class BasePredicate(BaseSchema, ABC):
 
         for z3_solver in self._solver_iter():
             ctx = VariableContext()
-            ctx.set_max_nesting_level(self.get_max_nesting_level())
+            ctx.set_limitations(self.calculate_limitations())
 
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add(ctx.to_global_constraints())
@@ -165,6 +164,7 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash
         """
+        from core.predicates.logical.logical_predicates import NotPredicate
 
         if not self.is_intersected_with(other):
             return False
@@ -173,10 +173,13 @@ class BasePredicate(BaseSchema, ABC):
 
         for z3_solver in self._solver_iter():
             ctx = VariableContext()
-            ctx.set_max_nesting_level(max([(~other).get_max_nesting_level(), self.get_max_nesting_level()]))
+
+            limitation = self.calculate_limitations()
+            limitation.push((~other).calculate_limitations())
+            ctx.set_limitations(limitation)
 
             z3_solver.add(self.to_z3(ctx))
-            z3_solver.add((~other).to_z3(ctx))
+            z3_solver.add(NotPredicate(predicate=other, preserve_type=False).to_z3(ctx))
             z3_solver.add(ctx.to_global_constraints())
 
             check_result = z3_solver.check()
@@ -204,6 +207,7 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash
         """
+        from core.predicates.logical.logical_predicates import NotPredicate
 
         if not self.is_intersected_with(other):
             return False
@@ -212,10 +216,13 @@ class BasePredicate(BaseSchema, ABC):
 
         for z3_solver in self._solver_iter():
             ctx = VariableContext()
-            ctx.set_max_nesting_level(max([other.get_max_nesting_level(), (~self).get_max_nesting_level()]))
+
+            limitation = (~self).calculate_limitations()
+            limitation.push(other.calculate_limitations())
+            ctx.set_limitations(limitation)
 
             z3_solver.add(other.to_z3(ctx))
-            z3_solver.add((~self).to_z3(ctx))
+            z3_solver.add(NotPredicate(predicate=self, preserve_type=False).to_z3(ctx))
             z3_solver.add(ctx.to_global_constraints())
 
             check_result = z3_solver.check()
@@ -248,7 +255,10 @@ class BasePredicate(BaseSchema, ABC):
 
         for z3_solver in self._solver_iter():
             ctx = VariableContext()
-            ctx.set_max_nesting_level(max([other.get_max_nesting_level(), self.get_max_nesting_level()]))
+
+            limitation = self.calculate_limitations()
+            limitation.push(other.calculate_limitations())
+            ctx.set_limitations(limitation)
 
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add(other.to_z3(ctx))

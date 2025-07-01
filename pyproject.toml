@@ -54,6 +54,7 @@ pytest-repeat = "^0.9.4"
 river = "^0.22.0"
 z3-solver = "^4.15.0.0"
 deap = "^1.4.3"
+pytest-xdist = "^3.7.0"
 
 
 [build-system]

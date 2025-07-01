@@ -14,6 +14,7 @@ from core.predicates.base_predicate import (
 from core.predicates.helpers import value_to_predicate
 from core.predicates.json_datatype import JsonDatatype
 from core.predicates.logical.logical_predicates import NotPredicate
+from core.predicates.variable_context import PredicateLimitations
 from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
 
 _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING = 2
@@ -62,8 +63,19 @@ class BaseObjectPredicate(BaseCollectionPredicate):
         """
         return {PredicateType.Object}
 
-    def get_max_nesting_level(self):
-        return max([item.get_max_nesting_level() for item in self.value.values()] + [1]) + 1
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations(
+            level_gte=0,
+            level_lte=0,
+        )
+
+        for item in self.value.keys():
+            limitation.push(item.calculate_limitations().increment_level())
+        for item in self.value.values():
+            limitation.push(item.calculate_limitations().increment_level())
+
+        limitation.max_nesting_level += 1
+        return limitation
 
 
 class ObjectEqualTo(BaseObjectPredicate):
@@ -98,13 +110,18 @@ class ObjectEqualTo(BaseObjectPredicate):
         existing_key_vars = []
         key_constraints = []
 
-        constraints = []
+        constraints = [child_ctx.pop_from_global_constraints()]
 
         for key_pred, value_pred in self.value.items():
             key_context = ctx.create_child_context()
-            constraints.append(key_pred.to_z3(key_context))
             value_context = ctx.create_child_context()
-            constraints.append(value_pred.to_z3(value_context))
+
+            constraints += [
+                key_pred.to_z3(key_context),
+                value_pred.to_z3(value_context),
+                key_context.pop_from_global_constraints(),
+                value_context.pop_from_global_constraints(),
+            ]
 
             key_var = key_context.get_variable(PredicateType.String)
             my_arr = z3.Store(my_arr, key_var, value_context.json_type_variable.z3_variable)
@@ -152,9 +169,14 @@ class ObjectNotEqualTo(BaseObjectPredicate):
 
         for key_pred, value_pred in self.value.items():
             key_context = ctx.create_child_context()
-            constraints.append(key_pred.to_z3(key_context))
             value_context = ctx.create_child_context()
-            constraints.append(NotPredicate(predicate=value_pred, preserve_type=False).to_z3(value_context))
+
+            constraints += [
+                key_pred.to_z3(key_context),
+                NotPredicate(predicate=value_pred, preserve_type=False).to_z3(value_context),
+                key_context.pop_from_global_constraints(),
+                value_context.pop_from_global_constraints(),
+            ]
 
             key_var = key_context.get_variable(PredicateType.String)
             or_constraints.append(z3_object_variable[key_var] == value_context.json_type_variable.z3_variable)
@@ -183,7 +205,10 @@ class ObjectNotEqualTo(BaseObjectPredicate):
         #         ),
         #     )
         # )
-        constraints.append(ctx.json_type_variable.is_object())
+        constraints += [
+            ctx.json_type_variable.is_object(),
+            child_ctx.pop_from_global_constraints(),
+        ]
 
         return z3.And(*constraints, z3.Or(*or_constraints))
 
@@ -218,8 +243,13 @@ class ObjectContainsSubset(BaseObjectPredicate):
         for key_pred, value_pred in self.value.items():
             key_context = ctx.create_child_context()
             value_context = ctx.create_child_context()
-            constraints.append(key_pred.to_z3(key_context))
-            constraints.append(value_pred.to_z3(value_context))
+
+            constraints += [
+                key_pred.to_z3(key_context),
+                value_pred.to_z3(value_context),
+                key_context.pop_from_global_constraints(),
+                value_context.pop_from_global_constraints(),
+            ]
 
             key_var = key_context.get_variable(PredicateType.String)
             constraints.append(value_context.json_type_variable.z3_variable == z3_object_variable[key_var])
@@ -269,8 +299,13 @@ class ObjectNotContainsSubset(BaseObjectPredicate):
         for key_pred, value_pred in self.value.items():
             key_context = ctx.create_child_context()
             value_context = ctx.create_child_context()
-            constraints.append(key_pred.to_z3(key_context))
-            constraints.append(NotPredicate(predicate=value_pred, preserve_type=False).to_z3(value_context))
+
+            constraints += [
+                key_pred.to_z3(key_context),
+                NotPredicate(predicate=value_pred, preserve_type=False).to_z3(value_context),
+                key_context.pop_from_global_constraints(),
+                value_context.pop_from_global_constraints(),
+            ]
 
             key_var = key_context.get_variable(PredicateType.String)
             or_constraints += [
@@ -326,8 +361,15 @@ class ObjectHasValue(BaseCollectionPredicate):
 
         return z3.And(*constraints)
 
-    def get_max_nesting_level(self):
-        return self.predicate.get_max_nesting_level() + 1
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations(
+            level_gte=0,
+            level_lte=0,
+        )
+
+        limitation.push(self.predicate.calculate_limitations().increment_level())
+        limitation.max_nesting_level += 1
+        return limitation
 
 
 class ObjectHasNoValue(BaseCollectionPredicate):
@@ -375,8 +417,16 @@ class ObjectHasNoValue(BaseCollectionPredicate):
 
         return z3.And(*constraints, z3.Or(*or_constraints))
 
-    def get_max_nesting_level(self):
-        return self.predicate.get_max_nesting_level() + 1
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations(
+            level_gte=0,
+            level_lte=0,
+        )
+
+        limitation.push(self.predicate.calculate_limitations().increment_level())
+
+        limitation.max_nesting_level += 1
+        return limitation
 
 
 class NestedObjectEqualTo(BaseObjectPredicate):
@@ -402,11 +452,19 @@ class NestedObjectEqualTo(BaseObjectPredicate):
     def __invert__(self):
         return NestedObjectNotEqualTo(value=self.value, max_depth=self.max_depth)
 
-    def get_max_nesting_level(self):
-        return (
-            max([item.get_max_nesting_level() for item in self.value.values()] + [1])
-            + _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations(
+            level_gte=0,
+            level_lte=None,
         )
+
+        for item in self.value.keys():
+            limitation.push(item.calculate_limitations().increment_level(reset_level_lte=True))
+        for item in self.value.values():
+            limitation.push(item.calculate_limitations().increment_level(reset_level_lte=True))
+
+        limitation.max_nesting_level += _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+        return limitation
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         main_predicate = ObjectEqualTo(value=self.value)
@@ -419,7 +477,7 @@ class NestedObjectEqualTo(BaseObjectPredicate):
 
             object_iterator = z3.String(f'iter_obj_{uuid4()}')
             array_iterator = z3.Int(f'iter_arr_{uuid4()}')
-            if sub_level < self.max_depth - 1 and ctx.get_max_nesting_level() >= sub_level + initial_level:
+            if sub_level < self.max_depth - 1 and ctx.get_limitations().max_nesting_level >= sub_level + initial_level:
                 array_var = ctx.get_variable(PredicateType.Array)
                 object_var = ctx.get_variable(PredicateType.Object)
                 constraints.append(
@@ -467,25 +525,19 @@ class NestedObjectNotEqualTo(BaseObjectPredicate):
     def __invert__(self):
         return NestedObjectEqualTo(value=self.value, max_depth=self.max_depth)
 
-    def get_max_nesting_level(self):
-        return (
-            max([item.get_max_nesting_level() for item in self.value.values()] + [1])
-            + _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations(
+            level_gte=0,
+            level_lte=None,
         )
 
-    def _get_sub_predicate_constraints(self, level):
-        constraints = []
-        root_sibling_ctx = VariableContext()
-        sibling_ctx = root_sibling_ctx
+        for item in self.value.keys():
+            limitation.push(item.calculate_limitations().increment_level(reset_level_lte=True))
+        for item in self.value.values():
+            limitation.push(item.calculate_limitations().increment_level(reset_level_lte=True))
 
-        for _ in range(level):
-            sibling_ctx = sibling_ctx.create_child_context()
-        constraints.append(ObjectNotEqualTo(value=self.value).to_z3(sibling_ctx))
-        constraints.append(sibling_ctx.root_parent.to_global_constraints())
-
-        del root_sibling_ctx
-
-        return sibling_ctx, constraints
+        limitation.max_nesting_level += _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+        return limitation
 
     def build_nested_for_all(self, ctx, cur_obj, level, recursion_level=0, start_level=0):
         dts = JsonDatatype._Z3_JSON_DATATYPES
@@ -495,15 +547,17 @@ class NestedObjectNotEqualTo(BaseObjectPredicate):
 
         nested_object_expression = z3.BoolVal(True)
         nested_array_expression = z3.BoolVal(True)
+
         if (
             recursion_level < self.max_depth
             and level < JsonDatatype.MAX_NESTING_LEVEL - 1
-            and ctx.get_max_nesting_level() >= level
+            and ctx.get_limitations().max_nesting_level >= level
         ):
+            child_ctx = ctx.create_child_context()
             nested_object_expression = z3.ForAll(
                 [object_iterator],
                 self.build_nested_for_all(
-                    ctx=ctx,
+                    ctx=child_ctx,
                     cur_obj=dts[level].get_object(cur_obj)[object_iterator],
                     level=level + 1,
                     recursion_level=recursion_level + 1,
@@ -515,7 +569,7 @@ class NestedObjectNotEqualTo(BaseObjectPredicate):
                 z3.Implies(
                     z3.And(array_iterator >= 0, array_iterator < z3.Length(dts[level].get_array(cur_obj))),
                     self.build_nested_for_all(
-                        ctx=ctx,
+                        ctx=child_ctx,
                         cur_obj=dts[level].get_array(cur_obj)[array_iterator],
                         level=level + 1,
                         recursion_level=recursion_level + 1,
@@ -526,9 +580,12 @@ class NestedObjectNotEqualTo(BaseObjectPredicate):
 
         sub_predicate_expression = z3.BoolVal(True)
         if start_level <= level:
-            sibling_ctx, sub_predicate_constraints = self._get_sub_predicate_constraints(level=level)
-            sub_predicate_constraints.append(sibling_ctx.json_type_variable.z3_variable == cur_obj)
-            sub_predicate_expression = z3.And(*sub_predicate_constraints)
+            sibling_ctx = ctx.create_sibling_context()
+            sub_predicate_expression = z3.And(
+                ObjectNotEqualTo(value=self.value).to_z3(sibling_ctx),
+                sibling_ctx.json_type_variable.z3_variable == cur_obj,
+                sibling_ctx.pop_from_global_constraints(),
+            )
 
         return z3.And(
             *[
@@ -578,11 +635,19 @@ class NestedObjectContainsSubset(BaseObjectPredicate):
     def __invert__(self):
         return NesteObjectNotContainsSubset(value=self.value, max_depth=self.max_depth)
 
-    def get_max_nesting_level(self):
-        return (
-            max([item.get_max_nesting_level() for item in self.value.values()] + [1])
-            + _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations(
+            level_gte=0,
+            level_lte=None,
         )
+
+        for item in self.value.keys():
+            limitation.push(item.calculate_limitations().increment_level(reset_level_lte=True))
+        for item in self.value.values():
+            limitation.push(item.calculate_limitations().increment_level(reset_level_lte=True))
+
+        limitation.max_nesting_level += _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+        return limitation
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         main_predicate = ObjectContainsSubset(value=self.value)
@@ -595,7 +660,7 @@ class NestedObjectContainsSubset(BaseObjectPredicate):
 
             object_iterator = z3.String(f'iter_obj_{uuid4()}')
             array_iterator = z3.Int(f'iter_arr_{uuid4()}')
-            if sub_level < self.max_depth - 1 and ctx.get_max_nesting_level() >= sub_level + initial_level:
+            if sub_level < self.max_depth - 1 and ctx.get_limitations().max_nesting_level >= sub_level + initial_level:
                 array_var = ctx.get_variable(PredicateType.Array)
                 object_var = ctx.get_variable(PredicateType.Object)
                 constraints.append(
@@ -643,24 +708,19 @@ class NesteObjectNotContainsSubset(BaseObjectPredicate):
     def __invert__(self):
         return NestedObjectContainsSubset(value=self.value, max_depth=self.max_depth)
 
-    def get_max_nesting_level(self):
-        return (
-            max([item.get_max_nesting_level() for item in self.value.values()] + [1])
-            + _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations(
+            level_gte=0,
+            level_lte=None,
         )
 
-    def _get_sub_predicate_constraints(self, level):
-        constraints = []
-        root_sibling_ctx = VariableContext()
-        sibling_ctx = root_sibling_ctx
-        for _ in range(level):
-            sibling_ctx = sibling_ctx.create_child_context()
-        constraints.append(ObjectNotContainsSubset(value=self.value).to_z3(sibling_ctx))
-        constraints.append(sibling_ctx.root_parent.to_global_constraints())
+        for item in self.value.keys():
+            limitation.push(item.calculate_limitations().increment_level(reset_level_lte=True))
+        for item in self.value.values():
+            limitation.push(item.calculate_limitations().increment_level(reset_level_lte=True))
 
-        del root_sibling_ctx
-
-        return sibling_ctx, constraints
+        limitation.max_nesting_level += _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING
+        return limitation
 
     def build_nested_for_all(self, ctx: VariableContext, cur_obj, level=0, recursion_level=0, start_level=0):
         dts = JsonDatatype._Z3_JSON_DATATYPES
@@ -673,12 +733,13 @@ class NesteObjectNotContainsSubset(BaseObjectPredicate):
         if (
             recursion_level < self.max_depth
             and level < JsonDatatype.MAX_NESTING_LEVEL - 1
-            and ctx.get_max_nesting_level() >= level
+            and ctx.get_limitations().max_nesting_level >= level
         ):
+            child_context = ctx.create_child_context()
             nested_object_expression = z3.ForAll(
                 [object_iterator],
                 self.build_nested_for_all(
-                    ctx=ctx,
+                    ctx=child_context,
                     cur_obj=dts[level].get_object(cur_obj)[object_iterator],
                     level=level + 1,
                     recursion_level=recursion_level + 1,
@@ -690,7 +751,7 @@ class NesteObjectNotContainsSubset(BaseObjectPredicate):
                 z3.Implies(
                     z3.And(array_iterator >= 0, array_iterator < z3.Length(dts[level].get_array(cur_obj))),
                     self.build_nested_for_all(
-                        ctx=ctx,
+                        ctx=child_context,
                         cur_obj=dts[level].get_array(cur_obj)[array_iterator],
                         level=level + 1,
                         recursion_level=recursion_level + 1,
@@ -701,9 +762,12 @@ class NesteObjectNotContainsSubset(BaseObjectPredicate):
 
         sub_predicate_expression = z3.BoolVal(True)
         if start_level <= level:
-            sibling_ctx, sub_predicate_constraints = self._get_sub_predicate_constraints(level=level)
-            sub_predicate_constraints.append(sibling_ctx.json_type_variable.z3_variable == cur_obj)
-            sub_predicate_expression = z3.And(*sub_predicate_constraints)
+            sibling_ctx = ctx.create_sibling_context()
+            sub_predicate_expression = z3.And(
+                ObjectNotContainsSubset(value=self.value).to_z3(sibling_ctx),
+                sibling_ctx.json_type_variable.z3_variable == cur_obj,
+                sibling_ctx.pop_from_global_constraints(),
+            )
 
         return z3.And(
             *[

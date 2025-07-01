@@ -6,6 +6,8 @@ import z3
 from z3 import InRe
 
 from core.predicates.base_predicate import BaseScalarPredicate, PredicateType, VariableContext
+from core.predicates.variable_context import PredicateLimitations
+from utils.heuristics import get_pattern_estimated_length
 from utils.z3_helpers import ConvertEREToZ3Regex, string_to_case_insensitive_z3_regex
 
 
@@ -67,6 +69,11 @@ class StringEqualTo(BaseStringPredicate):
     def __invert__(self):
         return StringNotEqualTo(value=self.value, ignore_case=self.ignore_case)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        return PredicateLimitations(
+            max_string_len=len(self.value) + 1,
+        )
+
     def to_z3(self, ctx: VariableContext):
         """Convert the string equality predicate to a Z3 expression.
 
@@ -77,8 +84,6 @@ class StringEqualTo(BaseStringPredicate):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-
-        ctx.set_string_len(len(self.value))
 
         string_variable = ctx.get_variable(self.predicate_type)
         if self.ignore_case:
@@ -104,10 +109,13 @@ class StringNotEqualTo(BaseStringPredicate):
     def __invert__(self):
         return StringEqualTo(value=self.value, ignore_case=self.ignore_case)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        return PredicateLimitations(
+            max_string_len=len(self.value) + 10,
+        )
+
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
-        ctx.set_string_len(len(self.value) + 1)
-        ctx.add_unbounded_string(string_variable)
         if self.ignore_case:
             case_insensitive_regex = ConvertEREToZ3Regex(self.value, is_case_sensitive=False).convert()
             z3_expression = InRe(string_variable, case_insensitive_regex)
@@ -138,6 +146,11 @@ class StringPattern(BaseStringPredicate):
     def __invert__(self):
         return StringNotPattern(pattern=self.pattern, ignore_case=self.ignore_case)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        return PredicateLimitations(
+            max_string_len=get_pattern_estimated_length(self.pattern, not self.ignore_case),
+        )
+
     def to_z3(self, ctx: VariableContext):
         """Convert the string pattern predicate to a Z3 expression.
 
@@ -149,14 +162,15 @@ class StringPattern(BaseStringPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
 
-        ctx.set_string_len(len(self.pattern))
-
         string_variable = ctx.get_variable(self.predicate_type)
-        ctx.add_unbounded_string(string_variable)
         pattern_regex = ConvertEREToZ3Regex(self.pattern, is_case_sensitive=not self.ignore_case).convert()
         z3_expression = z3.InRe(string_variable, pattern_regex)
 
-        return z3.And(z3_expression, ctx.json_type_variable.is_str())
+        return z3.And(
+            z3_expression,
+            ctx.json_type_variable.is_str(),
+            ctx.get_limitations().max_string_len >= z3.Length(string_variable),
+        )
 
 
 class StringNotPattern(BaseStringPredicate):
@@ -173,15 +187,21 @@ class StringNotPattern(BaseStringPredicate):
     def __invert__(self):
         return StringPattern(pattern=self.pattern, ignore_case=self.ignore_case)
 
-    def to_z3(self, ctx: VariableContext):
-        ctx.set_string_len(len(self.pattern))
+    def calculate_limitations(self) -> PredicateLimitations:
+        return PredicateLimitations(
+            max_string_len=get_pattern_estimated_length(self.pattern, not self.ignore_case),
+        )
 
+    def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
-        ctx.add_unbounded_string(string_variable)
         pattern_regex = ConvertEREToZ3Regex(self.pattern, is_case_sensitive=not self.ignore_case).convert()
         z3_expression = z3.InRe(string_variable, pattern_regex)
 
-        return z3.And(z3.Not(z3_expression), ctx.json_type_variable.is_str())
+        return z3.And(
+            z3.Not(z3_expression),
+            ctx.json_type_variable.is_str(),
+            ctx.get_limitations().max_string_len >= z3.Length(string_variable),
+        )
 
 
 class StringContains(BaseStringPredicate):
@@ -205,6 +225,11 @@ class StringContains(BaseStringPredicate):
     def __invert__(self):
         return StringNotContains(value=self.value, ignore_case=self.ignore_case)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        return PredicateLimitations(
+            max_string_len=len(self.value) * 2 + 1,
+        )
+
     def to_z3(self, ctx: VariableContext):
         """Convert the string contains predicate to a Z3 expression.
 
@@ -216,8 +241,6 @@ class StringContains(BaseStringPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         string_variable = ctx.get_variable(self.predicate_type)
-        ctx.set_string_len(len(self.value) * 2)
-        ctx.add_unbounded_string(string_variable)
         any_character_regex = z3.AllChar(z3.ReSort(z3.StringSort()))
 
         if self.ignore_case:
@@ -235,7 +258,11 @@ class StringContains(BaseStringPredicate):
             contains_expression = z3.Contains(string_variable, self.value)
             # contains_expression = InRe(string_variable, z3.Concat(any_character_regex, z3.Re(z3.StringVal(self.value)), any_character_regex))
 
-        return z3.And(contains_expression, ctx.json_type_variable.is_str())
+        return z3.And(
+            contains_expression,
+            ctx.json_type_variable.is_str(),
+            ctx.get_limitations().max_string_len >= z3.Length(string_variable),
+        )
 
 
 class StringNotContains(StringContains):
@@ -250,10 +277,13 @@ class StringNotContains(StringContains):
     def __invert__(self):
         return StringContains(value=self.value, ignore_case=self.ignore_case)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        return PredicateLimitations(
+            max_string_len=len(self.value) * 2 + 1,
+        )
+
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
-        ctx.set_string_len(len(self.value) * 2)
-        ctx.add_unbounded_string(string_variable)
         any_character_regex = z3.AllChar(z3.ReSort(z3.StringSort()))
 
         if self.ignore_case:
@@ -271,4 +301,8 @@ class StringNotContains(StringContains):
             contains_expression = z3.Contains(string_variable, self.value)
             # contains_expression = InRe(string_variable, z3.Concat(any_character_regex, z3.Re(z3.StringVal(self.value)), any_character_regex))
 
-        return z3.And(z3.Not(contains_expression), ctx.json_type_variable.is_str())
+        return z3.And(
+            z3.Not(contains_expression),
+            ctx.json_type_variable.is_str(),
+            ctx.get_limitations().max_string_len >= z3.Length(string_variable),
+        )

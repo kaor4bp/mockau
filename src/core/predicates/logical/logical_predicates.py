@@ -5,6 +5,7 @@ import z3
 
 from core.predicates.base_predicate import BaseLogicalPredicate, BaseScalarPredicate, PredicateType, VariableContext
 from core.predicates.consts import PREDICATE_TYPE_TO_PYTHON_TYPE
+from core.predicates.variable_context import PredicateLimitations
 
 
 class VoidPredicate(BaseLogicalPredicate):
@@ -76,6 +77,9 @@ class NotPredicate(BaseLogicalPredicate):
     predicate: Any
     preserve_type: bool = True
 
+    def __invert__(self):
+        return self.predicate
+
     def verify(self, value):
         all_types = {
             PredicateType.Null,
@@ -97,6 +101,9 @@ class NotPredicate(BaseLogicalPredicate):
     @property
     def predicate_types(self) -> set[PredicateType]:
         return self.predicate.predicate_types
+
+    def calculate_limitations(self) -> PredicateLimitations:
+        return (~self.predicate).calculate_limitations()
 
     def to_z3(self, ctx: VariableContext):
         inverted_predicate = ~self.predicate
@@ -151,6 +158,15 @@ class AndPredicate(BaseLogicalPredicate):
 
     def verify(self, value):
         return all(p.verify(value) for p in self.predicates)
+
+    def calculate_limitations(self) -> PredicateLimitations:
+        if self.predicates:
+            return PredicateLimitations()
+        else:
+            limitation = self.predicates[0].calculate_limitations()
+            for other_limitation in self.predicates[1:]:
+                limitation.push(other_limitation)
+            return limitation
 
     @property
     def predicate_types(self) -> set[PredicateType]:
@@ -221,6 +237,15 @@ class OrPredicate(BaseLogicalPredicate):
 
     def __invert__(self):
         return AndPredicate(predicates=[NotPredicate(predicate=p) for p in self.predicates])
+
+    def calculate_limitations(self) -> PredicateLimitations:
+        if self.predicates:
+            return PredicateLimitations()
+        else:
+            limitation = self.predicates[0].calculate_limitations()
+            for other_limitation in self.predicates[1:]:
+                limitation.push(other_limitation)
+            return limitation
 
     def to_z3(self, ctx: VariableContext):
         """Convert the OR predicate to a Z3 expression.

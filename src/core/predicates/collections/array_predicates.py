@@ -13,6 +13,7 @@ from core.predicates.base_predicate import (
     t_Predicate,
 )
 from core.predicates.helpers import value_to_predicate
+from core.predicates.variable_context import PredicateLimitations
 from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
 
 
@@ -30,8 +31,15 @@ class BaseArrayPredicate(BaseCollectionPredicate, ABC):
     def predicate_types(self) -> set[PredicateType]:
         return {PredicateType.Array}
 
-    def get_max_nesting_level(self):
-        return max([item.get_max_nesting_level() for item in self.value] + [1]) + 1
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations()
+
+        for item in self.value:
+            limitation.push(item.calculate_limitations().increment_level())
+
+        limitation.max_nesting_level += 1
+        limitation.max_array_size = len(self.value)
+        return limitation
 
 
 class BaseArrayItemPredicate(BaseCollectionPredicate):
@@ -47,8 +55,13 @@ class BaseArrayItemPredicate(BaseCollectionPredicate):
     def predicate_types(self) -> set[PredicateType]:
         return {PredicateType.Array}
 
-    def get_max_nesting_level(self):
-        return self.predicate.get_max_nesting_level() + 1
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations()
+
+        limitation.push(self.predicate.calculate_limitations().increment_level())
+        limitation.max_nesting_level += 1
+        limitation.max_array_size = 3
+        return limitation
 
 
 class ArrayStrictEqualTo(BaseArrayPredicate):
@@ -68,6 +81,11 @@ class ArrayStrictEqualTo(BaseArrayPredicate):
     def __invert__(self):
         return ArrayNotStrictEqualTo(value=self.value)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = super().calculate_limitations()
+        limitation.max_array_size += 1
+        return limitation
+
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
         constraints = []
@@ -76,14 +94,16 @@ class ArrayStrictEqualTo(BaseArrayPredicate):
 
         for item_index, item in enumerate(self.value):
             child_ctx = ctx.create_child_context()
-            constraints.append(item.to_z3(child_ctx))
-            constraints.append(array_var[item_index] == child_ctx.json_type_variable.z3_variable)
+
+            constraints += [
+                item.to_z3(child_ctx),
+                array_var[item_index] == child_ctx.json_type_variable.z3_variable,
+                child_ctx.pop_from_global_constraints(),
+            ]
             array_values = z3.SetAdd(array_values, child_ctx.json_type_variable.z3_variable)
 
         constraints.append(z3.Length(array_var) == z3.IntVal(len(self.value)))
         constraints.append(ctx.json_type_variable.is_array())
-
-        ctx.set_array_len(len(self.value))
 
         return z3.And(*constraints)
 
@@ -105,6 +125,11 @@ class ArrayNotStrictEqualTo(BaseArrayPredicate):
     def __invert__(self):
         return ArrayStrictEqualTo(value=self.value)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = super().calculate_limitations()
+        limitation.max_array_size += len(self.value) + 1
+        return limitation
+
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
         constraints = []
@@ -114,13 +139,14 @@ class ArrayNotStrictEqualTo(BaseArrayPredicate):
 
         for item_index, item in enumerate(self.value):
             child_ctx = ctx.create_child_context()
-            constraints.append((~item).to_z3(child_ctx))
+            constraints += [
+                (~item).to_z3(child_ctx),
+                child_ctx.pop_from_global_constraints(),
+            ]
             or_constraints.append(array_var[item_index] == child_ctx.json_type_variable.z3_variable)
             array_values = z3.SetAdd(array_values, child_ctx.json_type_variable.z3_variable)
 
         or_constraints.append(z3.Length(array_var) != z3.IntVal(len(self.value)))
-
-        ctx.set_array_len(len(self.value))
         constraints.append(ctx.json_type_variable.is_array())
 
         return z3.And(*constraints, z3.Or(*or_constraints))
@@ -149,6 +175,11 @@ class ArrayEqualToWithoutOrder(BaseArrayPredicate):
     def __invert__(self):
         return ArrayNotEqualToWithoutOrder(value=self.value)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = super().calculate_limitations()
+        limitation.max_array_size += 1
+        return limitation
+
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
         constraints = []
@@ -158,10 +189,12 @@ class ArrayEqualToWithoutOrder(BaseArrayPredicate):
             index_var = z3.Int(f'index_{uuid4()}')
 
             child_ctx = ctx.create_child_context()
-            constraints.append(item.to_z3(child_ctx))
-            constraints.append(
+            constraints += [
+                item.to_z3(child_ctx),
                 array_var[index_var] == child_ctx.json_type_variable.z3_variable,
-            )
+                child_ctx.pop_from_global_constraints(),
+            ]
+
             constraints.append(index_var >= z3.IntVal(0))
             constraints.append(index_var < z3.Length(array_var))
             for v in all_index_vars:
@@ -170,8 +203,6 @@ class ArrayEqualToWithoutOrder(BaseArrayPredicate):
 
         constraints.append(z3.Length(array_var) == z3.IntVal(len(self.value)))
         constraints.append(ctx.json_type_variable.is_array())
-
-        ctx.set_array_len(len(self.value))
 
         return z3.And(*constraints)
 
@@ -199,6 +230,11 @@ class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
     def __invert__(self):
         return ArrayEqualToWithoutOrder(value=self.value)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = super().calculate_limitations()
+        limitation.max_array_size += len(self.value) + 1
+        return limitation
+
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
         all_index_vars = []
@@ -210,24 +246,28 @@ class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
 
             child_ctx = ctx.create_child_context()
 
-            constraints.append(item.to_z3(child_ctx))
+            constraints += [
+                item.to_z3(child_ctx),
+                child_ctx.pop_from_global_constraints(),
+            ]
 
             or_constraints += [
                 # array_var[index_var] != child_ctx.json_type_variable.z3_variable,
                 z3.Not(z3.Contains(array_var, z3.Unit(child_ctx.json_type_variable.z3_variable)))
             ]
-            constraints.append(index_var >= z3.IntVal(0))
-            constraints.append(index_var < z3.Length(array_var))
+            constraints += [
+                index_var >= z3.IntVal(0),
+                index_var < z3.Length(array_var),
+            ]
             for v in all_index_vars:
                 constraints.append(index_var != v)
             all_index_vars.append(index_var)
 
         or_constraints.append(z3.Length(array_var) != z3.IntVal(len(self.value)))
-
-        ctx.set_array_len(len(self.value))
-        ctx.add_unbounded_array(array_var)
-
-        constraints.append(ctx.json_type_variable.is_array())
+        constraints += [
+            ctx.json_type_variable.is_array(),
+            ctx.get_limitations().max_array_size >= z3.Length(array_var),
+        ]
 
         return z3.And(*constraints, z3.Or(*or_constraints))
 
@@ -250,6 +290,11 @@ class ArrayContains(BaseArrayPredicate):
     def __invert__(self):
         return ArrayNotContains(value=self.value)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = super().calculate_limitations()
+        limitation.max_array_size += len(self.value) + 1
+        return limitation
+
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         constraints = []
         array_var = ctx.get_variable(PredicateType.Array)
@@ -263,15 +308,18 @@ class ArrayContains(BaseArrayPredicate):
             all_index_vars.append(index_var)
 
             child_ctx = ctx.create_child_context()
-            constraints.append(item.to_z3(child_ctx))
-            constraints.append(child_ctx.json_type_variable.z3_variable == array_var[index_var])
-            constraints.append(index_var >= z3.IntVal(0))
-            constraints.append(index_var < z3.Length(array_var))
+            constraints += [
+                item.to_z3(child_ctx),
+                child_ctx.json_type_variable.z3_variable == array_var[index_var],
+                index_var >= z3.IntVal(0),
+                index_var < z3.Length(array_var),
+                child_ctx.pop_from_global_constraints(),
+            ]
 
-        ctx.set_array_len(len(self.value) * 2)
-        ctx.add_unbounded_array(array_var)
-
-        constraints.append(ctx.json_type_variable.is_array())
+        constraints += [
+            ctx.json_type_variable.is_array(),
+            ctx.get_limitations().max_array_size >= z3.Length(array_var),
+        ]
 
         return z3.And(*constraints)
 
@@ -293,6 +341,11 @@ class ArrayNotContains(BaseArrayPredicate):
     def __invert__(self):
         return ArrayContains(value=self.value)
 
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = super().calculate_limitations()
+        limitation.max_array_size += len(self.value) + 1
+        return limitation
+
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         constraints = []
         or_constraints = []
@@ -300,12 +353,15 @@ class ArrayNotContains(BaseArrayPredicate):
 
         for item in self.value:
             child_ctx = ctx.create_child_context()
-            constraints.append(item.to_z3(child_ctx))
+            constraints += [item.to_z3(child_ctx), child_ctx.pop_from_global_constraints()]
             or_constraints.append(z3.Not(z3.Contains(array_var, z3.Unit(child_ctx.json_type_variable.z3_variable))))
 
-        ctx.set_array_len(len(self.value) * 2)
-        ctx.add_unbounded_array(array_var)
-
-        constraints.append(ctx.json_type_variable.is_array())
+        constraints += [
+            ctx.json_type_variable.is_array(),
+            ctx.get_limitations().max_array_size >= z3.Length(array_var),
+        ]
 
         return z3.And(*constraints, z3.Or(*or_constraints))
+
+
+# 2115 passed in 409.73s
