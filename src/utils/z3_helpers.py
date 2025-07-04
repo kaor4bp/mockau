@@ -1,18 +1,21 @@
 import z3
 
 
-def string_to_case_insensitive_z3_regex(text: str):
+def string_to_case_insensitive_z3_regex(z3_context: z3.Context, text: str):
     expressions = []
     for c in text:
-        expressions.append(z3.Union(z3.Re(z3.StringVal(c.lower())), z3.Re(z3.StringVal(c.upper()))))
+        expressions.append(
+            z3.Union(z3.Re(z3.StringVal(c.lower(), ctx=z3_context)), z3.Re(z3.StringVal(c.upper(), ctx=z3_context)))
+        )
     return z3.simplify(z3.Concat(*expressions))
 
 
 class ConvertEREToZ3Regex:
-    def __init__(self, ere_pattern: str, is_case_sensitive=True):
+    def __init__(self, z3_context: z3.Context, ere_pattern: str, is_case_sensitive=True):
         self.ere_pattern = ere_pattern.removeprefix('^').removesuffix('$')
         self.is_case_sensitive = is_case_sensitive
-        self.any_char = z3.AllChar(z3.ReSort(z3.StringSort()))
+        self.any_char = z3.AllChar(z3.ReSort(z3.StringSort(ctx=z3_context)))
+        self._z3_context = z3_context
 
     def handle_posix_character_groups(self, pattern: str):
         posix_mapping = {
@@ -62,13 +65,20 @@ class ConvertEREToZ3Regex:
             case 'D':
                 return self.handle_bracket_expression('^0-9')
             case _:
-                return z3.Re(z3.StringVal(command))
+                return z3.Re(z3.StringVal(command, ctx=self._z3_context))
 
     def handle_group(self, sub_pattern: str):
         sub_pattern = sub_pattern.removesuffix('\\')
 
         res = self.handle_root(sub_pattern)
-        return z3.Union(res, z3.Concat(z3.Re(z3.StringVal('(')), res, z3.Re(z3.StringVal(')'))))
+        return z3.Union(
+            res,
+            z3.Concat(
+                z3.Re(z3.StringVal('(', ctx=self._z3_context), ctx=self._z3_context),
+                res,
+                z3.Re(z3.StringVal(')', ctx=self._z3_context), ctx=self._z3_context),
+            ),
+        )
 
     def handle_bracket_expression(self, sub_pattern: str):
         results = []
@@ -91,7 +101,7 @@ class ConvertEREToZ3Regex:
                 cursor += 1
                 continue
             if is_prev_dash:
-                expressions.append(z3.Range(results.pop(-1), char))
+                expressions.append(z3.Range(results.pop(-1), char, ctx=self._z3_context))
                 is_prev_dash = False
                 cursor += 1
                 continue
@@ -116,20 +126,24 @@ class ConvertEREToZ3Regex:
             cursor += 1
 
         if results or expressions:
-            result = z3.Union(*[z3.Re(c) for c in results] + expressions)
+            result = z3.Union(*[z3.Re(c, ctx=self._z3_context) for c in results] + expressions)
         else:
-            result = z3.Re('')
+            result = z3.Re('', ctx=self._z3_context)
         if is_negate:
-            result = z3.Diff(self.any_char, result)
+            result = z3.Diff(self.any_char, result, ctx=self._z3_context)
         return result
 
     def handle_at_least(self, sub_pattern: str, element):
         sub_pattern = sub_pattern.removesuffix('\\')
-        expressions = [z3.Concat(element, z3.Re(f'{{{sub_pattern}}}'))]
+        expressions = [z3.Concat(element, z3.Re(f'{{{sub_pattern}}}', ctx=self._z3_context))]
 
         if ',' in sub_pattern:
             at_least, not_more_than = sub_pattern.split(',')
-            expressions.append(z3.Loop(element, int(at_least), int(not_more_than)))
+            expressions.append(
+                z3.Loop(
+                    element, z3.IntVal(at_least, ctx=self._z3_context), z3.IntVal(not_more_than, ctx=self._z3_context)
+                )
+            )
         else:
             at_least = int(sub_pattern)
             expressions.append(z3.Concat(*[element for _ in range(at_least)]))
@@ -189,7 +203,7 @@ class ConvertEREToZ3Regex:
                     results.append(self.handle_bracket_expression(sub_pattern[group_start:group_end]))
                 case '|':
                     if not results:
-                        unions.append(z3.Re(''))
+                        unions.append(z3.Re('', ctx=self._z3_context))
                     elif len(results) > 1:
                         unions.append(z3.Concat(*results))
                     else:
@@ -217,7 +231,7 @@ class ConvertEREToZ3Regex:
                     if not results:
                         raise ValueError('Quantifier ? is used without preceding character class or character set')
                     cursor += 1
-                    results.append(z3.Option(results.pop(-1)))
+                    results.append(z3.Option(z3.StringVal(results.pop(-1), ctx=self._z3_context)))
                 case '+':
                     if not results:
                         raise ValueError('Quantifier + is used without preceding character class or character set')
@@ -226,16 +240,21 @@ class ConvertEREToZ3Regex:
                 case _:
                     cursor += 1
                     if self.is_case_sensitive:
-                        results.append(z3.Re(z3.StringVal(char)))
+                        results.append(z3.Re(z3.StringVal(char, ctx=self._z3_context)))
                     else:
-                        results.append(z3.Union(z3.Re(z3.StringVal(char.lower())), z3.Re(z3.StringVal(char.upper()))))
+                        results.append(
+                            z3.Union(
+                                z3.Re(z3.StringVal(char.lower(), ctx=self._z3_context)),
+                                z3.Re(z3.StringVal(char.upper(), ctx=self._z3_context)),
+                            )
+                        )
 
         if len(results) > 1:
             unions.append(z3.Concat(*results))
         elif results:
             unions.append(results[0])
 
-        return z3.Union(*unions) if unions else z3.Re('')
+        return z3.Union(*unions) if unions else z3.Re('', ctx=self._z3_context)
 
     def check_no_unsupported_quantifiers(self, pattern: str):
         greedy_quantifiers = ['*?', '+?', '}?']
@@ -248,4 +267,4 @@ class ConvertEREToZ3Regex:
         pattern = self.handle_posix_character_groups(self.ere_pattern)
         pattern = self.handle_x_chars(pattern)
         self.check_no_unsupported_quantifiers(pattern)
-        return z3.simplify(self.handle_root(pattern))
+        return self.handle_root(pattern)

@@ -1,12 +1,12 @@
 [tool.black]
 line-length = 120
-target-version = ['py312']
+target-version = ['py313']
 include = '\.pyi?$'
 skip-string-normalization = true
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
@@ -21,7 +21,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "3.12.3"
+python = "3.13.5"
 apscheduler = "^3.11.0"
 fastapi = "^0.115.8"
 httpx = {extras = ["http2"], version = "^0.28.1"}
@@ -55,6 +55,7 @@ river = "^0.22.0"
 z3-solver = "^4.15.0.0"
 deap = "^1.4.3"
 pytest-xdist = "^3.7.0"
+pympler = "^1.1"
 
 
 [build-system]

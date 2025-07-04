@@ -5,7 +5,7 @@ import z3
 
 from core.predicates.base_predicate import BaseLogicalPredicate, BaseScalarPredicate, PredicateType, VariableContext
 from core.predicates.consts import PREDICATE_TYPE_TO_PYTHON_TYPE
-from core.predicates.variable_context import PredicateLimitations
+from core.predicates.context.variable_context import PredicateLimitations
 
 
 class VoidPredicate(BaseLogicalPredicate):
@@ -19,7 +19,7 @@ class VoidPredicate(BaseLogicalPredicate):
         return {PredicateType.Undefined}
 
     def to_z3(self, ctx: VariableContext):
-        return z3.BoolVal(False)
+        return z3.BoolVal(False, ctx=ctx.z3_context)
 
     def __invert__(self):
         return AnyPredicate()
@@ -64,7 +64,7 @@ class AnyPredicate(BaseScalarPredicate):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        return z3.BoolVal(True)
+        return z3.BoolVal(True, ctx=ctx.z3_context)
 
 
 class NotPredicate(BaseLogicalPredicate):
@@ -203,9 +203,12 @@ class AndPredicate(BaseLogicalPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         if self.predicate_types == {PredicateType.Null}:
-            return z3.BoolVal(False)
+            return z3.BoolVal(False, ctx=ctx.z3_context)
         else:
-            return z3.And([inner_predicate.to_z3(ctx) for inner_predicate in self.predicates])
+            return z3.And(
+                [inner_predicate.to_z3(ctx) for inner_predicate in self.predicates]
+                + [z3.BoolVal(True, ctx=ctx.z3_context)]
+            )
 
 
 class OrPredicate(BaseLogicalPredicate):
@@ -257,4 +260,7 @@ class OrPredicate(BaseLogicalPredicate):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        return z3.Or([inner_predicate.to_z3(ctx) for inner_predicate in self.predicates])
+        or_predicates = [z3.BoolVal(False, ctx=ctx.z3_context)]
+        or_predicates += [inner_predicate.to_z3(ctx) for inner_predicate in self.predicates]
+
+        return z3.Or(*or_predicates)

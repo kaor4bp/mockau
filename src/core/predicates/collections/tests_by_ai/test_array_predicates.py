@@ -156,7 +156,7 @@ SUPERSETS = {
         ArrayContains(value=['a', 'b']),
         ArrayEqualToWithoutOrder(value=['a', 'b']),
     ],
-    'contains_fewer_items_is_superset': [ArrayContains(value=['a', 'b']), ArrayContains(value=['a', 'b', 'c'])],
+    'contains_fewer_items_is_superset': [ArrayContains(value=[1, 2]), ArrayContains(value=[1, 2, 3])],
     'strict_equal_with_broader_pattern_is_superset': [
         ArrayStrictEqualTo(value=[StringPattern(pattern='\w+')]),
         ArrayStrictEqualTo(value=[StringPattern(pattern='[a-z]+')]),

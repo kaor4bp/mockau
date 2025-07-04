@@ -49,7 +49,7 @@ class IntegerEqualTo(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(integer_variable == z3.IntVal(self.value), ctx.json_type_variable.is_int())
+        return z3.And(integer_variable == z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
 class IntegerNotEqualTo(BaseIntegerPredicate):
@@ -64,7 +64,7 @@ class IntegerNotEqualTo(BaseIntegerPredicate):
 
     def to_z3(self, ctx: VariableContext):
         integer_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(integer_variable != z3.IntVal(self.value), ctx.json_type_variable.is_int())
+        return z3.And(integer_variable != z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
 class IntegerGreaterThan(BaseIntegerPredicate):
@@ -93,7 +93,7 @@ class IntegerGreaterThan(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(integer_variable > z3.IntVal(self.value), ctx.json_type_variable.is_int())
+        return z3.And(integer_variable > z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
 class IntegerGreaterOrEqualThan(BaseIntegerPredicate):
@@ -122,7 +122,7 @@ class IntegerGreaterOrEqualThan(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(integer_variable >= z3.IntVal(self.value), ctx.json_type_variable.is_int())
+        return z3.And(integer_variable >= z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
 class IntegerLessThan(BaseIntegerPredicate):
@@ -151,7 +151,7 @@ class IntegerLessThan(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(integer_variable < z3.IntVal(self.value), ctx.json_type_variable.is_int())
+        return z3.And(integer_variable < z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
 class IntegerLessOrEqualThan(BaseIntegerPredicate):
@@ -180,4 +180,4 @@ class IntegerLessOrEqualThan(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(integer_variable <= z3.IntVal(self.value), ctx.json_type_variable.is_int())
+        return z3.And(integer_variable <= z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())

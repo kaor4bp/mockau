@@ -49,7 +49,10 @@ class BooleanEqualTo(BaseBooleanPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         boolean_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(boolean_variable == z3.BoolVal(self.value), ctx.json_type_variable.is_bool())
+        return z3.And(
+            boolean_variable == z3.BoolVal(self.value, ctx=ctx.z3_context),
+            ctx.json_type_variable.is_bool(),
+        )
 
 
 class BooleanNotEqualTo(BaseBooleanPredicate):
@@ -64,4 +67,4 @@ class BooleanNotEqualTo(BaseBooleanPredicate):
 
     def to_z3(self, ctx: VariableContext):
         boolean_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(boolean_variable != z3.BoolVal(self.value), ctx.json_type_variable.is_bool())
+        return z3.And(boolean_variable != z3.BoolVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_bool())

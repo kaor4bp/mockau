@@ -7,7 +7,8 @@ from typing_extensions import TypeVar
 
 from core.bases.base_schema import BaseSchema
 from core.predicates.consts import DEFAULT_SOLVER_TIMEOUT, PredicateType
-from core.predicates.variable_context import PredicateLimitations, VariableContext
+from core.predicates.context.main_context import MainContext
+from core.predicates.context.variable_context import PredicateLimitations, VariableContext
 
 PredicateTypeVar = TypeVar('PredicateTypeVar', bound='BasePredicate')
 
@@ -16,6 +17,7 @@ t_Predicate = TypeVar('t_Predicate', bound='BasePredicate')
 
 _DEFAULT_SOLVER = z3.Solver()
 _DEFAULT_SOLVER.set("timeout", DEFAULT_SOLVER_TIMEOUT * 1000)
+_CURRENT_Z3_CONTEXT = None
 
 
 class BasePredicate(BaseSchema, ABC):
@@ -31,6 +33,15 @@ class BasePredicate(BaseSchema, ABC):
 
     def __invert__(self):
         return _DefaultInvertedPredicate(predicate=self)
+
+    def get_nested_predicates(self):
+        return [self]
+
+    def get_z3_context(self):
+        global _CURRENT_Z3_CONTEXT
+        if _CURRENT_Z3_CONTEXT is None:
+            _CURRENT_Z3_CONTEXT = z3.Context()
+        return _CURRENT_Z3_CONTEXT
 
     @abstractmethod
     def verify(self, value):
@@ -79,66 +90,71 @@ class BasePredicate(BaseSchema, ABC):
         """
         ...
 
-    def _get_anti_hang_solver(self):
-        z3_solver = z3.Solver()
+    def _get_anti_hang_solver(self, max_nesting_level):
+        main_ctx = MainContext(max_nesting_level=max_nesting_level)
+        z3_solver = z3.Solver(ctx=main_ctx.z3_context)
         z3_solver.set("timeout", 5 * 1000)
-        z3_solver.push()
 
         try:
             print('Using anti hang solver')
-            yield z3_solver
+            yield main_ctx, z3_solver
         except z3.Z3Exception as e:
             print(f'Anti hang exception: {e}')
         finally:
-            z3_solver.reset()
             del z3_solver
+            del main_ctx
 
-    def _solver_iter(self):
-        _DEFAULT_SOLVER.push()
-        try:
-            print('Using default solver')
-            yield _DEFAULT_SOLVER
-        finally:
-            _DEFAULT_SOLVER.reset()
+    def _solver_iter(self, max_nesting_level=100):
+        # _DEFAULT_SOLVER.reset()
+        # _DEFAULT_SOLVER.push()
+        # try:
+        #     print('Using default solver')
+        #     yield _DEFAULT_SOLVER
+        # finally:
+        #     _DEFAULT_SOLVER.pop()
 
-        yield from self._get_anti_hang_solver()
+        # yield from self._get_anti_hang_solver()
 
-        for set_tactic in [
-            'qfauflia',
-            'simplify',
-            'propagate-values',
-            None,
-            'smt',
-            'solve-eqs',
-            'tseitin-cnf',
-            'ctx-solver-simplify',
-        ]:
-            for set_timeout in [DEFAULT_SOLVER_TIMEOUT]:
+        print(max_nesting_level)
+        max_nesting_level = 100
+
+        for set_timeout in [DEFAULT_SOLVER_TIMEOUT]:
+            for set_tactic in [
+                None,
+                'qfauflia',
+                'simplify',
+                'propagate-values',
+                'smt',
+                'solve-eqs',
+                'tseitin-cnf',
+                'ctx-solver-simplify',
+            ]:
+                main_ctx = MainContext(max_nesting_level=max_nesting_level)
                 if set_tactic is None:
-                    solver = z3.Solver()
+                    solver = z3.Solver(ctx=main_ctx.z3_context)
                 else:
-                    solver = z3.Tactic(set_tactic).solver()
+                    solver = z3.Tactic(set_tactic, ctx=main_ctx.z3_context).solver()
                 solver.set("timeout", set_timeout * 1000)
 
-                solver.push()
                 try:
                     print(f'Using solver {set_tactic} with timeout {set_timeout}')
-                    yield solver
+                    yield main_ctx, solver
                 finally:
-                    solver.reset()
                     del solver
+                    del main_ctx
 
-                yield from self._get_anti_hang_solver()
+                yield from self._get_anti_hang_solver(max_nesting_level)
 
     def is_consistent(self) -> bool:
         check_result = z3.unknown
 
-        for z3_solver in self._solver_iter():
-            ctx = VariableContext()
-            ctx.set_limitations(self.calculate_limitations())
+        limitations = self.calculate_limitations()
+        for main_context, z3_solver in self._solver_iter(limitations.get_max_level()):
+            ctx = VariableContext(main_context=main_context)
+            main_context.set_limitations(limitations)
 
             z3_solver.add(self.to_z3(ctx))
-            z3_solver.add(ctx.to_global_constraints())
+            z3_solver.add(ctx.pop_from_global_constraints())
 
             check_result = z3_solver.check()
 
@@ -171,16 +187,15 @@ class BasePredicate(BaseSchema, ABC):
 
         check_result = z3.unknown
 
-        for z3_solver in self._solver_iter():
-            ctx = VariableContext()
-
-            limitation = self.calculate_limitations()
-            limitation.push((~other).calculate_limitations())
-            ctx.set_limitations(limitation)
+        limitations = self.calculate_limitations()
+        limitations.push((~other).calculate_limitations())
+        for main_context, z3_solver in self._solver_iter(limitations.get_max_level()):
+            ctx = VariableContext(main_context=main_context)
+            main_context.set_limitations(limitations)
 
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add(NotPredicate(predicate=other, preserve_type=False).to_z3(ctx))
-            z3_solver.add(ctx.to_global_constraints())
+            z3_solver.add(ctx.pop_from_global_constraints())
 
             check_result = z3_solver.check()
 
@@ -214,16 +229,16 @@ class BasePredicate(BaseSchema, ABC):
 
         check_result = z3.unknown
 
-        for z3_solver in self._solver_iter():
-            ctx = VariableContext()
+        for main_context, z3_solver in self._solver_iter():
+            ctx = VariableContext(main_context=main_context)
 
             limitation = (~self).calculate_limitations()
             limitation.push(other.calculate_limitations())
-            ctx.set_limitations(limitation)
+            main_context.set_limitations(limitation)
 
             z3_solver.add(other.to_z3(ctx))
             z3_solver.add(NotPredicate(predicate=self, preserve_type=False).to_z3(ctx))
-            z3_solver.add(ctx.to_global_constraints())
+            z3_solver.add(ctx.pop_from_global_constraints())
 
             check_result = z3_solver.check()
 
@@ -253,16 +268,19 @@ class BasePredicate(BaseSchema, ABC):
 
         check_result = z3.unknown
 
-        for z3_solver in self._solver_iter():
-            ctx = VariableContext()
+        limitations = self.calculate_limitations()
+        limitations.push(other.calculate_limitations())
+        for main_context, z3_solver in self._solver_iter(limitations.get_max_level()):
+            ctx = VariableContext(main_context=main_context)
+            main_context.set_limitations(limitations)
 
             limitation = self.calculate_limitations()
             limitation.push(other.calculate_limitations())
-            ctx.set_limitations(limitation)
+            main_context.set_limitations(limitation)
 
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add(other.to_z3(ctx))
-            z3_solver.add(ctx.to_global_constraints())
+            z3_solver.add(ctx.pop_from_global_constraints())
 
             check_result = z3_solver.check()
 
@@ -290,6 +308,7 @@ class BasePredicate(BaseSchema, ABC):
     #
     #     for z3_solver in self._solver_iter():
     #         ctx = VariableContext()
+    #         ctx.set_limitations(self.calculate_limitations().push(value_as_predicate.calculate_limitations()))
     #
     #         z3_solver.add(self.to_z3(ctx))
     #         z3_solver.add(value_as_predicate.to_z3(ctx))
@@ -301,7 +320,7 @@ class BasePredicate(BaseSchema, ABC):
     #
     #     assert check_result != z3.unknown
     #     result = check_result == z3.sat
-    #     assert result == self.verify(value)
+    #     # assert result == self.verify(value)
     #     return result
 
     def is_equivalent_to(self, other):
@@ -329,7 +348,7 @@ class _DefaultInvertedPredicate(BasePredicate):
         return not self.predicate.verify(value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
-        return z3.Not(self.predicate.to_z3(ctx))
+        return z3.Not(self.predicate.to_z3(ctx), ctx=ctx.z3_context)
 
     @property
     def predicate_types(self) -> set[PredicateType]:
@@ -360,7 +379,9 @@ class BaseCollectionPredicate(BasePredicate, ABC):
     .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
     """
 
-    pass
+    @abstractmethod
+    def get_nested_predicates(self):
+        pass
 
 
 class BaseLogicalPredicate(BaseScalarPredicate, ABC):

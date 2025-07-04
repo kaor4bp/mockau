@@ -49,7 +49,7 @@ class NumberEqualTo(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(real_variable == z3.RealVal(self.value), ctx.json_type_variable.is_real())
+        return z3.And(real_variable == z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
 class NumberNotEqualTo(BaseNumberPredicate):
@@ -64,7 +64,7 @@ class NumberNotEqualTo(BaseNumberPredicate):
 
     def to_z3(self, ctx: VariableContext):
         real_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(real_variable != z3.RealVal(self.value), ctx.json_type_variable.is_real())
+        return z3.And(real_variable != z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
 class NumberGreaterThan(BaseNumberPredicate):
@@ -93,7 +93,7 @@ class NumberGreaterThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(real_variable > z3.RealVal(self.value), ctx.json_type_variable.is_real())
+        return z3.And(real_variable > z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
 class NumberGreaterOrEqualThan(BaseNumberPredicate):
@@ -122,7 +122,7 @@ class NumberGreaterOrEqualThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(real_variable >= z3.RealVal(self.value), ctx.json_type_variable.is_real())
+        return z3.And(real_variable >= z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
 class NumberLessThan(BaseNumberPredicate):
@@ -151,7 +151,7 @@ class NumberLessThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(real_variable < z3.RealVal(self.value), ctx.json_type_variable.is_real())
+        return z3.And(real_variable < z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
 class NumberLessOrEqualThan(BaseNumberPredicate):
@@ -180,4 +180,4 @@ class NumberLessOrEqualThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
-        return z3.And(real_variable <= z3.RealVal(self.value), ctx.json_type_variable.is_real())
+        return z3.And(real_variable <= z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())

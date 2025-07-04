@@ -6,7 +6,7 @@ import z3
 from z3 import InRe
 
 from core.predicates.base_predicate import BaseScalarPredicate, PredicateType, VariableContext
-from core.predicates.variable_context import PredicateLimitations
+from core.predicates.context.variable_context import PredicateLimitations
 from utils.heuristics import get_pattern_estimated_length
 from utils.z3_helpers import ConvertEREToZ3Regex, string_to_case_insensitive_z3_regex
 
@@ -87,10 +87,10 @@ class StringEqualTo(BaseStringPredicate):
 
         string_variable = ctx.get_variable(self.predicate_type)
         if self.ignore_case:
-            case_insensitive_regex = ConvertEREToZ3Regex(self.value, is_case_sensitive=False).convert()
+            case_insensitive_regex = ConvertEREToZ3Regex(ctx.z3_context, self.value, is_case_sensitive=False).convert()
             z3_expression = InRe(string_variable, case_insensitive_regex)
         else:
-            z3_expression = string_variable == z3.StringVal(self.value)
+            z3_expression = string_variable == z3.StringVal(self.value, ctx=ctx.z3_context)
 
         return z3.And(z3_expression, ctx.json_type_variable.is_str())
 
@@ -117,12 +117,12 @@ class StringNotEqualTo(BaseStringPredicate):
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
         if self.ignore_case:
-            case_insensitive_regex = ConvertEREToZ3Regex(self.value, is_case_sensitive=False).convert()
+            case_insensitive_regex = ConvertEREToZ3Regex(ctx.z3_context, self.value, is_case_sensitive=False).convert()
             z3_expression = InRe(string_variable, case_insensitive_regex)
         else:
-            z3_expression = string_variable == z3.StringVal(self.value)
+            z3_expression = string_variable == z3.StringVal(self.value, ctx=ctx.z3_context)
 
-        return z3.And(z3.Not(z3_expression), ctx.json_type_variable.is_str())
+        return z3.And(z3.Not(z3_expression, ctx=ctx.z3_context), ctx.json_type_variable.is_str())
 
 
 class StringPattern(BaseStringPredicate):
@@ -163,7 +163,9 @@ class StringPattern(BaseStringPredicate):
         """
 
         string_variable = ctx.get_variable(self.predicate_type)
-        pattern_regex = ConvertEREToZ3Regex(self.pattern, is_case_sensitive=not self.ignore_case).convert()
+        pattern_regex = ConvertEREToZ3Regex(
+            ctx.z3_context, self.pattern, is_case_sensitive=not self.ignore_case
+        ).convert()
         z3_expression = z3.InRe(string_variable, pattern_regex)
 
         return z3.And(
@@ -194,11 +196,13 @@ class StringNotPattern(BaseStringPredicate):
 
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
-        pattern_regex = ConvertEREToZ3Regex(self.pattern, is_case_sensitive=not self.ignore_case).convert()
+        pattern_regex = ConvertEREToZ3Regex(
+            ctx.z3_context, self.pattern, is_case_sensitive=not self.ignore_case
+        ).convert()
         z3_expression = z3.InRe(string_variable, pattern_regex)
 
         return z3.And(
-            z3.Not(z3_expression),
+            z3.Not(z3_expression, ctx=ctx.z3_context),
             ctx.json_type_variable.is_str(),
             ctx.get_limitations().max_string_len >= z3.Length(string_variable),
         )
@@ -241,7 +245,7 @@ class StringContains(BaseStringPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         string_variable = ctx.get_variable(self.predicate_type)
-        any_character_regex = z3.AllChar(z3.ReSort(z3.StringSort()))
+        any_character_regex = z3.AllChar(z3.ReSort(z3.StringSort(ctx=ctx.z3_context)))
 
         if self.ignore_case:
             contains_expression = InRe(
@@ -249,7 +253,7 @@ class StringContains(BaseStringPredicate):
                 z3.simplify(
                     z3.Concat(
                         z3.Star(any_character_regex),
-                        string_to_case_insensitive_z3_regex(self.value),
+                        string_to_case_insensitive_z3_regex(ctx.z3_context, self.value),
                         z3.Star(any_character_regex),
                     )
                 ),
@@ -284,7 +288,7 @@ class StringNotContains(StringContains):
 
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
-        any_character_regex = z3.AllChar(z3.ReSort(z3.StringSort()))
+        any_character_regex = z3.AllChar(z3.ReSort(z3.StringSort(ctx=ctx.z3_context)))
 
         if self.ignore_case:
             contains_expression = InRe(
@@ -292,7 +296,7 @@ class StringNotContains(StringContains):
                 z3.simplify(
                     z3.Concat(
                         z3.Star(any_character_regex),
-                        string_to_case_insensitive_z3_regex(self.value),
+                        string_to_case_insensitive_z3_regex(ctx.z3_context, self.value),
                         z3.Star(any_character_regex),
                     )
                 ),
@@ -302,7 +306,7 @@ class StringNotContains(StringContains):
             # contains_expression = InRe(string_variable, z3.Concat(any_character_regex, z3.Re(z3.StringVal(self.value)), any_character_regex))
 
         return z3.And(
-            z3.Not(contains_expression),
+            z3.Not(contains_expression, ctx=ctx.z3_context),
             ctx.json_type_variable.is_str(),
             ctx.get_limitations().max_string_len >= z3.Length(string_variable),
         )
