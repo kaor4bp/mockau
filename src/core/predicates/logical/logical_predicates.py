@@ -5,7 +5,7 @@ import z3
 
 from core.predicates.base_predicate import BaseLogicalPredicate, BaseScalarPredicate, PredicateType, VariableContext
 from core.predicates.consts import PREDICATE_TYPE_TO_PYTHON_TYPE
-from core.predicates.context.variable_context import PredicateLimitations
+from core.predicates.context.predicate_limitations import PredicateLimitations
 
 
 class VoidPredicate(BaseLogicalPredicate):

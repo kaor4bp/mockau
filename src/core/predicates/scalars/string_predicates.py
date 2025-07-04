@@ -6,7 +6,7 @@ import z3
 from z3 import InRe
 
 from core.predicates.base_predicate import BaseScalarPredicate, PredicateType, VariableContext
-from core.predicates.context.variable_context import PredicateLimitations
+from core.predicates.context.predicate_limitations import PredicateLimitations
 from utils.heuristics import get_pattern_estimated_length
 from utils.z3_helpers import ConvertEREToZ3Regex, string_to_case_insensitive_z3_regex
 

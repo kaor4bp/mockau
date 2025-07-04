@@ -20,7 +20,8 @@ from core.predicates.collections.object_predicates import (
     ObjectNotEqualTo,
 )
 from core.predicates.consts import PredicateType
-from core.predicates.context.variable_context import PredicateLimitations, VariableContext
+from core.predicates.context.predicate_limitations import PredicateLimitations
+from core.predicates.context.variable_context import VariableContext
 from core.predicates.logical.logical_predicates import NotPredicate
 
 _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING = 2

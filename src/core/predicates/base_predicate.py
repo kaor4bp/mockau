@@ -8,7 +8,8 @@ from typing_extensions import TypeVar
 from core.bases.base_schema import BaseSchema
 from core.predicates.consts import DEFAULT_SOLVER_TIMEOUT, PredicateType
 from core.predicates.context.main_context import MainContext
-from core.predicates.context.variable_context import PredicateLimitations, VariableContext
+from core.predicates.context.predicate_limitations import PredicateLimitations
+from core.predicates.context.variable_context import VariableContext
 
 PredicateTypeVar = TypeVar('PredicateTypeVar', bound='BasePredicate')
 

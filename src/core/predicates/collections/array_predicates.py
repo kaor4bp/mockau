@@ -12,7 +12,7 @@ from core.predicates.base_predicate import (
     VariableContext,
     t_Predicate,
 )
-from core.predicates.context.variable_context import PredicateLimitations
+from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.helpers import value_to_predicate
 from core.predicates.logical.logical_predicates import NotPredicate
 from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
