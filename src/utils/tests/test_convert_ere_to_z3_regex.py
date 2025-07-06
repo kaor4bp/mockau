@@ -1,4 +1,5 @@
 import pytest
+import z3
 from z3 import InRe, Solver, String, sat
 
 from utils.z3_helpers import ConvertEREToZ3Regex
@@ -10,7 +11,7 @@ class TestConvertEREToZ3Regex:
     def setup_z3_solver(self, pattern, example):
         """Helper function to initialize Z3 solver with pattern and example."""
         z3_solver = Solver()
-        z3_regex = ConvertEREToZ3Regex(pattern).convert()
+        z3_regex = ConvertEREToZ3Regex(z3_context=z3.main_ctx(), ere_pattern=pattern).convert()
         z3_string = String('test_str')
         z3_solver.add(z3_string == example, InRe(z3_string, z3_regex))
         return z3_solver
@@ -103,7 +104,7 @@ class TestConvertEREToZ3Regex:
         """Test that patterns are always anchored (fullmatch)."""
         pattern = r"test"
         solver = Solver()
-        z3_re = ConvertEREToZ3Regex(pattern).convert()
+        z3_re = ConvertEREToZ3Regex(z3_context=z3.main_ctx(), ere_pattern=pattern).convert()
         s = String("test_str")
 
         # Should match exact string

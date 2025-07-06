@@ -23,12 +23,6 @@ _DEFAULT_NESTED_PREDICATES_EXTRA_NESTING = 2
 class BaseArrayPredicate(BaseCollectionPredicate, ABC):
     value: list
 
-    def get_nested_predicates(self):
-        results = [self]
-        for item in self.value:
-            results += item.get_nested_predicates()
-        return results
-
     @model_validator(mode='after')
     def handle_nested_objects(self) -> Self:
         for item_index, item in enumerate(self.value):
@@ -46,16 +40,12 @@ class BaseArrayPredicate(BaseCollectionPredicate, ABC):
         for item in self.value:
             limitation.push(item.calculate_limitations().increment_level())
 
-        limitation.max_nesting_level += 1
         limitation.max_array_size = len(self.value)
         return limitation
 
 
 class BaseArrayItemPredicate(BaseCollectionPredicate):
     predicate: t_Predicate | str | int | bool | None
-
-    def get_nested_predicates(self):
-        return [self] + self.predicate.get_nested_predicates()
 
     @model_validator(mode='after')
     def handle_nested_objects(self) -> Self:
@@ -133,12 +123,6 @@ class ArrayNotStrictEqualTo(BaseArrayPredicate):
 
     def __invert__(self):
         return ArrayStrictEqualTo(value=self.value)
-
-    def get_nested_predicates(self):
-        results = [self]
-        for item in self.value:
-            results += NotPredicate(predicate=item, preserve_type=False).get_nested_predicates()
-        return results
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = super().calculate_limitations()
@@ -244,12 +228,6 @@ class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
     def __invert__(self):
         return ArrayEqualToWithoutOrder(value=self.value)
 
-    def get_nested_predicates(self):
-        results = [self]
-        for item in self.value:
-            results += NotPredicate(predicate=item, preserve_type=False).get_nested_predicates()
-        return results
-
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = super().calculate_limitations()
         limitation.max_array_size += len(self.value) + 1
@@ -324,7 +302,7 @@ class ArrayContains(BaseArrayPredicate):
             child_ctx = ctx.create_child_context()
             constraints += [
                 item.to_z3(child_ctx),
-                # z3.Contains(array_var, z3.Unit(child_ctx.json_type_variable.z3_variable)),
+                z3.Contains(array_var, z3.Unit(child_ctx.json_type_variable.z3_variable)),
                 child_ctx.json_type_variable.z3_variable == array_var[index_var],
                 index_var >= z3.IntVal(0, ctx=ctx.z3_context),
                 index_var < z3.Length(array_var),
@@ -355,12 +333,6 @@ class ArrayNotContains(BaseArrayPredicate):
 
     def __invert__(self):
         return ArrayContains(value=self.value)
-
-    def get_nested_predicates(self):
-        results = [self]
-        for item in self.value:
-            results += NotPredicate(predicate=item, preserve_type=False).get_nested_predicates()
-        return results
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = super().calculate_limitations()

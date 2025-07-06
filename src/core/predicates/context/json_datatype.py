@@ -38,19 +38,21 @@ class JsonDatatypeWrapper:
         return self._variables_by_type_mapping[predicate_type]
 
     def build_type_expression(self, predicate_type: PredicateType) -> z3.BoolRef:
-        type_expressions = [
-            current_type_expr
-            if current_type == predicate_type or predicate_type is PredicateType.Any
-            else z3.Not(current_type_expr, ctx=self._z3_context)
-            for current_type, current_type_expr in self._type_expressions_by_type_mapping.items()
-        ]
+        # type_expressions = [
+        #     current_type_expr
+        #     if current_type == predicate_type or predicate_type is PredicateType.Any
+        #     else z3.Not(current_type_expr, ctx=self._z3_context)
+        #     for current_type, current_type_expr in self._type_expressions_by_type_mapping.items()
+        # ]
+        type_expressions = [self._type_expressions_by_type_mapping[predicate_type]]
+        # todo: analyze possibility of simplifying XOR of var type expression
         if predicate_type is PredicateType.Any:
-            type_expressions.append(z3.BoolVal(False, ctx=self._z3_context))
-            combined_type_expression = z3.Or(type_expressions)
+            # type_expressions.append(z3.BoolVal(False, ctx=self._z3_context))
+            combined_type_expression = z3.Or([v for v in self._type_expressions_by_type_mapping.values()])
         else:
             type_expressions.append(z3.BoolVal(True, ctx=self._z3_context))
             combined_type_expression = z3.And(type_expressions)
-        return combined_type_expression
+        return z3.simplify(combined_type_expression)
 
     @property
     def z3_variable(self) -> z3.DatatypeRef:

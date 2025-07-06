@@ -8,7 +8,12 @@ import pathlib
 import pytest
 
 from core.predicates.collections.array_predicates import ArrayContains
-from core.predicates.collections.nested_predicates import NestedObjectContainsSubset, NestedObjectEqualTo
+from core.predicates.collections.nested_predicates import (
+    NestedArrayContains,
+    NestedArrayStrictEqualTo,
+    NestedObjectContainsSubset,
+    NestedObjectEqualTo,
+)
 from core.predicates.collections.object_predicates import ObjectContainsSubset, ObjectEqualTo, ObjectHasValue
 from core.predicates.logical.logical_predicates import AndPredicate, NotPredicate, OrPredicate
 from core.predicates.scalars import (
@@ -136,28 +141,50 @@ NOT_INTERSECTIONS = {
 }
 
 INTERSECTIONS = {
-    # 'complex_object_contains_subset_with_big_json_exact': [
-    #     ObjectContainsSubset(
-    #         value={
-    #             'options': ObjectContainsSubset(value={'label_format': StringEqualTo(value='PDF')}),
-    #             'from_address': ObjectContainsSubset(
-    #                 value={
-    #                     'name': OrPredicate(
-    #                         predicates=[StringContains(value='Bernadette'), StringContains(value='Maria')]
-    #                     ),
-    #                     'city': 'Pasadena',
-    #                 }
-    #             ),
-    #             'rates': ArrayContains(
-    #                 value=[
-    #                     ObjectContainsSubset(value={'carrier': 'USPS', 'service': 'Priority'}),
-    #                 ]
-    #             ),
-    #             'object': 'Shipment',
-    #         }
-    #     ),
-    #     ObjectEqualTo(value=json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text())),
-    # ],
+    '0 ': [
+        NestedObjectContainsSubset(
+            value={
+                'alice': 'rabbit',
+                'kek': NotPredicate(predicate=NestedArrayStrictEqualTo(value=['hello', 'world', '!'])),
+            }
+        ),
+        NestedArrayStrictEqualTo(value=['hello', 'world', '!']),
+    ],
+    '1': [
+        NestedObjectContainsSubset(
+            value={
+                'alice': 'rabbit',
+                'kek': {'a': NotPredicate(predicate=NestedArrayContains(value=['hello', 'world', '!']))},
+            }
+        ),
+        NestedArrayContains(value=['hello', 'world', '!']),
+    ],
+    '2': [
+        NestedObjectContainsSubset(value={'alice': 'rabbit'}),
+        NestedArrayContains(value=['hello', 'world', '!']),
+    ],
+    'complex_object_contains_subset_with_big_json_exact': [
+        ObjectContainsSubset(
+            value={
+                'options': ObjectContainsSubset(value={'label_format': StringEqualTo(value='PDF')}),
+                'from_address': ObjectContainsSubset(
+                    value={
+                        'name': OrPredicate(
+                            predicates=[StringContains(value='Bernadette'), StringContains(value='Maria')]
+                        ),
+                        'city': 'Pasadena',
+                    }
+                ),
+                'rates': ArrayContains(
+                    value=[
+                        ObjectContainsSubset(value={'carrier': 'USPS', 'service': 'Priority'}),
+                    ]
+                ),
+                'object': 'Shipment',
+            }
+        ),
+        ObjectEqualTo(value=json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text())),
+    ],
     'two_exact_object_equal_to': [ObjectEqualTo(value={'alice': 'rabbit'}), ObjectEqualTo(value={'alice': 'rabbit'})],
     'object_contains_subset_and_exact_object_equal_to': [
         ObjectContainsSubset(value={'alice': 'rabbit'}),

@@ -141,7 +141,9 @@ class ConvertEREToZ3Regex:
             at_least, not_more_than = sub_pattern.split(',')
             expressions.append(
                 z3.Loop(
-                    element, z3.IntVal(at_least, ctx=self._z3_context), z3.IntVal(not_more_than, ctx=self._z3_context)
+                    element,
+                    int(at_least),
+                    int(not_more_than),
                 )
             )
         else:

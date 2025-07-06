@@ -1,3 +1,4 @@
+import gc
 from abc import ABC, abstractmethod
 from uuid import UUID, uuid4
 
@@ -16,10 +17,6 @@ PredicateTypeVar = TypeVar('PredicateTypeVar', bound='BasePredicate')
 
 t_Predicate = TypeVar('t_Predicate', bound='BasePredicate')
 
-_DEFAULT_SOLVER = z3.Solver()
-_DEFAULT_SOLVER.set("timeout", DEFAULT_SOLVER_TIMEOUT * 1000)
-_CURRENT_Z3_CONTEXT = None
-
 
 class BasePredicate(BaseSchema, ABC):
     """Abstract base class for all predicate types.
@@ -34,9 +31,6 @@ class BasePredicate(BaseSchema, ABC):
 
     def __invert__(self):
         return _DefaultInvertedPredicate(predicate=self)
-
-    def get_nested_predicates(self):
-        return [self]
 
     def get_z3_context(self):
         global _CURRENT_Z3_CONTEXT
@@ -105,19 +99,8 @@ class BasePredicate(BaseSchema, ABC):
             del z3_solver
             del main_ctx
 
-    def _solver_iter(self, max_nesting_level=100):
-        # _DEFAULT_SOLVER.reset()
-        # _DEFAULT_SOLVER.push()
-        # try:
-        #     print('Using default solver')
-        #     yield _DEFAULT_SOLVER
-        # finally:
-        #     _DEFAULT_SOLVER.pop()
-
-        # yield from self._get_anti_hang_solver()
-
-        print(max_nesting_level)
-        max_nesting_level = 100
+    def _solver_iter(self, max_nesting_level: int):
+        max_nesting_level += 2
 
         for set_timeout in [DEFAULT_SOLVER_TIMEOUT]:
             for set_tactic in [
@@ -131,20 +114,23 @@ class BasePredicate(BaseSchema, ABC):
                 'ctx-solver-simplify',
             ]:
                 main_ctx = MainContext(max_nesting_level=max_nesting_level)
+
                 if set_tactic is None:
                     solver = z3.Solver(ctx=main_ctx.z3_context)
                 else:
                     solver = z3.Tactic(set_tactic, ctx=main_ctx.z3_context).solver()
                 solver.set("timeout", set_timeout * 1000)
+                solver.set("max_memory", 4096)
 
                 try:
                     print(f'Using solver {set_tactic} with timeout {set_timeout}')
                     yield main_ctx, solver
+                except z3.Z3Exception as e:
+                    print(f'Solver with tactic "{set_tactic}" exception: {e}')
                 finally:
                     del solver
                     del main_ctx
-
-                yield from self._get_anti_hang_solver(max_nesting_level)
+                    gc.collect()
 
     def is_consistent(self) -> bool:
         check_result = z3.unknown
@@ -166,10 +152,9 @@ class BasePredicate(BaseSchema, ABC):
 
             del ctx
             if check_result != z3.unknown:
-                break
+                return check_result == z3.sat
 
         assert check_result != z3.unknown
-        return check_result == z3.sat
 
     def is_subset_of(self, other: PredicateTypeVar) -> bool:
         """Check if predicate is subset of another.
@@ -208,10 +193,9 @@ class BasePredicate(BaseSchema, ABC):
 
             del ctx
             if check_result != z3.unknown:
-                break
+                return check_result in [z3.unsat, z3.unknown]
 
         assert check_result != z3.unknown
-        return check_result in [z3.unsat, z3.unknown]
 
     def is_superset_of(self, other: PredicateTypeVar) -> bool:
         """Check if predicate is superset of another.
@@ -230,11 +214,12 @@ class BasePredicate(BaseSchema, ABC):
 
         check_result = z3.unknown
 
-        for main_context, z3_solver in self._solver_iter():
+        limitation = (~self).calculate_limitations()
+        limitation.push(other.calculate_limitations())
+
+        for main_context, z3_solver in self._solver_iter(limitation.get_max_level()):
             ctx = VariableContext(main_context=main_context)
 
-            limitation = (~self).calculate_limitations()
-            limitation.push(other.calculate_limitations())
             main_context.set_limitations(limitation)
 
             z3_solver.add(other.to_z3(ctx))
@@ -251,10 +236,9 @@ class BasePredicate(BaseSchema, ABC):
 
             del ctx
             if check_result != z3.unknown:
-                break
+                return check_result in [z3.unsat, z3.unknown]
 
         assert check_result != z3.unknown
-        return check_result in [z3.unsat, z3.unknown]
 
     def is_intersected_with(self, other: PredicateTypeVar) -> bool:
         """Check if predicates intersect (have common solutions).
@@ -275,14 +259,9 @@ class BasePredicate(BaseSchema, ABC):
             ctx = VariableContext(main_context=main_context)
             main_context.set_limitations(limitations)
 
-            limitation = self.calculate_limitations()
-            limitation.push(other.calculate_limitations())
-            main_context.set_limitations(limitation)
-
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add(other.to_z3(ctx))
             z3_solver.add(ctx.pop_from_global_constraints())
-
             check_result = z3_solver.check()
 
             # if check_result == z3.sat:
@@ -294,10 +273,9 @@ class BasePredicate(BaseSchema, ABC):
             del ctx
 
             if check_result != z3.unknown:
-                break
+                return check_result == z3.sat
 
         assert check_result != z3.unknown
-        return check_result == z3.sat
 
     def is_matched(self, value) -> bool:
         return self.verify(value)
@@ -379,10 +357,6 @@ class BaseCollectionPredicate(BasePredicate, ABC):
 
     .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
     """
-
-    @abstractmethod
-    def get_nested_predicates(self):
-        pass
 
 
 class BaseLogicalPredicate(BaseScalarPredicate, ABC):

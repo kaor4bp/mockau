@@ -4,7 +4,6 @@ from pydantic import BaseModel
 
 
 class PredicateLimitations(BaseModel):
-    max_nesting_level: int = 0
     max_array_size: int = 1
     max_string_len: int = 10
 
@@ -47,7 +46,6 @@ class PredicateLimitations(BaseModel):
         limitation = self._union_limitations(matched_limitations)
         limitation.level_lte = level
         limitation.level_gte = level
-        limitation.max_nesting_level = self.get_max_level() - level + 1
         return limitation
 
     def get_max_level(self):
@@ -55,33 +53,39 @@ class PredicateLimitations(BaseModel):
         max_level = 0
         while cur_limit:
             if cur_limit.level_lte is not None:
-                max_level = max(max_level, cur_limit.level_lte + self.max_nesting_level)
+                max_level = max(max_level, cur_limit.level_lte)
             if cur_limit.level_gte is not None:
-                max_level = max(max_level, cur_limit.level_gte + self.max_nesting_level)
-            # max_level = max(max_level, self.max_nesting_level + self.level_gte)
+                max_level = max(max_level, cur_limit.level_gte)
             cur_limit = cur_limit.next
 
         return max_level
 
-    def increment_level(self, reset_level_lte: bool = False) -> Self:
+    def increment_level(self) -> Self:
         cur_limit = self._get_root()
         while cur_limit:
             if cur_limit.level_lte is not None:
                 cur_limit.level_lte += 1
             if cur_limit.level_gte is not None:
                 cur_limit.level_gte += 1
-            if reset_level_lte:
-                cur_limit.level_lte = None
-            cur_limit.max_nesting_level += 1
             cur_limit = cur_limit.next
 
         return self
+
+    def reset_level_lte(self):
+        cur_limit = self._get_root()
+        while cur_limit:
+            cur_limit.level_lte = None
+            cur_limit = cur_limit.next
+
+        return self
+
+    def add_level(self):
+        return self.push(PredicateLimitations(level_gte=self.get_max_level() + 1, level_lte=self.get_max_level() + 1))
 
     @classmethod
     def _union_limitations(cls, limitations: 'list[PredicateLimitations]') -> 'PredicateLimitations':
         limitations.append(cls())
         return cls(
-            max_nesting_level=max([limitation.max_nesting_level for limitation in limitations]),
             max_array_size=max([limitation.max_array_size for limitation in limitations]),
             max_string_len=max([limitation.max_string_len for limitation in limitations]),
         )
