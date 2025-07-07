@@ -11,7 +11,7 @@ from core.predicates.collections.nested_predicates import (
     NestedObjectEqualTo,
 )
 from core.predicates.collections.object_predicates import ObjectContainsSubset, ObjectEqualTo
-from core.predicates.logical.logical_predicates import AndPredicate, NotPredicate
+from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, VoidPredicate
 from core.predicates.scalars import (
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
@@ -224,6 +224,16 @@ SUPERSETS = {
 
 class TestArrayIsNotIntersectedWith:
     @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(NOT_INTERSECTIONS))
+    def test_intersection_with_any(self, p1, p2):
+        assert p1.is_intersected_with(AnyPredicate())
+        assert p2.is_intersected_with(AnyPredicate())
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(NOT_INTERSECTIONS))
+    def test_not_intersection_with_void(self, p1, p2):
+        assert not p1.is_intersected_with(VoidPredicate())
+        assert not p2.is_intersected_with(VoidPredicate())
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(NOT_INTERSECTIONS))
     def test_not_intersections_are_not_intersected(self, p1, p2):
         assert not p1.is_intersected_with(p2)
 
@@ -233,6 +243,26 @@ class TestArrayIsNotIntersectedWith:
 
 
 class TestArrayIsSubsetOf:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_intersection_of_superset_with_any(self, p1, p2):
+        assert p1.is_intersected_with(AnyPredicate())
+        assert p2.is_intersected_with(AnyPredicate())
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_intersection_of_equivalents_with_any(self, p1, p2):
+        assert p1.is_intersected_with(AnyPredicate())
+        assert p2.is_intersected_with(AnyPredicate())
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(SUPERSETS))
+    def test_not_intersection_of_superset_with_void(self, p1, p2):
+        assert not p1.is_intersected_with(VoidPredicate())
+        assert not p2.is_intersected_with(VoidPredicate())
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_not_intersection_of_equivalents_with_void(self, p1, p2):
+        assert not p1.is_intersected_with(VoidPredicate())
+        assert not p2.is_intersected_with(VoidPredicate())
+
     @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
     def test_one_equivalent_is_subset_of_another(self, p1, p2):
         assert p1.is_subset_of(p2)
@@ -274,6 +304,16 @@ class TestArrayIsSupersetOf:
 
 
 class TestArrayIsIntersectedWith:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
+    def test_intersection_with_any(self, p1, p2):
+        assert p1.is_intersected_with(AnyPredicate())
+        assert p2.is_intersected_with(AnyPredicate())
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
+    def test_not_intersection_with_void(self, p1, p2):
+        assert not p1.is_intersected_with(VoidPredicate())
+        assert not p2.is_intersected_with(VoidPredicate())
+
     @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
     def test_is_consistent(self, p1, p2):
         assert p1.is_consistent()

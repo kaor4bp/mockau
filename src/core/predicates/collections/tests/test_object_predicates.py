@@ -15,7 +15,7 @@ from core.predicates.collections.nested_predicates import (
     NestedObjectEqualTo,
 )
 from core.predicates.collections.object_predicates import ObjectContainsSubset, ObjectEqualTo, ObjectHasValue
-from core.predicates.logical.logical_predicates import AndPredicate, NotPredicate, OrPredicate
+from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
 from core.predicates.scalars import (
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
@@ -426,6 +426,14 @@ EQUIVALENTS = {
 }
 
 SUPERSETS = {
+    'object_equal_to_with_any_predicate': [
+        ObjectEqualTo(value={'alice': 'rabbit', 'hatter': AnyPredicate()}),
+        ObjectEqualTo(value={'alice': 'rabbit', 'hatter': 'wonderland'}),
+    ],
+    'object_contains_subset_with_any_predicate': [
+        ObjectContainsSubset(value={'alice': 'rabbit', 'hatter': AnyPredicate()}),
+        ObjectContainsSubset(value={'alice': 'rabbit', 'hatter': 'wonderland'}),
+    ],
     'object_contains_subset_and_superset_with_extra_key': [
         ObjectContainsSubset(value={'alice': 'rabbit'}),
         ObjectContainsSubset(value={'alice': 'rabbit', 'hatter': 'wonderland'}),

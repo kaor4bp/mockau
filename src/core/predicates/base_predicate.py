@@ -132,6 +132,8 @@ class BasePredicate(BaseSchema, ABC):
                     del main_ctx
                     gc.collect()
 
+                yield from self._get_anti_hang_solver(max_nesting_level)
+
     def is_consistent(self) -> bool:
         check_result = z3.unknown
 
