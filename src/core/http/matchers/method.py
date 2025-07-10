@@ -1,8 +1,6 @@
 from core.deprecated_matchers.variable_matcher import SetVariableMatcher
 from core.http.interaction.common import HttpMethod
-from core.predicates.base_predicate import t_Predicate
-from core.predicates.logical.logical_predicates import OrPredicate
-from core.predicates.scalars import StringEqualTo
+from core.predicates import OrPredicate, StringEqualTo, t_Predicate
 from schemas.variables import VariablesContext, variables_context_transaction
 
 

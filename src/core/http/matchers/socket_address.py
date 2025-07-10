@@ -4,8 +4,7 @@ from core.deprecated_matchers.abstract_matcher import AbstractMatcher
 from core.deprecated_matchers.integer_matcher import t_IntegerMatcher
 from core.deprecated_matchers.string_matcher import t_StringMatcher
 from core.http.interaction.schemas import HttpSocketAddress
-from core.predicates.base_predicate import t_Predicate
-from core.predicates.collections.object_predicates import ObjectEqualTo
+from core.predicates import ObjectEqualTo, t_Predicate
 from schemas.variables import VariablesContext, variables_context_transaction
 
 

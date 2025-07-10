@@ -3,9 +3,7 @@ from pydantic import Field
 from core.deprecated_matchers.abstract_matcher import AbstractMatcher
 from core.deprecated_matchers.string_matcher import t_StringMatcher
 from core.http.interaction.schemas import HttpQueryParam
-from core.predicates import t_Predicate
-from core.predicates.collections.object_predicates import ObjectEqualTo
-from core.predicates.logical.logical_predicates import AndPredicate, OrPredicate
+from core.predicates import AndPredicate, ObjectEqualTo, OrPredicate, t_Predicate
 from schemas.variables import VariablesContext, variables_context_transaction
 
 
