@@ -1,14 +1,19 @@
 import pytest
 
-from core.predicates.collections.array_predicates import ArrayContains, ArrayEqualToWithoutOrder, ArrayStrictEqualTo
-from core.predicates.collections.object_predicates import ObjectContainsSubset
-from core.predicates.logical.logical_predicates import AndPredicate, NotPredicate, OrPredicate
-from core.predicates.scalars import (
+from core.predicates import (
+    AndPredicate,
+    ArrayContains,
+    ArrayEqualToWithoutOrder,
+    ArrayNotContains,
+    ArrayStrictEqualTo,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
     IntegerLessOrEqualThan,
     IntegerLessThan,
+    IntegerNotEqualTo,
+    ObjectContainsSubset,
+    OrPredicate,
     StringContains,
     StringEqualTo,
     StringPattern,
@@ -45,7 +50,7 @@ NOT_INTERSECTIONS = {
     ],
     'contains_object_and_not_contains_object': [
         ArrayContains(value=[{'a': 1}]),
-        NotPredicate(predicate=ArrayContains(value=[{'a': 1}])),
+        ArrayNotContains(value=[{'a': 1}]),
     ],
     'strict_equal_to_empty_vs_non_empty': [ArrayStrictEqualTo(value=[]), ArrayStrictEqualTo(value=[1])],
     # 'all_items_greater_than_10_vs_contains_value_less_than_10': [
@@ -115,8 +120,8 @@ EQUIVALENTS = {
             predicates=[
                 ArrayStrictEqualTo(value=[IntegerGreaterOrEqualThan(value=1)]),
                 ArrayStrictEqualTo(value=[IntegerLessOrEqualThan(value=5)]),
-                ArrayStrictEqualTo(value=[NotPredicate(predicate=IntegerEqualTo(value=1))]),
-                ArrayStrictEqualTo(value=[NotPredicate(predicate=IntegerEqualTo(value=5))]),
+                ArrayStrictEqualTo(value=[IntegerNotEqualTo(value=1)]),
+                ArrayStrictEqualTo(value=[IntegerNotEqualTo(value=5)]),
             ]
         ),
     ],
@@ -130,19 +135,17 @@ EQUIVALENTS = {
     ],
     'strict_equal_with_equivalent_nested_predicates': [
         ArrayStrictEqualTo(value=[IntegerGreaterThan(value=5)]),
-        ArrayStrictEqualTo(value=[NotPredicate(predicate=IntegerLessOrEqualThan(value=5))]),
+        ArrayStrictEqualTo(value=[~IntegerLessOrEqualThan(value=5)]),
     ],
     # De Morgan's law: Not(A or B) is equivalent to (Not A) and (Not B)
     'de_morgans_law_on_nested_predicates': [
-        ArrayStrictEqualTo(
-            value=[NotPredicate(predicate=OrPredicate(predicates=[IntegerEqualTo(value=1), IntegerEqualTo(value=2)]))]
-        ),
+        ArrayStrictEqualTo(value=[~OrPredicate(predicates=[IntegerEqualTo(value=1), IntegerEqualTo(value=2)])]),
         ArrayStrictEqualTo(
             value=[
                 AndPredicate(
                     predicates=[
-                        NotPredicate(predicate=IntegerEqualTo(value=1)),
-                        NotPredicate(predicate=IntegerEqualTo(value=2)),
+                        IntegerNotEqualTo(value=1),
+                        IntegerNotEqualTo(value=2),
                     ]
                 )
             ]
@@ -204,7 +207,7 @@ MATCHED = {
         [{'status': 'ok', 'code': 200, 'data': []}, {'other_obj': True}],
     ],
     'match_on_empty_array': [ArrayStrictEqualTo(value=[]), []],
-    'not_predicate_match': [NotPredicate(predicate=ArrayContains(value=[10])), [1, 2, 3]],
+    'not_predicate_match': [ArrayNotContains(value=[10]), [1, 2, 3]],
     'match_on_deeply_nested_structure': [
         ArrayContains(
             value=[
@@ -270,7 +273,7 @@ NOT_MATCHED = {
         ['required', 'fields', 'extra'],
     ],
     'equal_without_order_fails_if_element_is_wrong': [ArrayEqualToWithoutOrder(value=['a', 'b']), ['a', 'c']],
-    'not_predicate_no_match': [NotPredicate(predicate=ArrayContains(value=[10])), [1, 10, 3]],
+    'not_predicate_no_match': [ArrayNotContains(value=[10]), [1, 10, 3]],
     'fail_on_deeply_nested_structure_mismatch': [
         ArrayContains(
             value=[

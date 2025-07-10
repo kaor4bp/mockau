@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Literal
+from typing import TYPE_CHECKING, Annotated, Literal, Union
 from uuid import uuid4
 
 import z3
+from pydantic import Field
 
 from core.predicates.base_predicate import BaseCollectionPredicate
 from core.predicates.collections.array_predicates import (
@@ -23,8 +24,8 @@ from core.predicates.consts import PredicateType
 from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.context.variable_context import VariableContext
 
-_DEFAULT_NESTED_PREDICATES_EXTRA_NESTING = 1
-EXTRA_NESTING = 0  # magic value to prevent some PredicateLimitations issues
+if TYPE_CHECKING:
+    from core.predicates import t_Predicate, t_Py2PredicateType
 
 
 class BaseNested(BaseCollectionPredicate, ABC):
@@ -176,7 +177,7 @@ class BaseNestedNot(BaseNested, ABC):
 
 
 class BaseNestedArray(BaseNested, BaseArrayPredicate, ABC):
-    value: list
+    value: list[Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],]
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = self.sub_predicate(value=self.value).calculate_limitations().reset_level_lte()
@@ -207,6 +208,8 @@ class BaseNestedArray(BaseNested, BaseArrayPredicate, ABC):
 
 
 class BaseNestedArrayNot(BaseNestedNot, BaseArrayPredicate, ABC):
+    value: list[Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],]
+
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = self.sub_predicate(value=self.value).calculate_limitations().reset_level_lte()
         limitation.add_level()
@@ -235,7 +238,13 @@ class BaseNestedArrayNot(BaseNestedNot, BaseArrayPredicate, ABC):
 
 
 class BaseNestedObject(BaseNested, BaseObjectPredicate, ABC):
-    value: dict
+    value: dict[
+        Union[
+            Annotated['t_Predicate', Field(discriminator='type_of')],
+            str,
+        ],
+        Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],
+    ]
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = self.sub_predicate(value=self.value).calculate_limitations().reset_level_lte()
@@ -264,6 +273,14 @@ class BaseNestedObject(BaseNested, BaseObjectPredicate, ABC):
 
 
 class BaseNestedObjectNot(BaseNestedNot, BaseObjectPredicate, ABC):
+    value: dict[
+        Union[
+            Annotated['t_Predicate', Field(discriminator='type_of')],
+            str,
+        ],
+        Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],
+    ]
+
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = self.sub_predicate(value=self.value).calculate_limitations().reset_level_lte()
         limitation.add_level()
@@ -320,10 +337,10 @@ class NestedObjectContainsSubset(BaseNestedObject):
         return ObjectContainsSubset
 
     def __invert__(self):
-        return NesteObjectNotContainsSubset(value=self.value)
+        return NestedObjectNotContainsSubset(value=self.value)
 
 
-class NesteObjectNotContainsSubset(BaseNestedObjectNot):
+class NestedObjectNotContainsSubset(BaseNestedObjectNot):
     type_of: Literal['NestedObjectNotContainsSubset'] = 'NestedObjectNotContainsSubset'
 
     @property

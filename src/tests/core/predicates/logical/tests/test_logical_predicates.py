@@ -1,35 +1,41 @@
 import pytest
 
-from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
-from core.predicates.scalars import StringContains, StringEqualTo, StringPattern
-from core.predicates.scalars.integer_predicates import (
+from core.predicates import (
+    AndPredicate,
+    AnyPredicate,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
     IntegerLessOrEqualThan,
     IntegerLessThan,
+    NotPredicate,
+    OrPredicate,
+    StringContains,
+    StringEqualTo,
+    StringNotEqualTo,
+    StringPattern,
 )
 from utils.formatters import get_params_argv
 
 NOT_INTERSECTIONS = {
     'not_with_preserve_type_true': [
         IntegerEqualTo(value=1),
-        NotPredicate(predicate=StringEqualTo(value='world'), preserve_type=True),
+        StringNotEqualTo(value='world'),
     ]
 }
 
 EQUIVALENTS = {
     'x = 1 | contains(x, hello) EQUIV (!(x > 1) && !(x < 1)) | contains(x, hello)': [
-        OrPredicate(predicates=[IntegerEqualTo(value=1), StringContains(value='hello', max_length=10)]),
+        OrPredicate(predicates=[IntegerEqualTo(value=1), StringContains(value='hello')]),
         OrPredicate(
             predicates=[
                 AndPredicate(
                     predicates=[
-                        NotPredicate(predicate=IntegerGreaterThan(value=1)),
-                        NotPredicate(predicate=IntegerLessThan(value=1)),
+                        ~IntegerGreaterThan(value=1),
+                        ~IntegerLessThan(value=1),
                     ]
                 ),
-                StringPattern(pattern='.*hello.*', max_length=10),
+                StringPattern(pattern='.*hello.*'),
             ]
         ),
     ],
@@ -40,8 +46,8 @@ SUPERSETS = {
         OrPredicate(predicates=[IntegerEqualTo(value=1), StringContains(value='hello')]),
         AndPredicate(
             predicates=[
-                NotPredicate(predicate=IntegerGreaterThan(value=1)),
-                NotPredicate(predicate=IntegerLessThan(value=1)),
+                ~IntegerGreaterThan(value=1),
+                ~IntegerLessThan(value=1),
             ]
         ),
     ],
@@ -73,11 +79,11 @@ INTERSECTIONS = {
     ],
     'not_with_preserve_type_false': [
         IntegerEqualTo(value=1),
-        NotPredicate(predicate=StringEqualTo(value='world'), preserve_type=False),
+        NotPredicate(predicate=StringEqualTo(value='world')),
     ],
     'not_with_preserve_type_true': [
         StringEqualTo(value='hello'),
-        NotPredicate(predicate=StringEqualTo(value='world'), preserve_type=True),
+        StringNotEqualTo(value='world'),
     ],
 }
 
@@ -254,7 +260,7 @@ class TestIntegerPredicates:
         ],
     )
     def test_integer_not(self, predicate, test_value, expected):
-        not_predicate = NotPredicate(predicate=predicate)
+        not_predicate = ~predicate
         assert not_predicate.is_matched(test_value) == expected
 
     # AndPredicate tests

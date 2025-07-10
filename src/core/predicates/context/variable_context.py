@@ -231,7 +231,7 @@ class VariableContext(BaseVariableContext):
         .. Docstring created by Gemini 2.5 Flash
         """
         if predicate_type not in self._var_type_constraints.keys():
-            self._var_type_constraints[predicate_type] = self._json_var.build_type_expression(predicate_type)
+            self._var_type_constraints[predicate_type] = self._json_var.is_expression_by_type(predicate_type)
 
         return self._json_var.get_expression_by_type(predicate_type)
 

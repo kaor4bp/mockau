@@ -3,7 +3,7 @@ from typing import Self
 
 from pydantic import ValidationError, model_validator
 
-from core.matchers.variable_matcher import SetVariableMatcher
+from core.deprecated_matchers.variable_matcher import SetVariableMatcher
 from core.predicates.base_predicate import t_Predicate
 from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
 from core.predicates.scalars import (

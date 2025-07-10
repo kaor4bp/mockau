@@ -1,34 +1,40 @@
 from abc import ABC
-from typing import Literal, Self
+from typing import TYPE_CHECKING, Annotated, Literal, Union
 from uuid import uuid4
 
 import z3
-from pydantic import model_validator
+from pydantic import Field, field_validator
 
-from core.predicates.base_predicate import (
-    BaseCollectionPredicate,
-    BasePredicate,
-    PredicateType,
-    VariableContext,
-    t_Predicate,
-)
+from core.predicates.base_predicate import BaseCollectionPredicate, BasePredicate, PredicateType, VariableContext
 from core.predicates.context.predicate_limitations import PredicateLimitations
-from core.predicates.helpers import value_to_predicate
+from core.predicates.helpers import py_value_to_predicate
 from core.predicates.logical.logical_predicates import NotPredicate
 from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
 
-_DEFAULT_NESTED_PREDICATES_EXTRA_NESTING = 2
+if TYPE_CHECKING:
+    from core.predicates import t_Predicate, t_Py2PredicateType
 
 
 class BaseArrayPredicate(BaseCollectionPredicate, ABC):
-    value: list
+    value: list[Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],]
 
-    @model_validator(mode='after')
-    def handle_nested_objects(self) -> Self:
-        for item_index, item in enumerate(self.value):
+    @field_validator('value', mode='before')
+    @classmethod
+    def handle_py2predicate(cls, data):
+        if not isinstance(data, list):
+            return data
+        for item_index, item in enumerate(data):
             if not isinstance(item, BasePredicate):
-                self.value[item_index] = value_to_predicate(item)
-        return self
+                data[item_index] = py_value_to_predicate(item)
+        return data
+
+    @field_validator('value', mode='after')
+    @classmethod
+    def validate_predicates(cls, value):
+        for item_pred in value:
+            if not isinstance(item_pred, BasePredicate):
+                raise ValueError(f'Item predicate must be a BasePredicate, got {item_pred}')
+        return value
 
     @property
     def predicate_types(self) -> set[PredicateType]:
@@ -45,13 +51,22 @@ class BaseArrayPredicate(BaseCollectionPredicate, ABC):
 
 
 class BaseArrayItemPredicate(BaseCollectionPredicate):
-    predicate: t_Predicate | str | int | bool | None
+    predicate: Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType']
 
-    @model_validator(mode='after')
-    def handle_nested_objects(self) -> Self:
-        if not isinstance(self.predicate, BasePredicate):
-            self.predicate = value_to_predicate(self.predicate)
-        return self
+    @field_validator('predicate', mode='before')
+    @classmethod
+    def handle_py2predicate(cls, data):
+        if not isinstance(data, BasePredicate):
+            return py_value_to_predicate(data)
+        else:
+            return data
+
+    @field_validator('predicate', mode='after')
+    @classmethod
+    def validate_predicates(cls, value):
+        if not isinstance(value, BasePredicate):
+            raise ValueError(f'Item predicate must be a BasePredicate, got {value}')
+        return value
 
     @property
     def predicate_types(self) -> set[PredicateType]:
@@ -61,7 +76,6 @@ class BaseArrayItemPredicate(BaseCollectionPredicate):
         limitation = PredicateLimitations()
 
         limitation.push(self.predicate.calculate_limitations().increment_level())
-        limitation.max_nesting_level += 1
         limitation.max_array_size = 3
         return limitation
 
@@ -108,7 +122,7 @@ class ArrayStrictEqualTo(BaseArrayPredicate):
 
 
 class ArrayNotStrictEqualTo(BaseArrayPredicate):
-    type_of: Literal['ArrayStrictEqualTo'] = 'ArrayStrictEqualTo'
+    type_of: Literal['ArrayNotStrictEqualTo'] = 'ArrayNotStrictEqualTo'
 
     def verify(self, value: list):
         if not isinstance(value, list):
@@ -137,7 +151,7 @@ class ArrayNotStrictEqualTo(BaseArrayPredicate):
         for item_index, item in enumerate(self.value):
             child_ctx = ctx.create_child_context()
             constraints += [
-                NotPredicate(predicate=item, preserve_type=False).to_z3(child_ctx),
+                NotPredicate(predicate=item).to_z3(child_ctx),
                 child_ctx.pop_from_global_constraints(),
             ]
             or_constraints.append(array_var[item_index] == child_ctx.json_type_variable.z3_variable)
@@ -206,7 +220,7 @@ class ArrayEqualToWithoutOrder(BaseArrayPredicate):
 
 
 class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
-    type_of: Literal['ArrayEqualToWithoutOrder'] = 'ArrayEqualToWithoutOrder'
+    type_of: Literal['ArrayNotEqualToWithoutOrder'] = 'ArrayNotEqualToWithoutOrder'
 
     def verify(self, value: list):
         if not isinstance(value, list):
@@ -246,7 +260,7 @@ class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
                 child_ctx = ctx.create_child_context()
 
                 constraints += [
-                    NotPredicate(predicate=item, preserve_type=False).to_z3(child_ctx),
+                    NotPredicate(predicate=item).to_z3(child_ctx),
                     child_ctx.pop_from_global_constraints(),
                 ]
 
@@ -321,15 +335,7 @@ class ArrayNotContains(BaseArrayPredicate):
     type_of: Literal['ArrayNotContains'] = 'ArrayNotContains'
 
     def verify(self, value: list):
-        if not isinstance(value, list):
-            return False
-
-        for item_predicate in self.value:
-            for item in value:
-                if not item_predicate.verify(item):
-                    return True
-
-        return False
+        return not ArrayContains(value=self.value).verify(value)
 
     def __invert__(self):
         return ArrayContains(value=self.value)
@@ -345,7 +351,7 @@ class ArrayNotContains(BaseArrayPredicate):
         array_var = ctx.get_variable(PredicateType.Array)
 
         for item in self.value:
-            inverted_item = NotPredicate(predicate=item, preserve_type=False)
+            inverted_item = NotPredicate(predicate=item)
             child_ctx = ctx.create_child_context()
             expected_array = z3.Empty(z3.SeqSort(child_ctx.JsonType))
 

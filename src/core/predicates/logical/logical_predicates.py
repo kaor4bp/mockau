@@ -1,18 +1,30 @@
 from functools import reduce
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Annotated, Literal, Union
 
 import z3
+from pydantic import Field, field_validator
 
-from core.predicates.base_predicate import BaseLogicalPredicate, BaseScalarPredicate, PredicateType, VariableContext
-from core.predicates.consts import PREDICATE_TYPE_TO_PYTHON_TYPE
+from core.predicates.base_predicate import (
+    BaseLogicalPredicate,
+    BasePredicate,
+    BaseScalarPredicate,
+    PredicateType,
+    VariableContext,
+)
+from core.predicates.consts import ALLOWED_POOL_PREDICATE_TYPES, PREDICATE_TYPE_TO_PYTHON_TYPE
 from core.predicates.context.predicate_limitations import PredicateLimitations
+from core.predicates.helpers import py_value_to_predicate
+
+if TYPE_CHECKING:
+    from core.predicates import t_Predicate, t_Py2PredicateType
 
 
 class VoidPredicate(BaseLogicalPredicate):
     type_of: Literal['VoidPredicate'] = 'VoidPredicate'
 
     def verify(self, value):
-        raise ValueError("VoidPredicate cannot be used for verification -- it is impossible value")
+        return False
+        # raise ValueError("VoidPredicate cannot be used for verification -- it is impossible value")
 
     @property
     def predicate_types(self):
@@ -74,28 +86,33 @@ class NotPredicate(BaseLogicalPredicate):
     """
 
     type_of: Literal['NotPredicate'] = 'NotPredicate'
-    predicate: Any
-    preserve_type: bool = True
+
+    predicate: Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType']
+
+    @field_validator('predicate', mode='before')
+    @classmethod
+    def handle_py2predicate(cls, data):
+        if not isinstance(data, BasePredicate):
+            return py_value_to_predicate(data)
+        else:
+            return data
+
+    @field_validator('predicate', mode='after')
+    @classmethod
+    def validate_predicates(cls, value):
+        if not isinstance(value, BasePredicate):
+            raise ValueError(f'Item predicate must be a BasePredicate, got {value}')
+        return value
 
     def __invert__(self):
         return self.predicate
 
     def verify(self, value):
-        all_types = {
-            PredicateType.Null,
-            PredicateType.Boolean,
-            PredicateType.Integer,
-            PredicateType.Real,
-            PredicateType.String,
-            PredicateType.Object,
-            PredicateType.Array,
-        }
-        other_types = all_types - self.predicate_types
+        other_types = ALLOWED_POOL_PREDICATE_TYPES - self.predicate_types
 
         constraints = [not self.predicate.verify(value)]
-        if not self.preserve_type:
-            for other_type in other_types:
-                constraints.append(isinstance(value, PREDICATE_TYPE_TO_PYTHON_TYPE[other_type]))
+        for other_type in other_types:
+            constraints.append(isinstance(value, PREDICATE_TYPE_TO_PYTHON_TYPE[other_type]))
         return any(constraints)
 
     @property
@@ -109,17 +126,8 @@ class NotPredicate(BaseLogicalPredicate):
         inverted_predicate = ~self.predicate
         additional_constraints = []
 
-        if self.preserve_type is False and PredicateType.Any not in self.predicate_types:
-            all_types = {
-                PredicateType.Null,
-                PredicateType.Boolean,
-                PredicateType.Integer,
-                PredicateType.Real,
-                PredicateType.String,
-                PredicateType.Object,
-                PredicateType.Array,
-            }
-            other_types = all_types - self.predicate_types
+        if PredicateType.Any not in self.predicate_types:
+            other_types = ALLOWED_POOL_PREDICATE_TYPES - self.predicate_types
 
             for other_type in other_types:
                 ctx.get_variable(other_type)
@@ -140,6 +148,7 @@ class NotPredicate(BaseLogicalPredicate):
                     additional_constraints.append(ctx.json_type_variable.is_array())
                 else:
                     raise ValueError(f"Unknown predicate type: {other_type}")
+
         return z3.Or(inverted_predicate.to_z3(ctx), *additional_constraints)
 
 
@@ -154,7 +163,26 @@ class AndPredicate(BaseLogicalPredicate):
     """
 
     type_of: Literal['AndPredicate'] = 'AndPredicate'
-    predicates: list
+
+    predicates: list[Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],]
+
+    @field_validator('predicates', mode='before')
+    @classmethod
+    def handle_py2predicate(cls, data):
+        if not isinstance(data, list):
+            return data
+        for item_index, item in enumerate(data):
+            if not isinstance(item, BasePredicate):
+                data[item_index] = py_value_to_predicate(item)
+        return data
+
+    @field_validator('predicates', mode='after')
+    @classmethod
+    def validate_predicates(cls, value):
+        for item_pred in value:
+            if not isinstance(item_pred, BasePredicate):
+                raise ValueError(f'Item predicate must be a BasePredicate, got {item_pred}')
+        return value
 
     def verify(self, value):
         return all(p.verify(value) for p in self.predicates)
@@ -187,7 +215,7 @@ class AndPredicate(BaseLogicalPredicate):
             return {PredicateType.Null}
 
     def __invert__(self):
-        return OrPredicate(predicates=[NotPredicate(predicate=p) for p in self.predicates])
+        return OrPredicate(predicates=[~p for p in self.predicates])
 
     def to_z3(self, ctx: VariableContext):
         """Convert the AND predicate to a Z3 expression.
@@ -220,7 +248,29 @@ class OrPredicate(BaseLogicalPredicate):
     """
 
     type_of: Literal['OrPredicate'] = 'OrPredicate'
-    predicates: list
+
+    if TYPE_CHECKING:
+        predicates: list[t_Py2PredicateType | t_Predicate]
+    else:
+        predicates: list[Annotated['t_Predicate', Field(discriminator='type_of')]]
+
+    @field_validator('predicates', mode='before')
+    @classmethod
+    def handle_py2predicate(cls, data):
+        if not isinstance(data, list):
+            return data
+        for item_index, item in enumerate(data):
+            if not isinstance(item, BasePredicate):
+                data[item_index] = py_value_to_predicate(item)
+        return data
+
+    @field_validator('predicates', mode='after')
+    @classmethod
+    def validate_predicates(cls, value):
+        for item_pred in value:
+            if not isinstance(item_pred, BasePredicate):
+                raise ValueError(f'Item predicate must be a BasePredicate, got {item_pred}')
+        return value
 
     def verify(self, value):
         return any(p.verify(value) for p in self.predicates)
@@ -236,10 +286,13 @@ class OrPredicate(BaseLogicalPredicate):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        return set.union(*[inner_predicate.predicate_types for inner_predicate in self.predicates])
+        if self.predicates:
+            return set.union(*[inner_predicate.predicate_types for inner_predicate in self.predicates])
+        else:
+            return set()
 
     def __invert__(self):
-        return AndPredicate(predicates=[NotPredicate(predicate=p) for p in self.predicates])
+        return AndPredicate(predicates=[~p for p in self.predicates])
 
     def calculate_limitations(self) -> PredicateLimitations:
         if self.predicates:

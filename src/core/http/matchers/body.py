@@ -1,7 +1,7 @@
 from typing import Literal
 
+from core.deprecated_matchers.abstract_matcher import AbstractMatcher
 from core.http.interaction.common import HttpContentType
-from core.matchers.abstract_matcher import AbstractMatcher
 
 
 class BodyMatcher(AbstractMatcher):

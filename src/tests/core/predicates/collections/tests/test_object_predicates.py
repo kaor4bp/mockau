@@ -7,21 +7,30 @@ import pathlib
 
 import pytest
 
-from core.predicates.collections.array_predicates import ArrayContains
-from core.predicates.collections.nested_predicates import (
-    NestedArrayContains,
-    NestedArrayStrictEqualTo,
-    NestedObjectContainsSubset,
-    NestedObjectEqualTo,
-)
-from core.predicates.collections.object_predicates import ObjectContainsSubset, ObjectEqualTo, ObjectHasValue
-from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
-from core.predicates.scalars import (
+from core.predicates import (
+    AndPredicate,
+    AnyPredicate,
+    ArrayContains,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
     IntegerLessOrEqualThan,
     IntegerLessThan,
+    IntegerNotEqualTo,
+    NestedArrayContains,
+    NestedArrayNotContains,
+    NestedArrayNotStrictEqualTo,
+    NestedArrayStrictEqualTo,
+    NestedObjectContainsSubset,
+    NestedObjectEqualTo,
+    NestedObjectNotContainsSubset,
+    NestedObjectNotEqualTo,
+    ObjectContainsSubset,
+    ObjectEqualTo,
+    ObjectHasValue,
+    ObjectNotContainsSubset,
+    ObjectNotEqualTo,
+    OrPredicate,
     StringContains,
     StringEqualTo,
     StringPattern,
@@ -94,7 +103,7 @@ NOT_INTERSECTIONS = {
         ObjectContainsSubset(value={'tea_party': {'door': {'key': IntegerEqualTo(value=2)}}}),
     ],
     'not_contains_subset_and_exact_object_equal_to': [
-        NotPredicate(predicate=ObjectContainsSubset(value={'alice': 1})),
+        ObjectNotContainsSubset(value={'alice': 1}),
         ObjectEqualTo(value={'alice': 1}),
     ],
     'nested_object_equal_to_and_flat_object_equal_to_type_mismatch': [
@@ -106,11 +115,11 @@ NOT_INTERSECTIONS = {
         ObjectEqualTo(value={'card': [{'tea': {'hatter': 'mad'}}]}),
     ],
     'not_nested_object_equal_to_and_deep_object_equal_to_array_no_match_1': [
-        NotPredicate(predicate=NestedObjectEqualTo(value={'card': 'queen'})),
+        NestedObjectNotEqualTo(value={'card': 'queen'}),
         ObjectEqualTo(value={'card': [{'tea': {'hatter': 'mad', 'dormouse': {'card': 'queen'}}}]}),
     ],
     'not_nested_object_equal_to_and_deep_object_equal_to_array_no_match_2': [
-        NotPredicate(predicate=NestedObjectEqualTo(value={'card': 'queen'})),
+        NestedObjectNotEqualTo(value={'card': 'queen'}),
         ObjectEqualTo(value={'card': [{'tea': {'hatter': 'mad', 'dormouse': [{'card': 'queen'}]}}]}),
     ],
     'object_with_nested_subset_and_flat_nested_value_mismatch': [
@@ -140,12 +149,13 @@ NOT_INTERSECTIONS = {
     ],
 }
 
+
 INTERSECTIONS = {
     '0 ': [
         NestedObjectContainsSubset(
             value={
                 'alice': 'rabbit',
-                'kek': NotPredicate(predicate=NestedArrayStrictEqualTo(value=['hello', 'world', '!'])),
+                'kek': NestedArrayNotStrictEqualTo(value=['hello', 'world', '!']),
             }
         ),
         NestedArrayStrictEqualTo(value=['hello', 'world', '!']),
@@ -154,7 +164,7 @@ INTERSECTIONS = {
         NestedObjectContainsSubset(
             value={
                 'alice': 'rabbit',
-                'kek': {'a': NotPredicate(predicate=NestedArrayContains(value=['hello', 'world', '!']))},
+                'kek': {'a': NestedArrayNotContains(value=['hello', 'world', '!'])},
             }
         ),
         NestedArrayContains(value=['hello', 'world', '!']),
@@ -278,12 +288,12 @@ INTERSECTIONS = {
         ObjectEqualTo(value={'alice': 'wonderland'}),
     ],
     'not_predicate_and_unrelated_object': [
-        NotPredicate(predicate=ObjectContainsSubset(value={'hatter': StringContains(value='tea')})),
+        ObjectNotContainsSubset(value={'hatter': StringContains(value='tea')}),
         ObjectEqualTo(value={'queen': StringContains(value='red_paint')}),
     ],
     'object_and_not_predicate': [
         ObjectContainsSubset(value={'hatter': StringContains(value='tea')}),
-        NotPredicate(predicate=ObjectEqualTo(value={'queen': StringContains(value='red_paint')})),
+        ObjectNotEqualTo(value={'queen': StringContains(value='red_paint')}),
     ],
     'deeply_nested_object_equal_to': [
         NestedObjectEqualTo(value={'tea_cup': NestedObjectEqualTo(value={'tarts': 'stolen'})}),
@@ -322,24 +332,24 @@ INTERSECTIONS = {
         ),
     ],
     'not_nested_object_equal_to_and_deep_object_with_extra_field': [
-        NotPredicate(predicate=NestedObjectEqualTo(value={'alice': 'rabbit'})),
+        NestedObjectNotEqualTo(value={'alice': 'rabbit'}),
         ObjectEqualTo(value={'alice': {'alice': 'rabbit', 'extra_tea': True}}),
     ],
     'not_nested_object_equal_to_and_deep_object_with_array_and_extra_field': [
-        NotPredicate(predicate=NestedObjectEqualTo(value={'alice': 'rabbit'})),
+        NestedObjectNotEqualTo(value={'alice': 'rabbit'}),
         ObjectEqualTo(
             value={'alice': [{'hatter': {'queen': 'cards', 'tea_time': [{'alice': 'rabbit', 'extra_tea': True}]}}]}
         ),
     ],
     'not_object_equal_to_and_different_structure': [
-        NotPredicate(predicate=ObjectEqualTo(value={'alice': 'rabbit'})),
+        ObjectNotEqualTo(value={'alice': 'rabbit'}),
         ObjectEqualTo(value={'alice': {'queen': 'cards'}}),
     ],
     'object_with_nested_not_subset_and_flat_nested_value': [
         ObjectEqualTo(
             value={
                 'alice': 'rabbit',
-                'hatter': NotPredicate(predicate=NestedObjectContainsSubset(value={'alice': 'rabbit'})),
+                'hatter': NestedObjectNotContainsSubset(value={'alice': 'rabbit'}),
             }
         ),
         ObjectEqualTo(value={'alice': 'rabbit', 'hatter': {'alice': 'flamingo'}}),
@@ -368,8 +378,8 @@ EQUIVALENTS = {
         ObjectEqualTo(value={'alice': IntegerEqualTo(value=1)}),
         AndPredicate(
             predicates=[
-                ObjectEqualTo(value={'alice': NotPredicate(predicate=IntegerGreaterThan(value=1))}),
-                ObjectEqualTo(value={'alice': NotPredicate(predicate=IntegerLessThan(value=1))}),
+                ObjectEqualTo(value={'alice': ~IntegerGreaterThan(value=1)}),
+                ObjectEqualTo(value={'alice': ~IntegerLessThan(value=1)}),
             ]
         ),
     ],
@@ -406,13 +416,13 @@ EQUIVALENTS = {
             predicates=[
                 ObjectEqualTo(value={'hatter': IntegerGreaterOrEqualThan(value=1)}),
                 ObjectEqualTo(value={'hatter': IntegerLessOrEqualThan(value=5)}),
-                ObjectEqualTo(value={'hatter': NotPredicate(predicate=IntegerEqualTo(value=1))}),
-                ObjectEqualTo(value={'hatter': NotPredicate(predicate=IntegerEqualTo(value=5))}),
+                ObjectEqualTo(value={'hatter': IntegerNotEqualTo(value=1)}),
+                ObjectEqualTo(value={'hatter': IntegerNotEqualTo(value=5)}),
             ]
         ),
     ],
     'not_not_predicate_equivalent_to_original': [
-        NotPredicate(predicate=NotPredicate(predicate=ObjectEqualTo(value={'alice_door': 1}))),
+        ~ObjectNotEqualTo(value={'alice_door': 1}),
         ObjectEqualTo(value={'alice_door': 1}),
     ],
     'or_with_same_predicate_equivalent_to_predicate': [

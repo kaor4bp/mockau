@@ -1,9 +1,17 @@
-def value_to_predicate(value):
+from core.predicates.base_predicate import MOCKAU_TYPE
+
+
+def py_value_to_predicate(value):
+    from core.predicates import (
+        ArrayStrictEqualTo,
+        BooleanEqualTo,
+        IntegerEqualTo,
+        IsNull,
+        NumberEqualTo,
+        ObjectEqualTo,
+        StringEqualTo,
+    )
     from core.predicates.base_predicate import BasePredicate
-    from core.predicates.collections.array_predicates import ArrayStrictEqualTo
-    from core.predicates.collections.object_predicates import ObjectEqualTo
-    from core.predicates.scalars import BooleanEqualTo, IntegerEqualTo, NumberEqualTo, StringEqualTo
-    from core.predicates.scalars.null_predicates import IsNull
 
     if isinstance(value, BasePredicate):
         return value
@@ -16,10 +24,13 @@ def value_to_predicate(value):
         return NumberEqualTo(value=value)
     elif isinstance(value, int):
         return IntegerEqualTo(value=value)
-    elif isinstance(value, dict):
-        return ObjectEqualTo(value=value)
     elif isinstance(value, list):
         return ArrayStrictEqualTo(value=value)
+    elif isinstance(value, dict):
+        if value.get('__x_mockau_type') == MOCKAU_TYPE or value.get('x_mockau_type') == MOCKAU_TYPE:
+            return value
+        else:
+            return ObjectEqualTo(value=value)
     elif value is None:
         return IsNull()
     else:

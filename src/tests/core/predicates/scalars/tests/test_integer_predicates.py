@@ -1,12 +1,15 @@
 import pytest
 
-from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
-from core.predicates.scalars.integer_predicates import (
+from core.predicates import (
+    AndPredicate,
+    AnyPredicate,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
     IntegerLessOrEqualThan,
     IntegerLessThan,
+    IntegerNotEqualTo,
+    OrPredicate,
 )
 from utils.formatters import get_params_argv
 
@@ -15,8 +18,8 @@ EQUIVALENTS = {
         IntegerEqualTo(value=1),
         AndPredicate(
             predicates=[
-                NotPredicate(predicate=IntegerGreaterThan(value=1)),
-                NotPredicate(predicate=IntegerLessThan(value=1)),
+                ~IntegerGreaterThan(value=1),
+                ~IntegerLessThan(value=1),
             ]
         ),
     ],
@@ -54,8 +57,8 @@ EQUIVALENTS = {
             predicates=[
                 IntegerGreaterOrEqualThan(value=1),
                 IntegerLessOrEqualThan(value=5),
-                NotPredicate(predicate=IntegerEqualTo(value=1)),
-                NotPredicate(predicate=IntegerEqualTo(value=5)),
+                IntegerNotEqualTo(value=1),
+                IntegerNotEqualTo(value=5),
             ]
         ),
     ],
@@ -124,8 +127,8 @@ SUPERSETS = {
             predicates=[
                 IntegerGreaterOrEqualThan(value=1),
                 IntegerLessOrEqualThan(value=5),
-                NotPredicate(predicate=IntegerEqualTo(value=1)),
-                NotPredicate(predicate=IntegerEqualTo(value=5)),
+                IntegerNotEqualTo(value=1),
+                IntegerNotEqualTo(value=5),
             ]
         ),
     ],
@@ -133,12 +136,12 @@ SUPERSETS = {
 
 INTERSECTIONS = {
     'x >  5 CAP x <  7': [IntegerGreaterThan(value=5), IntegerLessThan(value=7)],
-    'x >  5 CAP !(x > 6)': [IntegerGreaterThan(value=5), NotPredicate(predicate=IntegerGreaterThan(value=6))],
+    'x >  5 CAP !(x > 6)': [IntegerGreaterThan(value=5), ~IntegerGreaterThan(value=6)],
     'x >  5 CAP x <= 6': [IntegerGreaterThan(value=5), IntegerLessOrEqualThan(value=6)],
     'x >= 5 CAP x <  6': [IntegerGreaterOrEqualThan(value=5), IntegerLessThan(value=6)],
     'x >= 5 CAP x <= 5': [IntegerGreaterOrEqualThan(value=5), IntegerLessOrEqualThan(value=5)],
     'x >= 5 CAP x <= 6': [IntegerGreaterOrEqualThan(value=5), IntegerLessOrEqualThan(value=6)],
-    'x >= 5 CAP !(x > 6)': [IntegerGreaterOrEqualThan(value=5), NotPredicate(predicate=IntegerGreaterThan(value=6))],
+    'x >= 5 CAP !(x > 6)': [IntegerGreaterOrEqualThan(value=5), ~IntegerGreaterThan(value=6)],
     'x >= 5 CAP 6 < x < 8': [
         IntegerGreaterOrEqualThan(value=5),
         AndPredicate(predicates=[IntegerLessThan(value=8), IntegerGreaterThan(value=6)]),
@@ -312,7 +315,7 @@ class TestIntegerPredicates:
         ],
     )
     def test_integer_not(self, predicate, test_value, expected):
-        not_predicate = NotPredicate(predicate=predicate)
+        not_predicate = ~predicate
         assert not_predicate.is_matched(test_value) == expected
 
     # AndPredicate tests

@@ -1,5 +1,5 @@
+from core.deprecated_matchers.variable_matcher import SetVariableMatcher
 from core.http.interaction.common import HttpMethod
-from core.matchers.variable_matcher import SetVariableMatcher
 from core.predicates.base_predicate import t_Predicate
 from core.predicates.logical.logical_predicates import OrPredicate
 from core.predicates.scalars import StringEqualTo

@@ -9,50 +9,56 @@ class JsonDatatypeWrapper:
         self._datatype = datatype
         self._z3_context = z3_context
 
-        self._type_expressions_by_type_mapping = {
-            PredicateType.String: self.is_str(),
-            PredicateType.Integer: self.is_int(),
-            PredicateType.Real: self.is_real(),
-            PredicateType.Boolean: self.is_bool(),
-            PredicateType.Object: self.is_object(),
-            PredicateType.Array: self.is_array(),
-            PredicateType.Null: self.is_null(),
-            PredicateType.Undefined: self.is_undefined(),
-        }
-        self._variables_by_type_mapping = {
-            PredicateType.String: self.get_str(),
-            PredicateType.Integer: self.get_int(),
-            PredicateType.Real: self.get_real(),
-            PredicateType.Boolean: self.get_bool(),
-            PredicateType.Object: self.get_object(),
-            PredicateType.Array: self.get_array(),
-            PredicateType.Null: None,
-            PredicateType.Any: None,
-            PredicateType.Undefined: None,
-        }
-
     def is_expression_by_type(self, predicate_type: PredicateType):
-        return self._type_expressions_by_type_mapping[predicate_type]
+        if predicate_type == PredicateType.String:
+            return self.is_str()
+        if predicate_type == PredicateType.Integer:
+            return self.is_int()
+        if predicate_type == PredicateType.Real:
+            return self.is_real()
+        if predicate_type == PredicateType.Boolean:
+            return self.is_bool()
+        if predicate_type == PredicateType.Object:
+            return self.is_object()
+        if predicate_type == PredicateType.Array:
+            return self.is_array()
+        if predicate_type == PredicateType.Null:
+            return self.is_null()
+        if predicate_type == PredicateType.Any:
+            return z3.BoolVal(True, ctx=self._z3_context)
+            # return z3.Or(
+            #     self.is_str(),
+            #     self.is_int(),
+            #     self.is_real(),
+            #     self.is_bool(),
+            #     self.is_object(),
+            #     self.is_array(),
+            #     self.is_null(),
+            # )
+        if predicate_type == PredicateType.Undefined:
+            return self.is_undefined()
+        raise ValueError(f"Unknown predicate type: {predicate_type}")
 
     def get_expression_by_type(self, predicate_type: PredicateType):
-        return self._variables_by_type_mapping[predicate_type]
-
-    def build_type_expression(self, predicate_type: PredicateType) -> z3.BoolRef:
-        # type_expressions = [
-        #     current_type_expr
-        #     if current_type == predicate_type or predicate_type is PredicateType.Any
-        #     else z3.Not(current_type_expr, ctx=self._z3_context)
-        #     for current_type, current_type_expr in self._type_expressions_by_type_mapping.items()
-        # ]
-        type_expressions = [self._type_expressions_by_type_mapping[predicate_type]]
-        # todo: analyze possibility of simplifying XOR of var type expression
-        if predicate_type is PredicateType.Any:
-            # type_expressions.append(z3.BoolVal(False, ctx=self._z3_context))
-            combined_type_expression = z3.Or([v for v in self._type_expressions_by_type_mapping.values()])
-        else:
-            type_expressions.append(z3.BoolVal(True, ctx=self._z3_context))
-            combined_type_expression = z3.And(type_expressions)
-        return z3.simplify(combined_type_expression)
+        if predicate_type == PredicateType.String:
+            return self.get_str()
+        if predicate_type == PredicateType.Integer:
+            return self.get_int()
+        if predicate_type == PredicateType.Real:
+            return self.get_real()
+        if predicate_type == PredicateType.Boolean:
+            return self.get_bool()
+        if predicate_type == PredicateType.Object:
+            return self.get_object()
+        if predicate_type == PredicateType.Array:
+            return self.get_array()
+        if predicate_type == PredicateType.Null:
+            return None
+        if predicate_type == PredicateType.Any:
+            return None
+        if predicate_type == PredicateType.Undefined:
+            return None
+        raise ValueError(f"Unknown predicate type: {predicate_type}")
 
     @property
     def z3_variable(self) -> z3.DatatypeRef:

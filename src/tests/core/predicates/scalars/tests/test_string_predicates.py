@@ -1,7 +1,6 @@
 import pytest
 
-from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
-from core.predicates.scalars.string_predicates import StringContains, StringEqualTo, StringPattern
+from core.predicates import AndPredicate, AnyPredicate, OrPredicate, StringContains, StringEqualTo, StringPattern
 from utils.formatters import get_params_argv
 
 EQUIVALENTS = {
@@ -221,7 +220,7 @@ class TestStringPredicates:
         ids=lambda x: repr(x),
     )
     def test_string_not(self, predicate, test_value, expected):
-        not_predicate = NotPredicate(predicate=predicate)
+        not_predicate = ~predicate
         assert not_predicate.is_matched(test_value) == expected
 
     # AndPredicate tests

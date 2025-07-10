@@ -38,4 +38,14 @@ PREDICATE_TYPE_TO_PYTHON_TYPE = {
     PredicateType.Any: object,
 }
 
+ALLOWED_POOL_PREDICATE_TYPES = {
+    PredicateType.Null,
+    PredicateType.Boolean,
+    PredicateType.Integer,
+    PredicateType.Real,
+    PredicateType.String,
+    PredicateType.Object,
+    PredicateType.Array,
+}
+
 DEFAULT_SOLVER_TIMEOUT = 300

@@ -2,13 +2,13 @@ from typing import Annotated, Optional
 
 from pydantic import Field
 
+from core.deprecated_matchers.abstract_matcher import AbstractMatcher
+from core.deprecated_matchers.string_matcher import t_StringMatcher
 from core.http.interaction.schemas import HttpRequest
 from core.http.matchers.headers import t_HeaderMatcherContainer
 from core.http.matchers.method import t_MethodMatcher
 from core.http.matchers.query_param import t_QueryParamMatcherContainer
 from core.http.matchers.socket_address import SocketAddressMatcher
-from core.matchers.abstract_matcher import AbstractMatcher
-from core.matchers.string_matcher import t_StringMatcher
 from core.predicates.base_predicate import t_Predicate
 from core.predicates.collections.object_predicates import ObjectEqualTo
 from schemas.variables import VariablesContext, variables_context_transaction

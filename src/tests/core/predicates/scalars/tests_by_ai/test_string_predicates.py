@@ -3,8 +3,15 @@ import re
 
 import pytest
 
-from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
-from core.predicates.scalars.string_predicates import StringContains, StringEqualTo, StringPattern
+from core.predicates import (
+    AndPredicate,
+    AnyPredicate,
+    NotPredicate,
+    OrPredicate,
+    StringContains,
+    StringEqualTo,
+    StringPattern,
+)
 from utils.formatters import get_params_argv  # Assuming this is the intended usage based on other files
 
 EQUIVALENTS = {
@@ -244,7 +251,7 @@ class TestStringPredicates:
             ['string', '', False, False],  # Non-empty string not in empty string (unless value itself is empty)
             ['hello', 'hello', False, True],  # Exact match
             ['hello', 'prefixhelloSuffix', False, True],
-            # ['substring', None, False, False], # Test with None
+            ['substring', None, False, False],  # Test with None
             ['你好', '世界你好', False, True],  # Unicode
         ],
     )

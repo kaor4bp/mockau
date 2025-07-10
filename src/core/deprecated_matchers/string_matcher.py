@@ -3,9 +3,16 @@ from typing import Annotated, Optional
 
 from pydantic import Field
 
-from core.matchers.variable_matcher import SetVariableMatcher
-from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, OrPredicate
-from core.predicates.scalars import StringContains, StringEqualTo, StringPattern
+from core.deprecated_matchers.variable_matcher import SetVariableMatcher
+from core.predicates import (
+    AndPredicate,
+    AnyPredicate,
+    NotPredicate,
+    OrPredicate,
+    StringContains,
+    StringEqualTo,
+    StringPattern,
+)
 from schemas.variables import VariablesContext, variables_context_transaction
 
 

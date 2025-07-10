@@ -4,30 +4,38 @@ Manually written tests for array predicates, modified by Gemini 2.5 Flash (added
 
 import pytest
 
-from core.predicates.collections.array_predicates import ArrayContains, ArrayEqualToWithoutOrder, ArrayStrictEqualTo
-from core.predicates.collections.nested_predicates import (
-    NestedArrayContains,
-    NestedArrayStrictEqualTo,
-    NestedObjectEqualTo,
-)
-from core.predicates.collections.object_predicates import ObjectContainsSubset, ObjectEqualTo
-from core.predicates.logical.logical_predicates import AndPredicate, AnyPredicate, NotPredicate, VoidPredicate
-from core.predicates.scalars import (
+from core.predicates import (
+    AndPredicate,
+    AnyPredicate,
+    ArrayContains,
+    ArrayEqualToWithoutOrder,
+    ArrayNotContains,
+    ArrayNotStrictEqualTo,
+    ArrayStrictEqualTo,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
     IntegerLessOrEqualThan,
     IntegerLessThan,
+    IntegerNotEqualTo,
+    NestedArrayContains,
+    NestedArrayStrictEqualTo,
+    NestedObjectEqualTo,
+    ObjectContainsSubset,
+    ObjectEqualTo,
     StringContains,
     StringEqualTo,
     StringPattern,
+    VoidPredicate,
 )
 from utils.formatters import get_params_argv
 
 NOT_INTERSECTIONS = {
     'strict_equal_with_diff_length': [
-        ArrayStrictEqualTo(value=['Alpha', 'Beta']),
-        ArrayStrictEqualTo(value=['Alpha', 'Beta', 'Gamma']),
+        ArrayStrictEqualTo(value=[StringEqualTo(value='Alpha'), StringEqualTo(value='Beta')]),
+        ArrayStrictEqualTo(
+            value=[StringEqualTo(value='Alpha'), StringEqualTo(value='Beta'), StringEqualTo(value='Gamma')]
+        ),
     ],
     'strict_equal_with_not_intersecting_patterns': [
         ArrayStrictEqualTo(value=[StringPattern(pattern='^\\d+$')]),
@@ -49,11 +57,17 @@ NOT_INTERSECTIONS = {
     ],
     'object_contains_subset_and_its_negation': [
         ArrayStrictEqualTo(value=[ObjectContainsSubset(value={'caste': 'Alpha'})]),
-        NotPredicate(predicate=ArrayStrictEqualTo(value=[ObjectContainsSubset(value={'caste': 'Alpha'})])),
+        ArrayNotStrictEqualTo(value=[ObjectContainsSubset(value={'caste': 'Alpha'})]),
     ],
     'array_contains_and_strict_equal_no_overlap': [
-        ArrayContains(value=['soma', 'feelies']),
-        ArrayStrictEqualTo(value=['hypnopaedia', 'bokanovsky', 'decanting']),
+        ArrayContains(value=[StringEqualTo(value='soma'), StringEqualTo(value='feelies')]),
+        ArrayStrictEqualTo(
+            value=[
+                StringEqualTo(value='hypnopaedia'),
+                StringEqualTo(value='bokanovsky'),
+                StringEqualTo(value='decanting'),
+            ]
+        ),
     ],
     'strict_equal_with_different_types': [
         ArrayStrictEqualTo(value=['Alpha']),
@@ -131,8 +145,8 @@ EQUIVALENTS = {
             predicates=[
                 ArrayStrictEqualTo(value=[IntegerGreaterOrEqualThan(value=1)]),
                 ArrayStrictEqualTo(value=[IntegerLessOrEqualThan(value=5)]),
-                ArrayStrictEqualTo(value=[NotPredicate(predicate=IntegerEqualTo(value=1))]),
-                ArrayStrictEqualTo(value=[NotPredicate(predicate=IntegerEqualTo(value=5))]),
+                ArrayStrictEqualTo(value=[IntegerNotEqualTo(value=1)]),
+                ArrayStrictEqualTo(value=[IntegerNotEqualTo(value=5)]),
             ]
         ),
     ],
@@ -208,8 +222,8 @@ SUPERSETS = {
         ObjectEqualTo(value={'caste_system': ArrayContains(value=['Delta', 'Epsilon', 'Gamma'])}),
     ],
     'not_strict_equal_superset_of_not_contains': [
-        NotPredicate(predicate=ArrayStrictEqualTo(value=['Alpha', 'Beta', 'Gamma'])),
-        NotPredicate(predicate=ArrayContains(value=['Alpha', 'Beta', 'Gamma'])),
+        ArrayNotStrictEqualTo(value=['Alpha', 'Beta', 'Gamma']),
+        ArrayNotContains(value=['Alpha', 'Beta', 'Gamma']),
     ],
     'nested_array_contains_with_mixed_types': [
         NestedArrayContains(value=[632, 'Mustapha', None]),

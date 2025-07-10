@@ -2,10 +2,8 @@ import re
 
 from pydantic import Field
 
-from core.matchers.abstract_matcher import AbstractMatcher
-from core.predicates.base_predicate import t_Predicate
-from core.predicates.logical.logical_predicates import AnyPredicate
-from core.predicates.scalars import StringPattern
+from core.deprecated_matchers.abstract_matcher import AbstractMatcher
+from core.predicates import AnyPredicate, StringPattern, t_Predicate
 from schemas.variables import VariablesContext, variables_context_transaction
 from utils.string_utils import split_string
 

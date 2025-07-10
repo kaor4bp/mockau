@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
 from core.bases.base_schema import BaseSchema
-from core.predicates.base_predicate import t_Predicate
+from core.predicates import t_Predicate
 from schemas.variables import VariablesContext
 
 
