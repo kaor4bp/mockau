@@ -1,8 +1,9 @@
+from copy import deepcopy
 from functools import reduce
-from typing import TYPE_CHECKING, Annotated, Literal, Union
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
 import z3
-from pydantic import Field, field_validator
+from pydantic import field_validator
 
 from core.predicates.base_predicate import (
     BaseLogicalPredicate,
@@ -16,11 +17,13 @@ from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.helpers import py_value_to_predicate
 
 if TYPE_CHECKING:
-    from core.predicates import t_Predicate, t_Py2PredicateType
+    pass
+
+_t_SpecifiedType = TypeVar('_t_SpecifiedType')
 
 
 class VoidPredicate(BaseLogicalPredicate):
-    type_of: Literal['VoidPredicate'] = 'VoidPredicate'
+    type_of: Literal['$-mockau-void'] = '$-mockau-void'
 
     def verify(self, value):
         return False
@@ -45,7 +48,7 @@ class AnyPredicate(BaseScalarPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['AnyPredicate'] = 'AnyPredicate'
+    type_of: Literal['$-mockau-any'] = '$-mockau-any'
 
     def verify(self, value):
         return True
@@ -79,15 +82,10 @@ class AnyPredicate(BaseScalarPredicate):
         return z3.BoolVal(True, ctx=ctx.z3_context)
 
 
-class NotPredicate(BaseLogicalPredicate):
-    """Predicate representing the logical NOT operation on another predicate.
+class GenericNotPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
+    type_of: Literal['$-mockau-not'] = '$-mockau-not'
 
-    .. Docstring created by Gemini 2.5 Flash
-    """
-
-    type_of: Literal['NotPredicate'] = 'NotPredicate'
-
-    predicate: Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType']
+    predicate: _t_SpecifiedType
 
     @field_validator('predicate', mode='before')
     @classmethod
@@ -152,25 +150,17 @@ class NotPredicate(BaseLogicalPredicate):
         return z3.Or(inverted_predicate.to_z3(ctx), *additional_constraints)
 
 
-class AndPredicate(BaseLogicalPredicate):
-    """Predicate representing the logical AND operation on a list of predicates.
+class GenericAndPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
+    type_of: Literal['$-mockau-and'] = '$-mockau-and'
 
-    The `predicate_types` property returns the intersection of all inner predicate types.
-    If the intersection is empty, it means no common type can satisfy all predicates,
-    so it returns {PredicateType.Null}.
-
-    .. Docstring created by Gemini 2.5 Flash
-    """
-
-    type_of: Literal['AndPredicate'] = 'AndPredicate'
-
-    predicates: list[Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],]
+    predicates: list[_t_SpecifiedType]
 
     @field_validator('predicates', mode='before')
     @classmethod
     def handle_py2predicate(cls, data):
         if not isinstance(data, list):
             return data
+        data = deepcopy(data)
         for item_index, item in enumerate(data):
             if not isinstance(item, BasePredicate):
                 data[item_index] = py_value_to_predicate(item)
@@ -215,7 +205,7 @@ class AndPredicate(BaseLogicalPredicate):
             return {PredicateType.Null}
 
     def __invert__(self):
-        return OrPredicate(predicates=[~p for p in self.predicates])
+        return GenericOrPredicate[Any](predicates=[~p for p in self.predicates])
 
     def to_z3(self, ctx: VariableContext):
         """Convert the AND predicate to a Z3 expression.
@@ -239,26 +229,18 @@ class AndPredicate(BaseLogicalPredicate):
             )
 
 
-class OrPredicate(BaseLogicalPredicate):
-    """Predicate representing the logical OR operation on a list of predicates.
+class GenericOrPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
+    type_of: Literal['$-mockau-or'] = '$-mockau-or'
 
-    The `predicate_types` property returns the union of all inner predicate types.
-
-    .. Docstring created by Gemini 2.5 Flash
-    """
-
-    type_of: Literal['OrPredicate'] = 'OrPredicate'
-
-    if TYPE_CHECKING:
-        predicates: list[t_Py2PredicateType | t_Predicate]
-    else:
-        predicates: list[Annotated['t_Predicate', Field(discriminator='type_of')]]
+    predicates: list[_t_SpecifiedType]
 
     @field_validator('predicates', mode='before')
     @classmethod
     def handle_py2predicate(cls, data):
         if not isinstance(data, list):
             return data
+        data = deepcopy(data)
+
         for item_index, item in enumerate(data):
             if not isinstance(item, BasePredicate):
                 data[item_index] = py_value_to_predicate(item)
@@ -292,7 +274,7 @@ class OrPredicate(BaseLogicalPredicate):
             return set()
 
     def __invert__(self):
-        return AndPredicate(predicates=[~p for p in self.predicates])
+        return GenericAndPredicate[Any](predicates=[~p for p in self.predicates])
 
     def calculate_limitations(self) -> PredicateLimitations:
         if self.predicates:

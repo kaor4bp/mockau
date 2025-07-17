@@ -8,10 +8,9 @@ from core.predicates import (
     AndPredicate,
     AnyPredicate,
     ArrayContains,
-    ArrayEqualToWithoutOrder,
+    ArrayEqualTo,
     ArrayNotContains,
-    ArrayNotStrictEqualTo,
-    ArrayStrictEqualTo,
+    ArrayNotEqualTo,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
@@ -19,7 +18,7 @@ from core.predicates import (
     IntegerLessThan,
     IntegerNotEqualTo,
     NestedArrayContains,
-    NestedArrayStrictEqualTo,
+    NestedArrayEqualTo,
     NestedObjectEqualTo,
     ObjectContainsSubset,
     ObjectEqualTo,
@@ -32,36 +31,34 @@ from utils.formatters import get_params_argv
 
 NOT_INTERSECTIONS = {
     'strict_equal_with_diff_length': [
-        ArrayStrictEqualTo(value=[StringEqualTo(value='Alpha'), StringEqualTo(value='Beta')]),
-        ArrayStrictEqualTo(
-            value=[StringEqualTo(value='Alpha'), StringEqualTo(value='Beta'), StringEqualTo(value='Gamma')]
-        ),
+        ArrayEqualTo(value=[StringEqualTo(value='Alpha'), StringEqualTo(value='Beta')]),
+        ArrayEqualTo(value=[StringEqualTo(value='Alpha'), StringEqualTo(value='Beta'), StringEqualTo(value='Gamma')]),
     ],
     'strict_equal_with_not_intersecting_patterns': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern='^\\d+$')]),
-        ArrayStrictEqualTo(value=[StringPattern(pattern='^[a-z]+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern='^\\d+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern='^[a-z]+$')]),
     ],
     'strict_equal_with_non_overlapping_integer_ranges': [
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=10)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=20)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=10)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=20)]),
             ]
         ),
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=30)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=40)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=30)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=40)]),
             ]
         ),
     ],
     'object_contains_subset_and_its_negation': [
-        ArrayStrictEqualTo(value=[ObjectContainsSubset(value={'caste': 'Alpha'})]),
-        ArrayNotStrictEqualTo(value=[ObjectContainsSubset(value={'caste': 'Alpha'})]),
+        ArrayEqualTo(value=[ObjectContainsSubset(value={'caste': 'Alpha'})]),
+        ArrayNotEqualTo(value=[ObjectContainsSubset(value={'caste': 'Alpha'})]),
     ],
     'array_contains_and_strict_equal_no_overlap': [
         ArrayContains(value=[StringEqualTo(value='soma'), StringEqualTo(value='feelies')]),
-        ArrayStrictEqualTo(
+        ArrayEqualTo(
             value=[
                 StringEqualTo(value='hypnopaedia'),
                 StringEqualTo(value='bokanovsky'),
@@ -70,45 +67,45 @@ NOT_INTERSECTIONS = {
         ),
     ],
     'strict_equal_with_different_types': [
-        ArrayStrictEqualTo(value=['Alpha']),
-        ArrayStrictEqualTo(value=[IntegerEqualTo(value=1)]),
+        ArrayEqualTo(value=['Alpha']),
+        ArrayEqualTo(value=[IntegerEqualTo(value=1)]),
     ],
     'array_equal_without_order_different_lengths': [
-        ArrayEqualToWithoutOrder(value=['John', 'Lenina']),
-        ArrayEqualToWithoutOrder(value=['John', 'Lenina', 'Bernard']),
+        ArrayEqualTo(value=['John', 'Lenina'], ignore_order=True),
+        ArrayEqualTo(value=['John', 'Lenina', 'Bernard'], ignore_order=True),
     ],
 }
 
 INTERSECTIONS = {
     'strict_equal_with_pattern_match': [
-        ArrayStrictEqualTo(value=['Alpha', 'Beta']),
-        ArrayStrictEqualTo(value=['Alpha', StringContains(value='eta')]),
+        ArrayEqualTo(value=['Alpha', 'Beta']),
+        ArrayEqualTo(value=['Alpha', StringContains(value='eta')]),
     ],
     'strict_equal_with_overlapping_patterns': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern='^\\w+$')]),
-        ArrayStrictEqualTo(value=[StringPattern(pattern='^[a-z]+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern='^\\w+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern='^[a-z]+$')]),
     ],
     'strict_equal_with_overlapping_integer_ranges': [
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=5)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=15)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=5)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=15)]),
             ]
         ),
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=10)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=20)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=10)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=20)]),
             ]
         ),
     ],
     'array_contains_and_strict_equal_with_common_elements': [
         ArrayContains(value=['soma', 'feelies', 'soma']),
-        ArrayStrictEqualTo(value=['soma', 'feelies', 'soma', 'Ford']),
+        ArrayEqualTo(value=['soma', 'feelies', 'soma', 'Ford']),
     ],
     'nested_array_contains_and_strict_equal_complex': [
         NestedArrayContains(value=[NestedObjectEqualTo(value={'society_level': 'Alpha'})]),
-        ArrayStrictEqualTo(
+        ArrayEqualTo(
             value=[
                 ArrayContains(
                     value=[
@@ -119,16 +116,16 @@ INTERSECTIONS = {
         ),
     ],
     'strict_equal_with_partial_string_match': [
-        ArrayStrictEqualTo(value=['Bernard Marx', 'Lenina Crowne']),
-        ArrayStrictEqualTo(value=[StringContains(value='Bernard'), StringContains(value='Crowne')]),
+        ArrayEqualTo(value=['Bernard Marx', 'Lenina Crowne']),
+        ArrayEqualTo(value=[StringContains(value='Bernard'), StringContains(value='Crowne')]),
     ],
     'array_equal_without_order_with_common_elements': [
-        ArrayEqualToWithoutOrder(value=['John', 'Bernard', 'Lenina']),
-        ArrayEqualToWithoutOrder(value=['Lenina', 'Bernard', 'John']),
+        ArrayEqualTo(value=['John', 'Bernard', 'Lenina'], ignore_order=True),
+        ArrayEqualTo(value=['Lenina', 'Bernard', 'John'], ignore_order=True),
     ],
     'strict_equal_with_shared_regex_pattern': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern='^\\d{3}$')]),
-        ArrayStrictEqualTo(value=[StringPattern(pattern='^63[0-9]$')]),
+        ArrayEqualTo(value=[StringPattern(pattern='^\\d{3}$')]),
+        ArrayEqualTo(value=[StringPattern(pattern='^63[0-9]$')]),
     ],
 }
 
@@ -137,69 +134,69 @@ EQUIVALENTS = {
     'integer_range_equivalence_via_not': [
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=1)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=5)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=1)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=5)]),
             ]
         ),
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterOrEqualThan(value=1)]),
-                ArrayStrictEqualTo(value=[IntegerLessOrEqualThan(value=5)]),
-                ArrayStrictEqualTo(value=[IntegerNotEqualTo(value=1)]),
-                ArrayStrictEqualTo(value=[IntegerNotEqualTo(value=5)]),
+                ArrayEqualTo(value=[IntegerGreaterOrEqualThan(value=1)]),
+                ArrayEqualTo(value=[IntegerLessOrEqualThan(value=5)]),
+                ArrayEqualTo(value=[IntegerNotEqualTo(value=1)]),
+                ArrayEqualTo(value=[IntegerNotEqualTo(value=5)]),
             ]
         ),
     ],
     'strict_equal_identical': [
-        ArrayStrictEqualTo(value=['decanting', 'hypnopaedia']),
-        ArrayStrictEqualTo(value=['decanting', 'hypnopaedia']),
+        ArrayEqualTo(value=['decanting', 'hypnopaedia']),
+        ArrayEqualTo(value=['decanting', 'hypnopaedia']),
     ],
     'array_equal_without_order_identical': [
-        ArrayEqualToWithoutOrder(value=['john', 'lenina']),
-        ArrayEqualToWithoutOrder(value=['lenina', 'john']),
+        ArrayEqualTo(value=['john', 'lenina'], ignore_order=True),
+        ArrayEqualTo(value=['lenina', 'john'], ignore_order=True),
     ],
     'nested_strict_equal_identical': [
-        NestedArrayStrictEqualTo(value=[{'caste': 'Gamma'}]),
-        NestedArrayStrictEqualTo(value=[{'caste': 'Gamma'}]),
+        NestedArrayEqualTo(value=[{'caste': 'Gamma'}]),
+        NestedArrayEqualTo(value=[{'caste': 'Gamma'}]),
     ],
 }
 
 SUPERSETS = {
     'strict_equal_pattern_superset': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern='\\w+')]),
-        ArrayStrictEqualTo(value=[StringPattern(pattern='[a-z]+')]),
+        ArrayEqualTo(value=[StringPattern(pattern='\\w+')]),
+        ArrayEqualTo(value=[StringPattern(pattern='[a-z]+')]),
     ],
     'strict_equal_contains_superset': [
-        ArrayStrictEqualTo(value=[StringContains(value='world', ignore_case=True)]),
-        ArrayStrictEqualTo(value=[StringEqualTo(value='Brave New World!')]),
+        ArrayEqualTo(value=[StringContains(value='world', ignore_case=True)]),
+        ArrayEqualTo(value=[StringEqualTo(value='Brave New World!')]),
     ],
     'nested_array_strict_equal_superset_flat': [
-        NestedArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
-        ArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        NestedArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
     ],
     'array_contains_superset_of_strict_equal': [
         ArrayContains(value=['Epsilon', 'Gamma']),
-        ArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
     ],
     'nested_array_strict_equal_superset_object_value': [
-        NestedArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
-        ArrayStrictEqualTo(
+        NestedArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        ArrayEqualTo(
             value=[
-                ObjectEqualTo(value={'society_ranks': ArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
+                ObjectEqualTo(value={'society_ranks': ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
             ]
         ),
     ],
     'nested_array_strict_equal_superset_direct_object': [
-        NestedArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
-        ObjectEqualTo(value={'world_castes': ArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
+        NestedArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        ObjectEqualTo(value={'world_castes': ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
     ],
     'nested_array_contains_superset_strict_equal': [
         NestedArrayContains(value=['Delta', 'Epsilon', 'Gamma']),
-        ArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
     ],
     'nested_array_contains_superset_of_subset_elements': [
         NestedArrayContains(value=['Delta', 'Epsilon']),
-        ArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
     ],
     'nested_array_contains_superset_of_array_contains': [
         NestedArrayContains(value=['Delta', 'Epsilon']),
@@ -207,31 +204,31 @@ SUPERSETS = {
     ],
     'nested_array_contains_superset_of_nested_object_value': [
         NestedArrayContains(value=['Delta', 'Epsilon', 'Gamma']),
-        ArrayStrictEqualTo(
+        ArrayEqualTo(
             value=[
-                ObjectEqualTo(value={'world_castes': ArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
+                ObjectEqualTo(value={'world_castes': ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
             ]
         ),
     ],
     'nested_array_contains_superset_of_direct_object_value': [
         NestedArrayContains(value=['Delta', 'Epsilon', 'Gamma']),
-        ObjectEqualTo(value={'caste_system': ArrayStrictEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
+        ObjectEqualTo(value={'caste_system': ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
     ],
     'nested_array_contains_superset_of_array_contains_in_object': [
         NestedArrayContains(value=['Delta', 'Epsilon', 'Gamma']),
         ObjectEqualTo(value={'caste_system': ArrayContains(value=['Delta', 'Epsilon', 'Gamma'])}),
     ],
     'not_strict_equal_superset_of_not_contains': [
-        ArrayNotStrictEqualTo(value=['Alpha', 'Beta', 'Gamma']),
+        ArrayNotEqualTo(value=['Alpha', 'Beta', 'Gamma']),
         ArrayNotContains(value=['Alpha', 'Beta', 'Gamma']),
     ],
     'nested_array_contains_with_mixed_types': [
         NestedArrayContains(value=[632, 'Mustapha', None]),
-        ArrayStrictEqualTo(value=[632, 'Mustapha', None]),
+        ArrayEqualTo(value=[632, 'Mustapha', None]),
     ],
     'array_equal_without_order_is_superset_of_strict_equal_superset': [
-        ArrayEqualToWithoutOrder(value=['A', 'B', 'C']),
-        ArrayStrictEqualTo(value=['A', 'B', 'C']),
+        ArrayEqualTo(value=['A', 'B', 'C'], ignore_order=True),
+        ArrayEqualTo(value=['A', 'B', 'C']),
     ],
 }
 
@@ -359,22 +356,25 @@ class TestArrayIsIntersectedWith:
 
 
 MATCHED = {
-    'strict_equal_simple_match': [ArrayStrictEqualTo(value=['Alpha', 'Beta']), ['Alpha', 'Beta']],
+    'strict_equal_simple_match': [ArrayEqualTo(value=['Alpha', 'Beta']), ['Alpha', 'Beta']],
     'strict_equal_integer_and_string_match': [
-        ArrayStrictEqualTo(value=[IntegerGreaterOrEqualThan(value=600), 'World']),
+        ArrayEqualTo(value=[IntegerGreaterOrEqualThan(value=600), 'World']),
         [632, 'World'],
     ],
     'strict_equal_pattern_match': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern='^\\d+$'), StringPattern(pattern='^[a-z]+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern='^\\d+$'), StringPattern(pattern='^[a-z]+$')]),
         ['236', 'gamma'],
     ],
     'array_contains_match_with_mixed_types': [
         ArrayContains(value=[StringEqualTo(value='soma'), IntegerEqualTo(value=96)]),
         ['feelies', 'soma', 96, 'hypnopaedia'],
     ],
-    'array_equal_without_order_match': [ArrayEqualToWithoutOrder(value=['John', 'Lenina']), ['Lenina', 'John']],
+    'array_equal_without_order_match': [
+        ArrayEqualTo(value=['John', 'Lenina'], ignore_order=True),
+        ['Lenina', 'John'],
+    ],
     'nested_array_strict_equal_match': [
-        NestedArrayStrictEqualTo(value=[{'caste': 'Alpha'}, {'caste': 'Beta'}]),
+        NestedArrayEqualTo(value=[{'caste': 'Alpha'}, {'caste': 'Beta'}]),
         [{'caste': 'Alpha'}, {'caste': 'Beta'}],
     ],
     'nested_array_contains_match': [
@@ -384,23 +384,23 @@ MATCHED = {
 }
 
 NOT_MATCHED = {
-    'strict_equal_value_mismatch': [ArrayStrictEqualTo(value=['Alpha', 'Beta']), ['Alpha', 'Gamma']],
+    'strict_equal_value_mismatch': [ArrayEqualTo(value=['Alpha', 'Beta']), ['Alpha', 'Gamma']],
     'strict_equal_integer_range_mismatch': [
-        ArrayStrictEqualTo(value=[IntegerGreaterOrEqualThan(value=632), 'World']),
+        ArrayEqualTo(value=[IntegerGreaterOrEqualThan(value=632), 'World']),
         [236, 'World'],
     ],
-    'strict_equal_order_mismatch': [ArrayStrictEqualTo(value=['Alpha', 'Beta']), ['Beta', 'Alpha']],
+    'strict_equal_order_mismatch': [ArrayEqualTo(value=['Alpha', 'Beta']), ['Beta', 'Alpha']],
     'strict_equal_pattern_case_mismatch': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern='^\\d+$'), StringPattern(pattern='^[a-z]+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern='^\\d+$'), StringPattern(pattern='^[a-z]+$')]),
         ['236', 'GAMMA'],
     ],
     'array_contains_missing_value': [ArrayContains(value=['John', 'Linda']), ['John', 'Bernard']],
     'array_equal_without_order_length_mismatch': [
-        ArrayEqualToWithoutOrder(value=['John', 'Lenina']),
+        ArrayEqualTo(value=['John', 'Lenina'], ignore_order=True),
         ['John', 'Lenina', 'Bernard'],
     ],
     'nested_array_strict_equal_value_mismatch': [
-        NestedArrayStrictEqualTo(value=[{'caste': 'Alpha'}]),
+        NestedArrayEqualTo(value=[{'caste': 'Alpha'}]),
         [{'caste': 'Beta'}],
     ],
     'nested_array_contains_no_match': [

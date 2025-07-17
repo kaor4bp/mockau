@@ -3,9 +3,8 @@ import pytest
 from core.predicates import (
     AndPredicate,
     ArrayContains,
-    ArrayEqualToWithoutOrder,
+    ArrayEqualTo,
     ArrayNotContains,
-    ArrayStrictEqualTo,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
@@ -23,28 +22,28 @@ from utils.formatters import get_params_argv
 # Predicates that should have no common values that satisfy them.
 NOT_INTERSECTIONS = {
     'strict_equal_with_different_lengths': [
-        ArrayStrictEqualTo(value=['lol', 'kek']),
-        ArrayStrictEqualTo(value=['lol', 'kek', 'hello']),
+        ArrayEqualTo(value=['lol', 'kek']),
+        ArrayEqualTo(value=['lol', 'kek', 'hello']),
     ],
     # 'all_items_must_be_in_disjoint_integer_ranges': [
     #     ArrayItemAllOf(predicate=IntegerGreaterThan(value=5)),
     #     ArrayItemAllOf(predicate=IntegerLessThan(value=3))
     # ],
     'strict_equal_with_disjoint_string_patterns': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern=r'^\d+$')]),
-        ArrayStrictEqualTo(value=[StringPattern(pattern=r'^[a-z]+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern=r'^\d+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern=r'^[a-z]+$')]),
     ],
     'and_predicate_with_disjoint_integer_ranges': [
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=10)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=20)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=10)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=20)]),
             ]
         ),
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=30)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=40)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=30)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=40)]),
             ]
         ),
     ],
@@ -52,42 +51,42 @@ NOT_INTERSECTIONS = {
         ArrayContains(value=[{'a': 1}]),
         ArrayNotContains(value=[{'a': 1}]),
     ],
-    'strict_equal_to_empty_vs_non_empty': [ArrayStrictEqualTo(value=[]), ArrayStrictEqualTo(value=[1])],
+    'strict_equal_to_empty_vs_non_empty': [ArrayEqualTo(value=[]), ArrayEqualTo(value=[1])],
     # 'all_items_greater_than_10_vs_contains_value_less_than_10': [
     #     ArrayItemAllOf(predicate=IntegerGreaterThan(value=10)),
     #     ArrayContains(value=[5])
     # ],
     'deeply_nested_objects_with_conflicting_values': [
-        ArrayStrictEqualTo(value=[ObjectContainsSubset(value={'a': {'b': {'c': IntegerEqualTo(value=1)}}})]),
-        ArrayStrictEqualTo(value=[ObjectContainsSubset(value={'a': {'b': {'c': IntegerEqualTo(value=2)}}})]),
+        ArrayEqualTo(value=[ObjectContainsSubset(value={'a': {'b': {'c': IntegerEqualTo(value=1)}}})]),
+        ArrayEqualTo(value=[ObjectContainsSubset(value={'a': {'b': {'c': IntegerEqualTo(value=2)}}})]),
     ],
 }
 
 # Predicates that should have at least one common value that satisfies them.
 INTERSECTIONS = {
     'strict_equal_with_subset_predicate': [
-        ArrayStrictEqualTo(value=['lol', 'kek']),
-        ArrayStrictEqualTo(value=['lol', StringContains(value='ke')]),
+        ArrayEqualTo(value=['lol', 'kek']),
+        ArrayEqualTo(value=['lol', StringContains(value='ke')]),
     ],
     # 'all_items_in_overlapping_integer_ranges': [
     #     ArrayItemAllOf(predicate=IntegerGreaterThan(value=1)),
     #     ArrayItemAllOf(predicate=IntegerLessThan(value=4))
     # ],
     'strict_equal_with_subset_string_pattern': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern=r'^\w+$')]),
-        ArrayStrictEqualTo(value=[StringPattern(pattern=r'^[a-z]+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern=r'^\w+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern=r'^[a-z]+$')]),
     ],
     'and_predicate_with_overlapping_integer_ranges': [
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=5)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=15)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=5)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=15)]),
             ]
         ),
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=10)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=20)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=10)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=20)]),
             ]
         ),
     ],
@@ -97,8 +96,8 @@ INTERSECTIONS = {
     #     ArrayContains(value=[10])
     # ],
     'equal_without_order_vs_strict_equal_with_permutation': [
-        ArrayEqualToWithoutOrder(value=['a', 'b']),
-        ArrayStrictEqualTo(value=['b', 'a']),
+        ArrayEqualTo(value=['a', 'b'], ignore_order=True),
+        ArrayEqualTo(value=['b', 'a']),
     ],
     # 'complex_and_intersects_with_simple_or': [
     #     ArrayItemAllOf(predicate=AndPredicate(predicates=[IntegerGreaterThan(value=10), IntegerLessThan(value=20)])),
@@ -112,16 +111,16 @@ EQUIVALENTS = {
     'equivalent_integer_range_definitions': [
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterThan(value=1)]),
-                ArrayStrictEqualTo(value=[IntegerLessThan(value=5)]),
+                ArrayEqualTo(value=[IntegerGreaterThan(value=1)]),
+                ArrayEqualTo(value=[IntegerLessThan(value=5)]),
             ]
         ),
         AndPredicate(
             predicates=[
-                ArrayStrictEqualTo(value=[IntegerGreaterOrEqualThan(value=1)]),
-                ArrayStrictEqualTo(value=[IntegerLessOrEqualThan(value=5)]),
-                ArrayStrictEqualTo(value=[IntegerNotEqualTo(value=1)]),
-                ArrayStrictEqualTo(value=[IntegerNotEqualTo(value=5)]),
+                ArrayEqualTo(value=[IntegerGreaterOrEqualThan(value=1)]),
+                ArrayEqualTo(value=[IntegerLessOrEqualThan(value=5)]),
+                ArrayEqualTo(value=[IntegerNotEqualTo(value=1)]),
+                ArrayEqualTo(value=[IntegerNotEqualTo(value=5)]),
             ]
         ),
     ],
@@ -130,17 +129,17 @@ EQUIVALENTS = {
     #     ArrayItemAllOf(predicate=NotPredicate(predicate=IntegerLessOrEqualThan(value=0)))
     # ],
     'equal_without_order_is_order_agnostic': [
-        ArrayEqualToWithoutOrder(value=['a', 'b', 'c']),
-        ArrayEqualToWithoutOrder(value=['c', 'b', 'a']),
+        ArrayEqualTo(value=['a', 'b', 'c'], ignore_order=True),
+        ArrayEqualTo(value=['c', 'b', 'a'], ignore_order=True),
     ],
     'strict_equal_with_equivalent_nested_predicates': [
-        ArrayStrictEqualTo(value=[IntegerGreaterThan(value=5)]),
-        ArrayStrictEqualTo(value=[~IntegerLessOrEqualThan(value=5)]),
+        ArrayEqualTo(value=[IntegerGreaterThan(value=5)]),
+        ArrayEqualTo(value=[~IntegerLessOrEqualThan(value=5)]),
     ],
     # De Morgan's law: Not(A or B) is equivalent to (Not A) and (Not B)
     'de_morgans_law_on_nested_predicates': [
-        ArrayStrictEqualTo(value=[~OrPredicate(predicates=[IntegerEqualTo(value=1), IntegerEqualTo(value=2)])]),
-        ArrayStrictEqualTo(
+        ArrayEqualTo(value=[~OrPredicate(predicates=[IntegerEqualTo(value=1), IntegerEqualTo(value=2)])]),
+        ArrayEqualTo(
             value=[
                 AndPredicate(
                     predicates=[
@@ -157,16 +156,16 @@ EQUIVALENTS = {
 SUPERSETS = {
     'contains_is_superset_of_equal_without_order': [
         ArrayContains(value=['a', 'b']),
-        ArrayEqualToWithoutOrder(value=['a', 'b']),
+        ArrayEqualTo(value=['a', 'b'], ignore_order=True),
     ],
     'contains_fewer_items_is_superset': [ArrayContains(value=[1, 2]), ArrayContains(value=[1, 2, 3])],
     'strict_equal_with_broader_pattern_is_superset': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern='\w+')]),
-        ArrayStrictEqualTo(value=[StringPattern(pattern='[a-z]+')]),
+        ArrayEqualTo(value=[StringPattern(pattern='\w+')]),
+        ArrayEqualTo(value=[StringPattern(pattern='[a-z]+')]),
     ],
     'string_contains_is_superset_of_string_equal': [
-        ArrayStrictEqualTo(value=[StringContains(value='hello')]),
-        ArrayStrictEqualTo(value=[StringEqualTo(value='hello world!')]),
+        ArrayEqualTo(value=[StringContains(value='hello')]),
+        ArrayEqualTo(value=[StringEqualTo(value='hello world!')]),
     ],
     # 'all_items_with_broader_range_is_superset': [
     #     ArrayItemAllOf(predicate=IntegerGreaterThan(value=5)),
@@ -180,18 +179,21 @@ SUPERSETS = {
 
 # Test cases where the predicate should successfully match the value.
 MATCHED = {
-    'strict_equal_with_exact_match': [ArrayStrictEqualTo(value=['hello', 'world']), ['hello', 'world']],
+    'strict_equal_with_exact_match': [ArrayEqualTo(value=['hello', 'world']), ['hello', 'world']],
     'strict_equal_with_nested_predicate_match': [
-        ArrayStrictEqualTo(value=[IntegerGreaterOrEqualThan(value=1), 'world']),
+        ArrayEqualTo(value=[IntegerGreaterOrEqualThan(value=1), 'world']),
         [2, 'world'],
     ],
-    'equal_without_order_with_permuted_match': [ArrayEqualToWithoutOrder(value=['hello', 'world']), ['world', 'hello']],
+    'equal_without_order_with_permuted_match': [
+        ArrayEqualTo(value=['hello', 'world'], ignore_order=True),
+        ['world', 'hello'],
+    ],
     # 'all_items_match_predicate': [
     #     ArrayItemAllOf(predicate=IntegerGreaterThan(value=1)),
     #     [2, 3, 4]
     # ],
     'strict_equal_with_multiple_string_patterns': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern=r'^\d+$'), StringPattern(pattern=r'^[a-z]+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern=r'^\d+$'), StringPattern(pattern=r'^[a-z]+$')]),
         ['123', 'abc'],
     ],
     'contains_with_nested_string_contains': [
@@ -206,7 +208,7 @@ MATCHED = {
         ArrayContains(value=[ObjectContainsSubset(value={'status': 'ok', 'code': 200})]),
         [{'status': 'ok', 'code': 200, 'data': []}, {'other_obj': True}],
     ],
-    'match_on_empty_array': [ArrayStrictEqualTo(value=[]), []],
+    'match_on_empty_array': [ArrayEqualTo(value=[]), []],
     'not_predicate_match': [ArrayNotContains(value=[10]), [1, 2, 3]],
     'match_on_deeply_nested_structure': [
         ArrayContains(
@@ -227,12 +229,12 @@ MATCHED = {
 
 # Test cases where the predicate should NOT match the value.
 NOT_MATCHED = {
-    'strict_equal_with_one_wrong_element': [ArrayStrictEqualTo(value=['hello', 'world']), ['hello', 'wrong']],
+    'strict_equal_with_one_wrong_element': [ArrayEqualTo(value=['hello', 'world']), ['hello', 'wrong']],
     'strict_equal_with_failed_nested_predicate': [
-        ArrayStrictEqualTo(value=[IntegerGreaterOrEqualThan(value=1), 'world']),
+        ArrayEqualTo(value=[IntegerGreaterOrEqualThan(value=1), 'world']),
         [0, 'world'],
     ],
-    'strict_equal_fails_on_wrong_order': [ArrayStrictEqualTo(value=['hello', 'world']), ['world', 'hello']],
+    'strict_equal_fails_on_wrong_order': [ArrayEqualTo(value=['hello', 'world']), ['world', 'hello']],
     # 'all_items_fails_if_one_item_is_invalid': [
     #     ArrayItemAllOf(predicate=IntegerGreaterThan(value=1)),
     #     [2, 0, 4]
@@ -242,7 +244,7 @@ NOT_MATCHED = {
     #     [2, 3, 'hello']
     # ],
     'strict_equal_fails_on_string_pattern_mismatch': [
-        ArrayStrictEqualTo(value=[StringPattern(pattern=r'^\d+$'), StringPattern(pattern=r'^[a-z]+$')]),
+        ArrayEqualTo(value=[StringPattern(pattern=r'^\d+$'), StringPattern(pattern=r'^[a-z]+$')]),
         ['123', 'ABC'],
     ],
     # 'and_predicate_fails_if_one_clause_fails': [
@@ -269,10 +271,13 @@ NOT_MATCHED = {
     #     ['error', 'info']
     # ],
     'equal_without_order_fails_on_length_mismatch': [
-        ArrayEqualToWithoutOrder(value=['required', 'fields']),
+        ArrayEqualTo(value=['required', 'fields'], ignore_order=True),
         ['required', 'fields', 'extra'],
     ],
-    'equal_without_order_fails_if_element_is_wrong': [ArrayEqualToWithoutOrder(value=['a', 'b']), ['a', 'c']],
+    'equal_without_order_fails_if_element_is_wrong': [
+        ArrayEqualTo(value=['a', 'b'], ignore_order=True),
+        ['a', 'c'],
+    ],
     'not_predicate_no_match': [ArrayNotContains(value=[10]), [1, 10, 3]],
     'fail_on_deeply_nested_structure_mismatch': [
         ArrayContains(

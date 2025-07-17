@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Annotated, Literal, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 import z3
-from pydantic import Field, field_validator
+from pydantic import field_validator
 
 from core.predicates.base_predicate import BasePredicate, BaseScalarPredicate, PredicateType, VariableContext
 from core.predicates.helpers import py_value_to_predicate
@@ -18,7 +18,7 @@ class BaseNullPredicate(BaseScalarPredicate):
 
 
 class IsNull(BaseNullPredicate):
-    type_of: Literal['IsNull'] = 'IsNull'
+    type_of: Literal['$-mockau-is-null'] = '$-mockau-is-null'
 
     def verify(self, value):
         return value is None
@@ -34,17 +34,14 @@ class IsNull(BaseNullPredicate):
 
 
 class OptionalPredicate(BaseNullPredicate):
-    type_of: Literal['OptionalPredicate'] = 'OptionalPredicate'
+    type_of: Literal['$-mockau-optional'] = '$-mockau-optional'
 
-    predicate: Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType']
+    predicate: Union['t_Predicate', 't_Py2PredicateType']
 
     @field_validator('predicate', mode='before')
     @classmethod
     def handle_py2predicate(cls, data):
-        if not isinstance(data, BasePredicate):
-            return py_value_to_predicate(data)
-        else:
-            return data
+        return py_value_to_predicate(data)
 
     @field_validator('predicate', mode='after')
     @classmethod

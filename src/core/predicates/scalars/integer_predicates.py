@@ -29,7 +29,7 @@ class IntegerEqualTo(BaseIntegerPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['IntegerEqualTo'] = 'IntegerEqualTo'
+    type_of: Literal['$-mockau-integer-eq'] = '$-mockau-integer-eq'
     value: int
 
     def verify(self, value):
@@ -53,7 +53,7 @@ class IntegerEqualTo(BaseIntegerPredicate):
 
 
 class IntegerNotEqualTo(BaseIntegerPredicate):
-    type_of: Literal['IntegerNotEqualTo'] = 'IntegerNotEqualTo'
+    type_of: Literal['$-mockau-integer-neq'] = '$-mockau-integer-neq'
     value: int
 
     def verify(self, value):
@@ -73,7 +73,7 @@ class IntegerGreaterThan(BaseIntegerPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['IntegerGreaterThan'] = 'IntegerGreaterThan'
+    type_of: Literal['$-mockau-integer-gt'] = '$-mockau-integer-gt'
     value: int
 
     def verify(self, value):
@@ -102,7 +102,7 @@ class IntegerGreaterOrEqualThan(BaseIntegerPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['IntegerGreaterOrEqualThan'] = 'IntegerGreaterOrEqualThan'
+    type_of: Literal['$-mockau-integer-gte'] = '$-mockau-integer-gte'
     value: int
 
     def verify(self, value):
@@ -131,7 +131,7 @@ class IntegerLessThan(BaseIntegerPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['IntegerLessThan'] = 'IntegerLessThan'
+    type_of: Literal['$-mockau-integer-lt'] = '$-mockau-integer-lt'
     value: int
 
     def verify(self, value):
@@ -160,7 +160,7 @@ class IntegerLessOrEqualThan(BaseIntegerPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['IntegerLessOrEqualThan'] = 'IntegerLessOrEqualThan'
+    type_of: Literal['$-mockau-integer-lte'] = '$-mockau-integer-lte'
     value: int
 
     def verify(self, value):

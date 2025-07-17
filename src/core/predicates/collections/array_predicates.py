@@ -1,28 +1,42 @@
 from abc import ABC
-from typing import TYPE_CHECKING, Annotated, Literal, Union
+from copy import deepcopy
+from typing import Generic, Literal, TypeVar
 from uuid import uuid4
 
 import z3
-from pydantic import Field, field_validator
+from pydantic import field_validator
 
-from core.predicates.base_predicate import BaseCollectionPredicate, BasePredicate, PredicateType, VariableContext
+from core.predicates.base_predicate import (
+    BaseCollectionPredicate,
+    BasePredicate,
+    GenericPredicateMixin,
+    PredicateType,
+    VariableContext,
+)
 from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.helpers import py_value_to_predicate
-from core.predicates.logical.logical_predicates import NotPredicate
 from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
 
-if TYPE_CHECKING:
-    from core.predicates import t_Predicate, t_Py2PredicateType
+_t_SpecifiedType = TypeVar('_t_SpecifiedType')
 
 
-class BaseArrayPredicate(BaseCollectionPredicate, ABC):
-    value: list[Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],]
+class BaseGenericArrayPredicate(
+    BaseCollectionPredicate,
+    GenericPredicateMixin[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+    ABC,
+):
+    value: list[_t_SpecifiedType]
+
+    def compile_predicate(self):
+        return self._get_universal_origin()(value=[item.compile_predicate() for item in self.value])
 
     @field_validator('value', mode='before')
     @classmethod
     def handle_py2predicate(cls, data):
         if not isinstance(data, list):
             return data
+        data = deepcopy(data)
         for item_index, item in enumerate(data):
             if not isinstance(item, BasePredicate):
                 data[item_index] = py_value_to_predicate(item)
@@ -50,8 +64,16 @@ class BaseArrayPredicate(BaseCollectionPredicate, ABC):
         return limitation
 
 
-class BaseArrayItemPredicate(BaseCollectionPredicate):
-    predicate: Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType']
+class BaseArrayItemPredicate(
+    BaseCollectionPredicate,
+    GenericPredicateMixin[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+    ABC,
+):
+    predicate: _t_SpecifiedType
+
+    def compile_predicate(self):
+        return self._get_universal_origin()(predicate=self.predicate.compile_predicate())
 
     @field_validator('predicate', mode='before')
     @classmethod
@@ -80,10 +102,37 @@ class BaseArrayItemPredicate(BaseCollectionPredicate):
         return limitation
 
 
-class ArrayStrictEqualTo(BaseArrayPredicate):
-    type_of: Literal['ArrayStrictEqualTo'] = 'ArrayStrictEqualTo'
+class GenericArrayEqualTo(
+    BaseGenericArrayPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-array-equal-to'] = '$-mockau-array-equal-to'
+    value: list[_t_SpecifiedType]
+    ignore_order: bool = False
 
-    def verify(self, value: list):
+    def compile_predicate(self):
+        return self._get_universal_origin()(
+            value=[item.compile_predicate() for item in self.value], ignore_order=self.ignore_order
+        )
+
+    def _verify_without_order(self, value: list):
+        if not isinstance(value, list):
+            return False
+
+        if len(value) != len(self.value):
+            return False
+
+        graph = {}
+        for item_predicate in self.value:
+            graph[item_predicate] = []
+            for item in value:
+                if item_predicate.verify(item):
+                    graph[item_predicate].append(item)
+
+        best_combination = KuhnMatchingAlgorithm(graph).find_max_matching()
+        return len(best_combination.keys()) == len(self.value)
+
+    def _verify_with_order(self, value: list):
         if not isinstance(value, list):
             return False
 
@@ -94,15 +143,23 @@ class ArrayStrictEqualTo(BaseArrayPredicate):
                 return False
         return True
 
+    def verify(self, value: list):
+        if self.ignore_order:
+            return self._verify_without_order(value)
+        else:
+            return self._verify_with_order(value)
+
     def __invert__(self):
-        return ArrayNotStrictEqualTo(value=self.value)
+        from core.predicates import ArrayNotEqualTo
+
+        return ArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = super().calculate_limitations()
         limitation.max_array_size += 1
         return limitation
 
-    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+    def _to_z3_with_order(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
         constraints = []
 
@@ -120,77 +177,7 @@ class ArrayStrictEqualTo(BaseArrayPredicate):
 
         return z3.And(*constraints, z3.BoolVal(True, ctx=ctx.z3_context))
 
-
-class ArrayNotStrictEqualTo(BaseArrayPredicate):
-    type_of: Literal['ArrayNotStrictEqualTo'] = 'ArrayNotStrictEqualTo'
-
-    def verify(self, value: list):
-        if not isinstance(value, list):
-            return False
-
-        if len(value) != len(self.value):
-            return False
-        for item_predicate, item in zip(self.value, value):
-            if not item_predicate.verify(item):
-                return True
-        return False
-
-    def __invert__(self):
-        return ArrayStrictEqualTo(value=self.value)
-
-    def calculate_limitations(self) -> PredicateLimitations:
-        limitation = super().calculate_limitations()
-        limitation.max_array_size += len(self.value) + 1
-        return limitation
-
-    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
-        array_var = ctx.get_variable(PredicateType.Array)
-        constraints = []
-        or_constraints = [z3.BoolVal(False, ctx=ctx.z3_context)]
-
-        for item_index, item in enumerate(self.value):
-            child_ctx = ctx.create_child_context()
-            constraints += [
-                NotPredicate(predicate=item).to_z3(child_ctx),
-                child_ctx.pop_from_global_constraints(),
-            ]
-            or_constraints.append(array_var[item_index] == child_ctx.json_type_variable.z3_variable)
-
-        or_constraints.append(z3.Length(array_var) != z3.IntVal(len(self.value), ctx=ctx.z3_context))
-        constraints.append(ctx.json_type_variable.is_array())
-
-        return z3.And(*constraints, z3.Or(*or_constraints))
-
-
-class ArrayEqualToWithoutOrder(BaseArrayPredicate):
-    type_of: Literal['ArrayEqualToWithoutOrder'] = 'ArrayEqualToWithoutOrder'
-
-    def verify(self, value: list):
-        if not isinstance(value, list):
-            return False
-
-        if len(value) != len(self.value):
-            return False
-
-        graph = {}
-        for item_predicate in self.value:
-            graph[item_predicate] = []
-            for item in value:
-                if item_predicate.verify(item):
-                    graph[item_predicate].append(item)
-
-        best_combination = KuhnMatchingAlgorithm(graph).find_max_matching()
-        return len(best_combination.keys()) == len(self.value)
-
-    def __invert__(self):
-        return ArrayNotEqualToWithoutOrder(value=self.value)
-
-    def calculate_limitations(self) -> PredicateLimitations:
-        limitation = super().calculate_limitations()
-        limitation.max_array_size += 1
-        return limitation
-
-    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+    def _to_z3_without_order(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
         constraints = []
         all_index_vars = []
@@ -218,11 +205,27 @@ class ArrayEqualToWithoutOrder(BaseArrayPredicate):
 
         return z3.And(*constraints, z3.BoolVal(True, ctx=ctx.z3_context))
 
+    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        if self.ignore_order:
+            return self._to_z3_without_order(ctx)
+        else:
+            return self._to_z3_with_order(ctx)
 
-class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
-    type_of: Literal['ArrayNotEqualToWithoutOrder'] = 'ArrayNotEqualToWithoutOrder'
 
-    def verify(self, value: list):
+class GenericArrayNotEqualTo(
+    BaseGenericArrayPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-array-not-equal-to'] = '$-mockau-array-not-equal-to'
+    value: list[_t_SpecifiedType]
+    ignore_order: bool = False
+
+    def compile_predicate(self):
+        return self._get_universal_origin()(
+            value=[item.compile_predicate() for item in self.value], ignore_order=self.ignore_order
+        )
+
+    def _verify_without_order(self, value: list):
         if not isinstance(value, list):
             return False
 
@@ -239,15 +242,56 @@ class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
         best_combination = KuhnMatchingAlgorithm(graph).find_max_matching()
         return len(best_combination.keys()) < len(self.value)
 
+    def _verify_with_order(self, value: list):
+        if not isinstance(value, list):
+            return False
+
+        if len(value) != len(self.value):
+            return False
+        for item_predicate, item in zip(self.value, value):
+            if not item_predicate.verify(item):
+                return True
+        return False
+
+    def verify(self, value: list):
+        if self.ignore_order:
+            return self._verify_without_order(value)
+        else:
+            return self._verify_with_order(value)
+
     def __invert__(self):
-        return ArrayEqualToWithoutOrder(value=self.value)
+        from core.predicates import ArrayEqualTo
+
+        return ArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = super().calculate_limitations()
         limitation.max_array_size += len(self.value) + 1
         return limitation
 
-    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+    def _to_z3_with_order(self, ctx: VariableContext) -> z3.ExprRef:
+        from core.predicates import NotPredicate
+
+        array_var = ctx.get_variable(PredicateType.Array)
+        constraints = []
+        or_constraints = [z3.BoolVal(False, ctx=ctx.z3_context)]
+
+        for item_index, item in enumerate(self.value):
+            child_ctx = ctx.create_child_context()
+            constraints += [
+                NotPredicate(predicate=item).to_z3(child_ctx),
+                child_ctx.pop_from_global_constraints(),
+            ]
+            or_constraints.append(array_var[item_index] == child_ctx.json_type_variable.z3_variable)
+
+        or_constraints.append(z3.Length(array_var) != z3.IntVal(len(self.value), ctx=ctx.z3_context))
+        constraints.append(ctx.json_type_variable.is_array())
+
+        return z3.And(*constraints, z3.Or(*or_constraints))
+
+    def _to_z3_without_order(self, ctx: VariableContext) -> z3.ExprRef:
+        from core.predicates import NotPredicate
+
         constraints = []
         or_constraints = [z3.BoolVal(False, ctx=ctx.z3_context)]
         array_var = ctx.get_variable(PredicateType.Array)
@@ -277,9 +321,19 @@ class ArrayNotEqualToWithoutOrder(BaseArrayPredicate):
 
         return z3.And(*constraints, z3.Or(*or_constraints))
 
+    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        if self.ignore_order:
+            return self._to_z3_without_order(ctx)
+        else:
+            return self._to_z3_with_order(ctx)
 
-class ArrayContains(BaseArrayPredicate):
-    type_of: Literal['ArrayContains'] = 'ArrayContains'
+
+class GenericArrayContains(
+    BaseGenericArrayPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-array-contains'] = '$-mockau-array-contains'
+    value: list[_t_SpecifiedType]
 
     def verify(self, value: list):
         if not isinstance(value, list):
@@ -294,6 +348,8 @@ class ArrayContains(BaseArrayPredicate):
         return True
 
     def __invert__(self):
+        from core.predicates import ArrayNotContains
+
         return ArrayNotContains(value=self.value)
 
     def calculate_limitations(self) -> PredicateLimitations:
@@ -331,13 +387,19 @@ class ArrayContains(BaseArrayPredicate):
         return z3.And(*constraints, z3.BoolVal(True, ctx=ctx.z3_context))
 
 
-class ArrayNotContains(BaseArrayPredicate):
-    type_of: Literal['ArrayNotContains'] = 'ArrayNotContains'
+class GenericArrayNotContains(
+    BaseGenericArrayPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-array-not-contains'] = '$-mockau-array-not-contains'
+    value: list[_t_SpecifiedType]
 
     def verify(self, value: list):
-        return not ArrayContains(value=self.value).verify(value)
+        return not GenericArrayContains(value=self.value).verify(value)
 
     def __invert__(self):
+        from core.predicates import ArrayContains
+
         return ArrayContains(value=self.value)
 
     def calculate_limitations(self) -> PredicateLimitations:
@@ -346,6 +408,8 @@ class ArrayNotContains(BaseArrayPredicate):
         return limitation
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        from core.predicates import NotPredicate
+
         constraints = []
         or_constraints = [z3.BoolVal(False, ctx=ctx.z3_context)]
         array_var = ctx.get_variable(PredicateType.Array)

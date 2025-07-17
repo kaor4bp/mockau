@@ -56,7 +56,7 @@ class StringEqualTo(BaseStringPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['StringEqualTo'] = 'StringEqualTo'
+    type_of: Literal['$-mockau-str-eq'] = '$-mockau-str-eq'
     value: str
     ignore_case: bool = False
 
@@ -96,7 +96,7 @@ class StringEqualTo(BaseStringPredicate):
 
 
 class StringNotEqualTo(BaseStringPredicate):
-    type_of: Literal['StringNotEqualTo'] = 'StringNotEqualTo'
+    type_of: Literal['$-mockau-str-neq'] = '$-mockau-str-neq'
     value: str
     ignore_case: bool = False
 
@@ -133,7 +133,7 @@ class StringPattern(BaseStringPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['StringPattern'] = 'StringPattern'
+    type_of: Literal['$-mockau-str-re'] = '$-mockau-str-re'
     pattern: str
     ignore_case: bool = False
 
@@ -176,7 +176,7 @@ class StringPattern(BaseStringPredicate):
 
 
 class StringNotPattern(BaseStringPredicate):
-    type_of: Literal['StringNotPattern'] = 'StringNotPattern'
+    type_of: Literal['$-mockau-str-not-re'] = '$-mockau-str-not-re'
     pattern: str
     ignore_case: bool = False
 
@@ -216,7 +216,7 @@ class StringContains(BaseStringPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['StringContains'] = 'StringContains'
+    type_of: Literal['$-mockau-str-contains'] = '$-mockau-str-contains'
     value: str
     ignore_case: bool = False
 
@@ -270,7 +270,8 @@ class StringContains(BaseStringPredicate):
 
 
 class StringNotContains(StringContains):
-    type_of: Literal['StringNotContains'] = 'StringNotContains'
+    type_of: Literal['$-mockau-str-not-contains'] = '$-mockau-str-not-contains'
+    value: str
 
     def verify(self, value):
         if self.ignore_case:

@@ -1,41 +1,33 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Annotated, Literal, Union
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar, Union
 from uuid import uuid4
 
 import z3
-from pydantic import Field
 
 from core.predicates.base_predicate import BaseCollectionPredicate
-from core.predicates.collections.array_predicates import (
-    ArrayContains,
-    ArrayNotContains,
-    ArrayNotStrictEqualTo,
-    ArrayStrictEqualTo,
-    BaseArrayPredicate,
-)
-from core.predicates.collections.object_predicates import (
-    BaseObjectPredicate,
-    ObjectContainsSubset,
-    ObjectEqualTo,
-    ObjectNotContainsSubset,
-    ObjectNotEqualTo,
-)
+from core.predicates.collections.array_predicates import BaseGenericArrayPredicate
+from core.predicates.collections.object_predicates import BaseGenericObjectPredicate
 from core.predicates.consts import PredicateType
 from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.context.variable_context import VariableContext
 
 if TYPE_CHECKING:
-    from core.predicates import t_Predicate, t_Py2PredicateType
+    from core.predicates import t_Predicate
+
+_t_SpecifiedType = TypeVar('_t_SpecifiedType')
 
 
 class BaseNested(BaseCollectionPredicate, ABC):
-    type_of: Literal['NestedArrayStrictEqualTo'] = 'NestedArrayStrictEqualTo'
     value: list | dict
 
     @property
     @abstractmethod
     def sub_predicate(self):
         pass
+
+    @property
+    def sub_predicate_kwargs(self):
+        return dict()
 
     @abstractmethod
     def __invert__(self):
@@ -46,7 +38,7 @@ class BaseNested(BaseCollectionPredicate, ABC):
         return {PredicateType.Array, PredicateType.Object}
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
-        main_predicate = self.sub_predicate(value=self.value)
+        main_predicate = self.sub_predicate(value=self.value, **self.sub_predicate_kwargs)
         constraints = []
 
         max_sub_level = (
@@ -95,7 +87,7 @@ class BaseNested(BaseCollectionPredicate, ABC):
 class BaseNestedNot(BaseNested, ABC):
     def build_nested_for_all(self, ctx, cur_obj, level, start_level=0):
         dts = ctx.main_context.AllJsonTypes
-        main_predicate = self.sub_predicate(value=self.value)
+        main_predicate = self.sub_predicate(value=self.value, **self.sub_predicate_kwargs)
 
         object_iterator = z3.String(f'obj_iter_{uuid4()}', ctx=ctx.z3_context)
         array_iterator = z3.Int(f'arr_iter_{uuid4()}', ctx=ctx.z3_context)
@@ -176,17 +168,24 @@ class BaseNestedNot(BaseNested, ABC):
         )
 
 
-class BaseNestedArray(BaseNested, BaseArrayPredicate, ABC):
-    value: list[Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],]
+class BaseNestedGenericArray(
+    BaseNested,
+    BaseGenericArrayPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+    ABC,
+):
+    value: list[_t_SpecifiedType]
 
     def calculate_limitations(self) -> PredicateLimitations:
-        limitation = self.sub_predicate(value=self.value).calculate_limitations().reset_level_lte()
+        limitation = (
+            self.sub_predicate(value=self.value, **self.sub_predicate_kwargs).calculate_limitations().reset_level_lte()
+        )
         limitation.add_level()
         limitation.max_array_size = len(self.value) * 2 + 1
         return limitation
 
     def verify(self, value: dict | list):
-        main_predicate = self.sub_predicate(value=self.value)
+        main_predicate = self.sub_predicate(value=self.value, **self.sub_predicate_kwargs)
 
         if main_predicate.verify(value):
             return True
@@ -207,17 +206,24 @@ class BaseNestedArray(BaseNested, BaseArrayPredicate, ABC):
         return False
 
 
-class BaseNestedArrayNot(BaseNestedNot, BaseArrayPredicate, ABC):
-    value: list[Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],]
+class BaseNestedGenericArrayNot(
+    BaseNestedNot,
+    BaseGenericArrayPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+    ABC,
+):
+    value: list[_t_SpecifiedType]
 
     def calculate_limitations(self) -> PredicateLimitations:
-        limitation = self.sub_predicate(value=self.value).calculate_limitations().reset_level_lte()
+        limitation = (
+            self.sub_predicate(value=self.value, **self.sub_predicate_kwargs).calculate_limitations().reset_level_lte()
+        )
         limitation.add_level()
         limitation.max_array_size = len(self.value) * 2 + 1
         return limitation
 
     def verify(self, value: list):
-        main_predicate = self.sub_predicate(value=self.value)
+        main_predicate = self.sub_predicate(value=self.value, **self.sub_predicate_kwargs)
         if main_predicate.verify(value):
             return True
 
@@ -237,22 +243,29 @@ class BaseNestedArrayNot(BaseNestedNot, BaseArrayPredicate, ABC):
         return True
 
 
-class BaseNestedObject(BaseNested, BaseObjectPredicate, ABC):
+class BaseNestedGenericObject(
+    BaseNested,
+    BaseGenericObjectPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+    ABC,
+):
     value: dict[
         Union[
-            Annotated['t_Predicate', Field(discriminator='type_of')],
+            't_Predicate',
             str,
         ],
-        Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],
+        _t_SpecifiedType,
     ]
 
     def calculate_limitations(self) -> PredicateLimitations:
-        limitation = self.sub_predicate(value=self.value).calculate_limitations().reset_level_lte()
+        limitation = (
+            self.sub_predicate(value=self.value, **self.sub_predicate_kwargs).calculate_limitations().reset_level_lte()
+        )
         limitation.add_level()
         return limitation
 
     def verify(self, value: dict | list):
-        main_predicate = self.sub_predicate(value=self.value)
+        main_predicate = self.sub_predicate(value=self.value, **self.sub_predicate_kwargs)
         if main_predicate.verify(value):
             return True
 
@@ -263,7 +276,7 @@ class BaseNestedObject(BaseNested, BaseObjectPredicate, ABC):
         elif isinstance(value, dict):
             for k, v in value.items():
                 if isinstance(v, dict):
-                    if self.sub_predicate(value=self.value).verify(v):
+                    if self.sub_predicate(value=self.value, **self.sub_predicate_kwargs).verify(v):
                         return True
                     elif self.verify(v):
                         return True
@@ -272,22 +285,36 @@ class BaseNestedObject(BaseNested, BaseObjectPredicate, ABC):
         return False
 
 
-class BaseNestedObjectNot(BaseNestedNot, BaseObjectPredicate, ABC):
+class BaseNestedGenericObjectNot(
+    BaseNestedNot,
+    BaseGenericObjectPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+    ABC,
+):
+    # value: dict[
+    #     Union[
+    #         Annotated['t_Predicate', Field(discriminator='type_of')],
+    #         str,
+    #     ],
+    #     _t_SpecifiedType,
+    # ]
     value: dict[
         Union[
-            Annotated['t_Predicate', Field(discriminator='type_of')],
+            't_Predicate',
             str,
         ],
-        Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],
+        _t_SpecifiedType,
     ]
 
     def calculate_limitations(self) -> PredicateLimitations:
-        limitation = self.sub_predicate(value=self.value).calculate_limitations().reset_level_lte()
+        limitation = (
+            self.sub_predicate(value=self.value, **self.sub_predicate_kwargs).calculate_limitations().reset_level_lte()
+        )
         limitation.add_level()
         return limitation
 
     def verify(self, value: dict):
-        main_predicate = self.sub_predicate(value=self.value)
+        main_predicate = self.sub_predicate(value=self.value, **self.sub_predicate_kwargs)
         if main_predicate.verify(value):
             return True
 
@@ -296,7 +323,7 @@ class BaseNestedObjectNot(BaseNestedNot, BaseObjectPredicate, ABC):
 
         for k, v in value.items():
             if isinstance(v, dict):
-                if not self.sub_predicate(value=self.value).verify(v):
+                if not self.sub_predicate(value=self.value, **self.sub_predicate_kwargs).verify(v):
                     return False
                 elif not self.verify(v):
                     return False
@@ -307,89 +334,155 @@ class BaseNestedObjectNot(BaseNestedNot, BaseObjectPredicate, ABC):
         return True
 
 
-class NestedObjectEqualTo(BaseNestedObject):
-    type_of: Literal['NestedObjectEqualTo'] = 'NestedObjectEqualTo'
+class GenericNestedObjectEqualTo(
+    BaseNestedGenericObject[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-nested-object-equal-to'] = '$-mockau-nested-object-equal-to'
 
     @property
     def sub_predicate(self):
+        from core.predicates import ObjectEqualTo
+
         return ObjectEqualTo
 
     def __invert__(self):
+        from core.predicates import NestedObjectNotEqualTo
+
         return NestedObjectNotEqualTo(value=self.value)
 
 
-class NestedObjectNotEqualTo(BaseNestedObjectNot):
-    type_of: Literal['NestedObjectNotEqualTo'] = 'NestedObjectNotEqualTo'
+class GenericNestedObjectNotEqualTo(
+    BaseNestedGenericObjectNot[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-nested-object-not-equal-to'] = '$-mockau-nested-object-not-equal-to'
 
     @property
     def sub_predicate(self):
+        from core.predicates import ObjectNotEqualTo
+
         return ObjectNotEqualTo
 
     def __invert__(self):
+        from core.predicates import NestedObjectEqualTo
+
         return NestedObjectEqualTo(value=self.value)
 
 
-class NestedObjectContainsSubset(BaseNestedObject):
-    type_of: Literal['NestedObjectContainsSubset'] = 'NestedObjectContainsSubset'
+class GenericNestedObjectContainsSubset(
+    BaseNestedGenericObject[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-nested-object-contains'] = '$-mockau-nested-object-contains'
 
     @property
     def sub_predicate(self):
+        from core.predicates import ObjectContainsSubset
+
         return ObjectContainsSubset
 
     def __invert__(self):
+        from core.predicates import NestedObjectNotContainsSubset
+
         return NestedObjectNotContainsSubset(value=self.value)
 
 
-class NestedObjectNotContainsSubset(BaseNestedObjectNot):
-    type_of: Literal['NestedObjectNotContainsSubset'] = 'NestedObjectNotContainsSubset'
+class GenericNestedObjectNotContainsSubset(
+    BaseNestedGenericObjectNot[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-nested-object-not-contains'] = '$-mockau-nested-object-not-contains'
 
     @property
     def sub_predicate(self):
+        from core.predicates import ObjectNotContainsSubset
+
         return ObjectNotContainsSubset
 
     def __invert__(self):
+        from core.predicates import NestedObjectContainsSubset
+
         return NestedObjectContainsSubset(value=self.value)
 
 
-class NestedArrayStrictEqualTo(BaseNestedArray):
-    type_of: Literal['NestedArrayStrictEqualTo'] = 'NestedArrayStrictEqualTo'
+class GenericNestedArrayEqualTo(
+    BaseNestedGenericArray[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-nested-array-equal-to'] = '$-mockau-nested-array-equal-to'
+    ignore_order: bool = False
 
     @property
     def sub_predicate(self):
-        return ArrayStrictEqualTo
+        from core.predicates import ArrayEqualTo
+
+        return ArrayEqualTo
+
+    @property
+    def sub_predicate_kwargs(self):
+        return {'ignore_order': self.ignore_order}
 
     def __invert__(self):
-        return NestedArrayNotStrictEqualTo(value=self.value)
+        from core.predicates import NestedArrayNotEqualTo
+
+        return NestedArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
 
 
-class NestedArrayNotStrictEqualTo(BaseNestedArrayNot):
-    type_of: Literal['NestedArrayNotStrictEqualTo'] = 'NestedArrayNotStrictEqualTo'
+class GenericNestedArrayNotEqualTo(
+    BaseNestedGenericArrayNot[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-nested-array-not-equal-to'] = '$-mockau-nested-array-not-equal-to'
+    ignore_order: bool = False
 
     @property
     def sub_predicate(self):
-        return ArrayNotStrictEqualTo
+        from core.predicates import ArrayNotEqualTo
+
+        return ArrayNotEqualTo
+
+    @property
+    def sub_predicate_kwargs(self):
+        return {'ignore_order': self.ignore_order}
 
     def __invert__(self):
-        return NestedArrayStrictEqualTo(value=self.value)
+        from core.predicates import NestedArrayEqualTo
+
+        return NestedArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
 
 
-class NestedArrayContains(BaseNestedArray):
-    type_of: Literal['NestedArrayContains'] = 'NestedArrayContains'
+class GenericNestedArrayContains(
+    BaseNestedGenericArray[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-nested-array-contains'] = '$-mockau-nested-array-contains'
 
     @property
     def sub_predicate(self):
+        from core.predicates import ArrayContains
+
         return ArrayContains
 
     def __invert__(self):
+        from core.predicates import NestedArrayNotContains
+
         return NestedArrayNotContains(value=self.value)
 
 
-class NestedArrayNotContains(BaseNestedArrayNot):
-    type_of: Literal['NestedArrayNotContains'] = 'NestedArrayNotContains'
+class GenericNestedArrayNotContains(
+    BaseNestedGenericArrayNot[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-nested-array-not-contains'] = '$-mockau-nested-array-not-contains'
 
     @property
     def sub_predicate(self):
+        from core.predicates import ArrayNotContains
+
         return ArrayNotContains
 
     def __invert__(self):
+        from core.predicates import NestedArrayContains
+
         return NestedArrayContains(value=self.value)

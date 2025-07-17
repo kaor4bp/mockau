@@ -1,10 +1,10 @@
 import gc
 from abc import ABC, abstractmethod
-from typing import Literal
+from typing import Any, Generic
 from uuid import UUID, uuid4
 
 import z3
-from pydantic import Field, PrivateAttr
+from pydantic import ConfigDict, PrivateAttr
 from typing_extensions import TypeVar
 
 from core.bases.base_schema import BaseSchema
@@ -13,10 +13,7 @@ from core.predicates.context.main_context import MainContext
 from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.context.variable_context import VariableContext
 
-_DYNAMIC_PREDICATE_MODELS = {}
 _t_Predicate = TypeVar('_t_Predicate', bound='BasePredicate')
-
-MOCKAU_TYPE = 'x-mockau-predicate'
 
 
 class BasePredicate(BaseSchema, ABC):
@@ -28,8 +25,38 @@ class BasePredicate(BaseSchema, ABC):
     .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
     """
 
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+
     _internal_id: UUID = PrivateAttr(default_factory=uuid4)
-    x_mockau_type: Literal[MOCKAU_TYPE] = Field(default=MOCKAU_TYPE, alias='__x_mockau_type')
+
+    # @model_serializer(when_used='json')
+    # def json_type_of_serializer(self) -> dict:
+    #     from core.predicates.base_composite_predicate import BaseCompositePredicate
+    #
+    #     result = {}
+    #     type_of = getattr(self, 'type_of', 'unknown')
+    #     for model_field in self.model_fields.keys():
+    #         if model_field == 'type_of':
+    #             continue
+    #
+    #         model_value = getattr(self, model_field)
+    #         if isinstance(model_value, BasePredicate):
+    #             model_value = model_value
+    #         result[model_field] = model_value
+    #     if isinstance(self, BaseCompositePredicate):
+    #         return result
+    #     else:
+    #         return {type_of: result}
+    #
+    # @model_validator(mode='before')
+    # @classmethod
+    # def json_type_of_deserializer(cls, data):
+    #     return deserialize_json_predicate_format(data)
+
+    def compile_predicate(self):
+        return self
 
     def __invert__(self):
         return _DefaultInvertedPredicate(predicate=self)
@@ -174,7 +201,7 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        from core.predicates.logical.logical_predicates import NotPredicate
+        from core.predicates import NotPredicate
 
         if not self.is_intersected_with(other):
             return False
@@ -182,7 +209,7 @@ class BasePredicate(BaseSchema, ABC):
         check_result = z3.unknown
 
         limitations = self.calculate_limitations()
-        limitations.push((~other).calculate_limitations())
+        limitations.push(NotPredicate(predicate=other).calculate_limitations())
         for main_context, z3_solver in self._solver_iter(limitations.get_max_level()):
             ctx = VariableContext(main_context=main_context)
             main_context.set_limitations(limitations)
@@ -215,7 +242,7 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        from core.predicates.logical.logical_predicates import NotPredicate
+        from core.predicates import NotPredicate
 
         if not self.is_intersected_with(other):
             return False
@@ -376,3 +403,20 @@ class BaseLogicalPredicate(BaseScalarPredicate, ABC):
     """
 
     pass
+
+
+_t_SpecifiedType = TypeVar('_t_SpecifiedType')
+
+
+class GenericPredicateMixin(BasePredicate, Generic[_t_SpecifiedType], ABC):
+    def _get_origin(self):
+        return self.__class__.__pydantic_generic_metadata__['origin']
+
+    def _get_universal_origin(self):
+        orig_class = self._get_origin()
+        any_orig_class = orig_class[Any]
+        any_orig_class.model_rebuild()
+        return any_orig_class
+
+    def _get_generic_parameters(self):
+        return self.__class__.__pydantic_generic_metadata__['parameters']

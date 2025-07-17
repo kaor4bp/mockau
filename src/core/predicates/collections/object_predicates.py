@@ -1,21 +1,34 @@
-from typing import TYPE_CHECKING, Annotated, Literal, Union
+from abc import ABC
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar, Union
 from uuid import uuid4
 
 import z3
-from pydantic import Field, field_validator
+from pydantic import field_validator
 
-from core.predicates.base_predicate import BaseCollectionPredicate, BasePredicate, PredicateType, VariableContext
+from core.predicates.base_predicate import (
+    BaseCollectionPredicate,
+    BasePredicate,
+    GenericPredicateMixin,
+    PredicateType,
+    VariableContext,
+)
 from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.helpers import py_value_to_predicate
-from core.predicates.logical.logical_predicates import NotPredicate
 from core.predicates.scalars.string_predicates import StringEqualTo
 from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
 
 if TYPE_CHECKING:
-    from core.predicates import t_Predicate, t_Py2PredicateType
+    from core.predicates import t_Predicate
+
+_t_SpecifiedType = TypeVar('_t_SpecifiedType')
 
 
-class BaseObjectPredicate(BaseCollectionPredicate):
+class BaseGenericObjectPredicate(
+    BaseCollectionPredicate,
+    GenericPredicateMixin[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+    ABC,
+):
     """Base class for object predicates handling JSON-like structures.
 
     :ivar value: Dictionary representing the object structure with key-value predicates
@@ -26,11 +39,14 @@ class BaseObjectPredicate(BaseCollectionPredicate):
 
     value: dict[
         Union[
-            Annotated['t_Predicate', Field(discriminator='type_of')],
+            't_Predicate',
             str,
         ],
-        Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType'],
+        _t_SpecifiedType,
     ]
+
+    def compile_predicate(self):
+        return self._get_universal_origin()(value={k: v.compile_predicate() for k, v in self.value.items()})
 
     @field_validator('value', mode='before')
     @classmethod
@@ -83,8 +99,18 @@ class BaseObjectPredicate(BaseCollectionPredicate):
         return limitation
 
 
-class ObjectEqualTo(BaseObjectPredicate):
-    type_of: Literal['ObjectEqualTo'] = 'ObjectEqualTo'
+class GenericObjectEqualTo(
+    BaseGenericObjectPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-object-equal-to'] = '$-mockau-object-equal-to'
+    value: dict[
+        Union[
+            't_Predicate',
+            str,
+        ],
+        _t_SpecifiedType,
+    ]
 
     def verify(self, value: dict):
         if not isinstance(value, dict):
@@ -103,6 +129,8 @@ class ObjectEqualTo(BaseObjectPredicate):
         return len(best_candidate.keys()) == len(self.value.keys()) == len(value.keys())
 
     def __invert__(self):
+        from core.predicates import ObjectNotEqualTo
+
         return ObjectNotEqualTo(value=self.value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
@@ -147,8 +175,18 @@ class ObjectEqualTo(BaseObjectPredicate):
         return z3.And(*constraints, *key_constraints, z3.BoolVal(True, ctx=ctx.z3_context))
 
 
-class ObjectNotEqualTo(BaseObjectPredicate):
-    type_of: Literal['ObjectNotEqualTo'] = 'ObjectNotEqualTo'
+class GenericObjectNotEqualTo(
+    BaseGenericObjectPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-object-not-equal-to'] = '$-mockau-object-not-equal-to'
+    value: dict[
+        Union[
+            't_Predicate',
+            str,
+        ],
+        _t_SpecifiedType,
+    ]
 
     def verify(self, value: dict):
         if not isinstance(value, dict):
@@ -167,9 +205,13 @@ class ObjectNotEqualTo(BaseObjectPredicate):
         return len(best_candidate.keys()) != len(self.value.keys()) and len(best_candidate.keys()) != len(value.keys())
 
     def __invert__(self):
+        from core.predicates import ObjectEqualTo
+
         return ObjectEqualTo(value=self.value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        from core.predicates import NotPredicate
+
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
         all_keys_set = z3.EmptySet(z3.StringSort(ctx=ctx.z3_context))
         existing_key_vars = []
@@ -229,8 +271,19 @@ class ObjectNotEqualTo(BaseObjectPredicate):
         return z3.And(*constraints, z3.Or(*or_constraints))
 
 
-class ObjectContainsSubset(BaseObjectPredicate):
-    type_of: Literal['ObjectContainsSubset'] = 'ObjectContainsSubset'
+class GenericObjectContainsSubset(
+    BaseGenericObjectPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-object-contains'] = '$-mockau-object-contains'
+
+    value: dict[
+        Union[
+            't_Predicate',
+            str,
+        ],
+        _t_SpecifiedType,
+    ]
 
     def verify(self, value: dict):
         if not isinstance(value, dict):
@@ -249,6 +302,8 @@ class ObjectContainsSubset(BaseObjectPredicate):
         return len(best_candidate.keys()) >= len(self.value.keys())
 
     def __invert__(self):
+        from core.predicates import ObjectNotContainsSubset
+
         return ObjectNotContainsSubset(value=self.value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
@@ -283,8 +338,18 @@ class ObjectContainsSubset(BaseObjectPredicate):
         return z3.And(*constraints, z3.BoolVal(True, ctx=ctx.z3_context))
 
 
-class ObjectNotContainsSubset(BaseObjectPredicate):
-    type_of: Literal['ObjectNotContainsSubset'] = 'ObjectNotContainsSubset'
+class GenericObjectNotContainsSubset(
+    BaseGenericObjectPredicate[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-object-not-contains'] = '$-mockau-object-not-contains'
+    value: dict[
+        Union[
+            't_Predicate',
+            str,
+        ],
+        _t_SpecifiedType,
+    ]
 
     def verify(self, value: dict):
         if not isinstance(value, dict):
@@ -303,9 +368,13 @@ class ObjectNotContainsSubset(BaseObjectPredicate):
         return len(best_candidate.keys()) < len(self.value.keys())
 
     def __invert__(self):
+        from core.predicates import ObjectContainsSubset
+
         return ObjectContainsSubset(value=self.value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        from core.predicates import NotPredicate
+
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
         constraints = []
         existing_key_vars = []
@@ -344,12 +413,24 @@ class ObjectNotContainsSubset(BaseObjectPredicate):
         return z3.And(*constraints, z3.Or(*or_constraints))
 
 
-class ObjectHasValue(BaseCollectionPredicate):
-    type_of: Literal['ObjectHasValue'] = 'ObjectHasValue'
-    predicate: Union[
-        Annotated['t_Predicate', Field(discriminator='type_of')],
-        't_Py2PredicateType',
-    ]
+class GenericObjectHasValue(
+    BaseCollectionPredicate,
+    GenericPredicateMixin[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-object-has-value'] = '$-mockau-object-has-value'
+    predicate: _t_SpecifiedType
+
+    def compile_predicate(self):
+        return self._get_universal_origin()(predicate=self.predicate.compile_predicate())
+
+    @field_validator('predicate', mode='before')
+    @classmethod
+    def handle_py2predicate(cls, data):
+        if not isinstance(data, BasePredicate):
+            return py_value_to_predicate(data)
+        else:
+            return data
 
     def verify(self, value: dict):
         if not isinstance(value, dict):
@@ -361,6 +442,8 @@ class ObjectHasValue(BaseCollectionPredicate):
         return False
 
     def __invert__(self):
+        from core.predicates import ObjectHasNoValue
+
         return ObjectHasNoValue(predicate=self.predicate)
 
     @property
@@ -390,12 +473,24 @@ class ObjectHasValue(BaseCollectionPredicate):
         return limitation
 
 
-class ObjectHasNoValue(BaseCollectionPredicate):
-    type_of: Literal['ObjectHasNoValue'] = 'ObjectHasNoValue'
-    predicate: Union[
-        Annotated['t_Predicate', Field(discriminator='type_of')],
-        't_Py2PredicateType',
-    ]
+class GenericObjectHasNoValue(
+    BaseCollectionPredicate,
+    GenericPredicateMixin[_t_SpecifiedType],
+    Generic[_t_SpecifiedType],
+):
+    type_of: Literal['$-mockau-object-has-no-value'] = '$-mockau-object-has-no-value'
+    predicate: _t_SpecifiedType
+
+    def compile_predicate(self):
+        return self._get_universal_origin()(predicate=self.predicate.compile_predicate())
+
+    @field_validator('predicate', mode='before')
+    @classmethod
+    def handle_py2predicate(cls, data):
+        if not isinstance(data, BasePredicate):
+            return py_value_to_predicate(data)
+        else:
+            return data
 
     def verify(self, value: dict):
         if not isinstance(value, dict):
@@ -407,6 +502,8 @@ class ObjectHasNoValue(BaseCollectionPredicate):
         return True
 
     def __invert__(self):
+        from core.predicates import ObjectHasValue
+
         return ObjectHasValue(predicate=self.predicate)
 
     @property
@@ -414,6 +511,8 @@ class ObjectHasNoValue(BaseCollectionPredicate):
         return {PredicateType.Object}
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        from core.predicates import NotPredicate
+
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
         constraints = []
         or_constraints = [z3.BoolVal(False, ctx=ctx.z3_context)]

@@ -18,9 +18,9 @@ from core.predicates import (
     IntegerLessThan,
     IntegerNotEqualTo,
     NestedArrayContains,
+    NestedArrayEqualTo,
     NestedArrayNotContains,
-    NestedArrayNotStrictEqualTo,
-    NestedArrayStrictEqualTo,
+    NestedArrayNotEqualTo,
     NestedObjectContainsSubset,
     NestedObjectEqualTo,
     NestedObjectNotContainsSubset,
@@ -155,10 +155,10 @@ INTERSECTIONS = {
         NestedObjectContainsSubset(
             value={
                 'alice': 'rabbit',
-                'kek': NestedArrayNotStrictEqualTo(value=['hello', 'world', '!']),
+                'kek': NestedArrayNotEqualTo(value=['hello', 'world', '!']),
             }
         ),
-        NestedArrayStrictEqualTo(value=['hello', 'world', '!']),
+        NestedArrayEqualTo(value=['hello', 'world', '!']),
     ],
     '1': [
         NestedObjectContainsSubset(
