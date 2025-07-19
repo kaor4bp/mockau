@@ -109,6 +109,11 @@ class GenericNotPredicate(BaseLogicalPredicate, ParityPredicateMixin, Generic[_t
         return self.compiled_value
 
     def verify(self, value):
+        # Special handling for double negation: NOT(NOT(P)) should behave like P
+        if self._parity and isinstance(self.compiled_value, GenericNotPredicate) and not self.compiled_value._parity:
+            # This is double negation NOT(NOT(P)), delegate to the inner predicate P
+            return self.compiled_value.compiled_value.verify(value)
+
         other_types = ALLOWED_POOL_PREDICATE_TYPES - self.predicate_types
 
         constraints = [not self.compiled_value.verify(value)]
@@ -130,6 +135,15 @@ class GenericNotPredicate(BaseLogicalPredicate, ParityPredicateMixin, Generic[_t
         return (~self.compiled_value).calculate_limitations()
 
     def to_z3(self, ctx: VariableContext):
+        # # Special handling for double negation: NOT(NOT(P)) should behave like P
+        # if (
+        #         self._parity
+        #         and isinstance(self.compiled_value, GenericNotPredicate)
+        #         and not self.compiled_value._parity
+        # ):
+        #     # This is double negation NOT(NOT(P)), delegate to the inner predicate P
+        #     return self.compiled_value.compiled_value.to_z3(ctx)
+
         inverted_predicate = ~self.compiled_value
         additional_constraints = []
 
@@ -271,10 +285,13 @@ class GenericAndPredicate(BaseLogicalPredicate, ParityPredicateMixin, Generic[_t
         if self.predicate_types == {PredicateType.Null}:
             return z3.BoolVal(False, ctx=ctx.z3_context)
         else:
-            return z3.And(
-                [inner_predicate.to_z3(ctx) for inner_predicate in self.compiled_value]
-                + [z3.BoolVal(True, ctx=ctx.z3_context)]
-            )
+            z3_constraints = [inner_predicate.to_z3(ctx) for inner_predicate in self.compiled_value]
+            if len(z3_constraints) == 0:
+                return z3.BoolVal(True, ctx=ctx.z3_context)
+            elif len(z3_constraints) == 1:
+                return z3_constraints[0]
+            else:
+                return z3.And(*z3_constraints)
 
 
 class GenericOrPredicate(BaseLogicalPredicate, ParityPredicateMixin, Generic[_t_SpecifiedType]):
@@ -375,7 +392,10 @@ class GenericOrPredicate(BaseLogicalPredicate, ParityPredicateMixin, Generic[_t_
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        or_predicates = [z3.BoolVal(False, ctx=ctx.z3_context)]
-        or_predicates += [inner_predicate.to_z3(ctx) for inner_predicate in self.compiled_value]
-
-        return z3.Or(*or_predicates)
+        z3_constraints = [inner_predicate.to_z3(ctx) for inner_predicate in self.compiled_value]
+        if len(z3_constraints) == 0:
+            return z3.BoolVal(False, ctx=ctx.z3_context)
+        elif len(z3_constraints) == 1:
+            return z3_constraints[0]
+        else:
+            return z3.Or(*z3_constraints)

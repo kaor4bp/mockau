@@ -200,22 +200,16 @@ class TestNormalization:
         """
         assert p1.is_equal_to(p2), f"Expected {p1} to be equal to {p2} after normalization"
 
-    # @pytest.mark.parametrize(
-    #     ['p1', 'p2'],
-    #     **get_params_argv(EQUIVALENT_PREDICATE_PAIRS)
-    # )
-    # def test_is_equivalent_to(self, p1, p2):
-    #     assert p1.is_equivalent_to(p2)
-    #
-    # @pytest.mark.parametrize(
-    #     ['p1', 'p2'],
-    #     **get_params_argv(EQUIVALENT_PREDICATE_PAIRS)
-    # )
-    # def test_is_equivalent_to_with_normalized_version(self, p1, p2):
-    #     """
-    #     Tests that logically equivalent predicates normalize to the same form
-    #     and are considered equal by `is_equal_to`.
-    #     """
-    #     p_normalized = p1.normalize()
-    #     assert p1.is_equivalent_to(p_normalized)
-    #     assert p2.is_equivalent_to(p_normalized)
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENT_PREDICATE_PAIRS))
+    def test_is_equivalent_to(self, p1, p2):
+        assert p1.is_equivalent_to(p2)
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENT_PREDICATE_PAIRS))
+    def test_is_equivalent_to_with_normalized_version(self, p1, p2):
+        """
+        Tests that logically equivalent predicates normalize to the same form
+        and are considered equal by `is_equal_to`.
+        """
+        p_normalized = p1.normalize()
+        assert p1.is_equivalent_to(p_normalized)
+        assert p2.is_equivalent_to(p_normalized)

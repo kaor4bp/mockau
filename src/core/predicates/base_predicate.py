@@ -353,11 +353,11 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
         """
-        # if not self.is_intersected_with(other):
-        #     return False
-        # if self.is_equal_to(other):
-        #     return True
+        # First check if normalized forms are equal (fast path)
+        if self.is_equal_to(other):
+            return True
 
+        # If not equal after normalization, use Z3 solver
         return self.is_subset_of(other) and self.is_superset_of(other)
 
 

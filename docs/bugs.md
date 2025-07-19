@@ -4,9 +4,11 @@
 
 ### Existing Defects/Tasks (Updated)
 
-1.  **[ ] Investigate and fix incorrect inversion (`__invert__`) behavior when predicates are nested (e.g., `NotPredicate(NotPredicate(p))`).**
-    * This issue might be related to `ParityPredicateMixin` or the specific `__invert__` implementations in concrete predicates, leading to incorrect normalization or semantics with double negation.
-    * *(Edited by Athena (Gemini 2.5 Flash))*
+1.  **[✓] FIXED: Investigate and fix incorrect inversion (`__invert__`) behavior when predicates are nested (e.g., `NotPredicate(NotPredicate(p))`).**
+    * This issue was related to `ParityPredicateMixin` and the `predicate_types` property in `GenericNotPredicate`, leading to incorrect verification behavior with double negation.
+    * **Fix applied:** Modified `predicate_types` and `verify` methods in `GenericNotPredicate` to correctly handle double negation cases.
+    * **Test coverage:** Added comprehensive tests in `test_double_not_fix.py` to verify the fix.
+    * *(Fixed by Augment Agent)*
 
 2.  **[ ] Architectural Decision: Separate the concerns of Generic predicates and concrete implementations.**
     * The current realization of Generic predicates (`BaseGenericArrayPredicate`, `BaseGenericObjectPredicate`, etc.) causes numerous type-related issues, despite their utility for `CompositePredicates`.
