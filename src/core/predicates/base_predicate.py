@@ -1,10 +1,11 @@
 import gc
 from abc import ABC, abstractmethod
-from typing import Any, Generic
+from functools import cached_property
+from typing import Any
 from uuid import UUID, uuid4
 
 import z3
-from pydantic import ConfigDict, PrivateAttr
+from pydantic import ConfigDict, PrivateAttr, model_serializer, model_validator
 from typing_extensions import TypeVar
 
 from core.bases.base_schema import BaseSchema
@@ -12,6 +13,7 @@ from core.predicates.consts import DEFAULT_SOLVER_TIMEOUT, PredicateType
 from core.predicates.context.main_context import MainContext
 from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.context.variable_context import VariableContext
+from core.predicates.helpers import deserialize_json_predicate_format, serialize_to_json_predicate_format
 
 _t_Predicate = TypeVar('_t_Predicate', bound='BasePredicate')
 
@@ -25,35 +27,27 @@ class BasePredicate(BaseSchema, ABC):
     .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
     """
 
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
+    model_config = ConfigDict(populate_by_name=True, alias_generator=lambda x: f'${x}')
 
     _internal_id: UUID = PrivateAttr(default_factory=uuid4)
 
-    # @model_serializer(when_used='json')
-    # def json_type_of_serializer(self) -> dict:
-    #     from core.predicates.base_composite_predicate import BaseCompositePredicate
-    #
-    #     result = {}
-    #     type_of = getattr(self, 'type_of', 'unknown')
-    #     for model_field in self.model_fields.keys():
-    #         if model_field == 'type_of':
-    #             continue
-    #
-    #         model_value = getattr(self, model_field)
-    #         if isinstance(model_value, BasePredicate):
-    #             model_value = model_value
-    #         result[model_field] = model_value
-    #     if isinstance(self, BaseCompositePredicate):
-    #         return result
-    #     else:
-    #         return {type_of: result}
-    #
-    # @model_validator(mode='before')
-    # @classmethod
-    # def json_type_of_deserializer(cls, data):
-    #     return deserialize_json_predicate_format(data)
+    @model_serializer(when_used='json')
+    def json_type_of_serializer(self) -> dict:
+        result = self.model_dump(by_alias=True, mode='python')
+        return serialize_to_json_predicate_format(result)
+        # if isinstance(self, BaseCompositePredicate):
+        #     return result
+        # else:
+        #     if '$type_of' in result:
+        #         type_of = result.pop('$type_of')
+        #     else:
+        #         type_of = 'unknown'
+        #     return {type_of: result}
+
+    @model_validator(mode='before')
+    @classmethod
+    def json_type_of_deserializer(cls, data):
+        return deserialize_json_predicate_format(data)
 
     def compile_predicate(self):
         return self
@@ -88,6 +82,16 @@ class BasePredicate(BaseSchema, ABC):
 
     def calculate_limitations(self) -> PredicateLimitations:
         return PredicateLimitations()
+
+    def normalize(self):
+        return self
+
+    def is_equal_to(self, other):
+        p1 = self.normalize()
+        p2 = other.normalize()
+        x1 = p1.model_dump_json(by_alias=True)
+        x2 = p2.model_dump_json(by_alias=True)
+        return x1 == x2
 
     @abstractmethod
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
@@ -136,11 +140,11 @@ class BasePredicate(BaseSchema, ABC):
 
         for set_timeout in [DEFAULT_SOLVER_TIMEOUT]:
             for set_tactic in [
-                None,
                 'qfauflia',
                 'simplify',
                 'propagate-values',
                 'smt',
+                None,
                 'solve-eqs',
                 'tseitin-cnf',
                 'ctx-solver-simplify',
@@ -201,7 +205,7 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        from core.predicates import NotPredicate
+        from core.predicates import GenericNotPredicate
 
         if not self.is_intersected_with(other):
             return False
@@ -209,13 +213,13 @@ class BasePredicate(BaseSchema, ABC):
         check_result = z3.unknown
 
         limitations = self.calculate_limitations()
-        limitations.push(NotPredicate(predicate=other).calculate_limitations())
+        limitations.push(GenericNotPredicate[Any](predicate=other).calculate_limitations())
         for main_context, z3_solver in self._solver_iter(limitations.get_max_level()):
             ctx = VariableContext(main_context=main_context)
             main_context.set_limitations(limitations)
 
             z3_solver.add(self.to_z3(ctx))
-            z3_solver.add(NotPredicate(predicate=other).to_z3(ctx))
+            z3_solver.add(GenericNotPredicate[Any](predicate=other).to_z3(ctx))
             z3_solver.add(ctx.pop_from_global_constraints())
 
             check_result = z3_solver.check()
@@ -242,7 +246,7 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        from core.predicates import NotPredicate
+        from core.predicates import GenericNotPredicate
 
         if not self.is_intersected_with(other):
             return False
@@ -258,7 +262,7 @@ class BasePredicate(BaseSchema, ABC):
             main_context.set_limitations(limitation)
 
             z3_solver.add(other.to_z3(ctx))
-            z3_solver.add(NotPredicate(predicate=self).to_z3(ctx))
+            z3_solver.add(GenericNotPredicate[Any](predicate=self).to_z3(ctx))
             z3_solver.add(ctx.pop_from_global_constraints())
 
             check_result = z3_solver.check()
@@ -351,6 +355,9 @@ class BasePredicate(BaseSchema, ABC):
         """
         # if not self.is_intersected_with(other):
         #     return False
+        # if self.is_equal_to(other):
+        #     return True
+
         return self.is_subset_of(other) and self.is_superset_of(other)
 
 
@@ -395,6 +402,11 @@ class BaseCollectionPredicate(BasePredicate, ABC):
     .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
     """
 
+    @abstractmethod
+    @cached_property
+    def compiled_value(self):
+        pass
+
 
 class BaseLogicalPredicate(BaseScalarPredicate, ABC):
     """Base class for logical operation predicates (AND/OR/NOT).
@@ -408,15 +420,5 @@ class BaseLogicalPredicate(BaseScalarPredicate, ABC):
 _t_SpecifiedType = TypeVar('_t_SpecifiedType')
 
 
-class GenericPredicateMixin(BasePredicate, Generic[_t_SpecifiedType], ABC):
-    def _get_origin(self):
-        return self.__class__.__pydantic_generic_metadata__['origin']
-
-    def _get_universal_origin(self):
-        orig_class = self._get_origin()
-        any_orig_class = orig_class[Any]
-        any_orig_class.model_rebuild()
-        return any_orig_class
-
-    def _get_generic_parameters(self):
-        return self.__class__.__pydantic_generic_metadata__['parameters']
+class ParityPredicateMixin(BasePredicate, ABC):
+    _parity: bool = PrivateAttr(default=True)

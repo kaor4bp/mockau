@@ -1,6 +1,20 @@
 from copy import deepcopy
 
 
+def serialize_to_json_predicate_format(value):
+    if isinstance(value, dict):
+        for k, v in value.items():
+            value[k] = serialize_to_json_predicate_format(v)
+
+        if '$type_of' in value.keys() and '$-mockau-' in value['$type_of']:
+            type_of = value.pop('$type_of')
+            value = {type_of: value}
+    elif isinstance(value, list):
+        for i, v in enumerate(value):
+            value[i] = serialize_to_json_predicate_format(v)
+    return value
+
+
 def deserialize_json_predicate_format(value):
     if (
         isinstance(value, dict)
@@ -9,7 +23,7 @@ def deserialize_json_predicate_format(value):
         and list(value.keys())[0].startswith('$-mockau-')
     ):
         new_data = list(value.values())[0]
-        new_data['type_of'] = list(value.keys())[0]
+        new_data['$type_of'] = list(value.keys())[0]
         value = new_data
 
     if isinstance(value, list):

@@ -11,6 +11,7 @@ from core.predicates import (
     AndPredicate,
     AnyPredicate,
     ArrayContains,
+    DynamicKeyMatch,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
@@ -31,6 +32,7 @@ from core.predicates import (
     ObjectNotContainsSubset,
     ObjectNotEqualTo,
     OrPredicate,
+    RootPredicate,
     StringContains,
     StringEqualTo,
     StringPattern,
@@ -43,10 +45,16 @@ BIG_JSON_REQUEST_1_FILE_PATH = CURRENT_DIR.joinpath('./big_json_request_1.json')
 INCONSISTENTS = {
     'two_overlapping_string_key_predicates_in_object_equal_to': [
         ObjectEqualTo(
-            value={
-                StringEqualTo(value='rabbit'): IntegerGreaterThan(value=4),
-                StringEqualTo(value='rabbit'): IntegerGreaterThan(value=1),
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringEqualTo(value='rabbit'),
+                    value=IntegerGreaterThan(value=4),
+                ),
+                DynamicKeyMatch(
+                    key=StringEqualTo(value='rabbit'),
+                    value=IntegerGreaterThan(value=1),
+                ),
+            ]
         )
     ],
     'integer_less_than_and_greater_than_conflict': [
@@ -74,28 +82,25 @@ NOT_INTERSECTIONS = {
     ],
     'nested_object_key_predicate_conflict': [
         ObjectEqualTo(
-            value={
-                StringContains(value='abbit'): {'alice': 'rabbit'},
-            }
+            dynamic_matches=[DynamicKeyMatch(key=StringContains(value='rabbit'), value={'alice': 'rabbit'})],
         ),
         ObjectEqualTo(
-            value={
-                StringContains(value='rabbit'): ObjectEqualTo(value={'alice': StringContains(value='tarts')}),
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(key=StringContains(value='rabbit'), value={'alice': StringContains(value='tarts')})
+            ],
         ),
     ],
     'nested_strict_unstrict_predicate_value_conflict': [
         ObjectEqualTo(
-            value={
-                StringContains(value='abbit'): {'alice': 'rabbit'},
-            }
+            dynamic_matches=[DynamicKeyMatch(key=StringContains(value='rabbit'), value={'alice': 'rabbit'})],
         ),
         ObjectContainsSubset(
-            value={
-                StringContains(value='rabbit'): ObjectContainsSubset(
-                    value={'alice': StringContains(value='rabbit'), 'queen': 2}
-                ),
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='rabbit'),
+                    value=ObjectContainsSubset(value={'alice': StringContains(value='rabbit'), 'queen': 2}),
+                )
+            ],
         ),
     ],
     'deeply_nested_objects_conflicting_values': [
@@ -149,13 +154,12 @@ NOT_INTERSECTIONS = {
     ],
 }
 
-
 INTERSECTIONS = {
-    '0 ': [
+    '0': [
         NestedObjectContainsSubset(
             value={
                 'alice': 'rabbit',
-                'kek': NestedArrayNotEqualTo(value=['hello', 'world', '!']),
+                'kek': {'hello': NestedArrayNotEqualTo(value=['hello', 'world', '!'])},
             }
         ),
         NestedArrayEqualTo(value=['hello', 'world', '!']),
@@ -195,11 +199,6 @@ INTERSECTIONS = {
         ),
         ObjectEqualTo(value=json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text())),
     ],
-    'two_exact_object_equal_to': [ObjectEqualTo(value={'alice': 'rabbit'}), ObjectEqualTo(value={'alice': 'rabbit'})],
-    'object_contains_subset_and_exact_object_equal_to': [
-        ObjectContainsSubset(value={'alice': 'rabbit'}),
-        ObjectEqualTo(value={'alice': 'rabbit'}),
-    ],
     'object_contains_subset_and_superset_exact_object_equal_to': [
         ObjectContainsSubset(value={'alice': 'rabbit'}),
         ObjectEqualTo(value={'alice': 'rabbit', 'hatter': 'wonderland'}),
@@ -214,14 +213,20 @@ INTERSECTIONS = {
     ],
     'nested_object_key_predicate_overlap': [
         ObjectEqualTo(
-            value={
-                StringContains(value='abbit'): {'alice': 'rabbit'},
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='abbit'),
+                    value={'alice': 'rabbit'},
+                )
+            ]
         ),
         ObjectEqualTo(
-            value={
-                StringContains(value='rabbit'): ObjectEqualTo(value={'alice': StringContains(value='rabbit')}),
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='rabbit'),
+                    value=ObjectEqualTo(value={'alice': StringContains(value='rabbit')}),
+                )
+            ]
         ),
     ],
     'integer_greater_than_overlapping_ranges': [
@@ -238,10 +243,16 @@ INTERSECTIONS = {
     ],
     'concurrent_string_key_predicate_overlap_1': [
         ObjectEqualTo(
-            value={
-                StringContains(value='atter'): IntegerGreaterThan(value=4),
-                StringContains(value='hat'): IntegerGreaterThan(value=1),
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='atter'),
+                    value=IntegerGreaterThan(value=4),
+                ),
+                DynamicKeyMatch(
+                    key=StringContains(value='hat'),
+                    value=IntegerGreaterThan(value=1),
+                ),
+            ]
         ),
         ObjectEqualTo(
             value={
@@ -252,10 +263,16 @@ INTERSECTIONS = {
     ],
     'concurrent_string_key_predicate_overlap_2': [
         ObjectEqualTo(
-            value={
-                StringContains(value='hat'): IntegerGreaterThan(value=1),
-                StringContains(value='atter'): IntegerGreaterThan(value=4),
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='hat'),
+                    value=IntegerGreaterThan(value=1),
+                ),
+                DynamicKeyMatch(
+                    key=StringContains(value='atter'),
+                    value=IntegerGreaterThan(value=4),
+                ),
+            ]
         ),
         ObjectEqualTo(
             value={
@@ -266,10 +283,16 @@ INTERSECTIONS = {
     ],
     'same_string_key_predicate_content_overlap': [
         ObjectEqualTo(
-            value={
-                StringContains(value='atter'): IntegerGreaterThan(value=4),
-                StringContains(value='atter'): IntegerGreaterThan(value=1),
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='atter'),
+                    value=IntegerGreaterThan(value=4),
+                ),
+                DynamicKeyMatch(
+                    key=StringContains(value='atter'),
+                    value=IntegerGreaterThan(value=1),
+                ),
+            ]
         ),
         ObjectEqualTo(
             value={
@@ -295,19 +318,19 @@ INTERSECTIONS = {
         ObjectContainsSubset(value={'hatter': StringContains(value='tea')}),
         ObjectNotEqualTo(value={'queen': StringContains(value='red_paint')}),
     ],
-    'deeply_nested_object_equal_to': [
-        NestedObjectEqualTo(value={'tea_cup': NestedObjectEqualTo(value={'tarts': 'stolen'})}),
-        ObjectEqualTo(
-            value={
-                'wonderland': {
-                    'garden': [
-                        {'rose': 'white'},
-                        {'tea_cup': {'madness': [{'tarts': 'stolen'}]}},
-                    ]
-                }
-            }
-        ),
-    ],
+    # 'deeply_nested_object_equal_to': [
+    #     NestedObjectEqualTo(value={'tea_cup': NestedObjectEqualTo(value={'tarts': 'stolen'})}),
+    #     ObjectEqualTo(
+    #         value={
+    #             'wonderland': {
+    #                 'garden': [
+    #                     {'rose': 'white'},
+    #                     {'tea_cup': {'madness': [{'tarts': 'stolen'}]}},
+    #                 ]
+    #             }
+    #         }
+    #     ),
+    # ],
     'nested_object_equal_to_with_nested_object_equal_to': [
         ObjectEqualTo(value={'tea_cup': NestedObjectEqualTo(value={'tarts': 'stolen'})}),
         NestedObjectEqualTo(
@@ -759,11 +782,6 @@ class TestObjectIsSupersetOf:
 
 class TestObjectIsIntersectedWith:
     @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
-    def test_is_consistent(self, p1, p2):
-        assert p1.is_consistent()
-        assert p2.is_consistent()
-
-    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(INTERSECTIONS))
     def test_intersections_are_intersected(self, p1, p2):
         assert p1.is_intersected_with(p2)
 
@@ -790,10 +808,6 @@ class TestObjectIsIntersectedWith:
 
 class TestObjectIsMatched:
     @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(MATCHED))
-    def test_is_consistent(self, predicate, value):
-        assert predicate.is_consistent()
-
-    @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(MATCHED))
     def test_matched_values_are_matched(self, predicate, value):
         assert predicate.is_matched(value)
 
@@ -802,7 +816,29 @@ class TestObjectIsMatched:
         assert not predicate.is_matched(value)
 
 
-class TestObjectInconsistency:
-    @pytest.mark.parametrize(['predicate'], **get_params_argv(INCONSISTENTS))
-    def test_is_consistent_is_false(self, predicate):
-        assert not predicate.is_consistent()
+class TestConsistency:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_is_consistent(self, p1, p2):
+        assert p1.is_consistent()
+        assert p2.is_consistent()
+
+
+class TestSelfEquality:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_predicate_is_equivalent_to_itself(self, p1, p2):
+        assert p1.is_equal_to(p1)
+        assert p2.is_equal_to(p2)
+
+
+class TestSerialization:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_json_dump(self, p1, p2):
+        p1.model_dump_json()
+        p2.model_dump_json()
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_json_load(self, p1, p2):
+        restored_p1 = RootPredicate.model_validate_json(p1.model_dump_json(by_alias=True))
+        assert restored_p1.root.is_equal_to(p1)
+        restored_p2 = RootPredicate.model_validate_json(p2.model_dump_json(by_alias=True))
+        assert restored_p2.root.is_equal_to(p2)

@@ -1,7 +1,7 @@
 from types import NoneType
 from typing import Union, TYPE_CHECKING, TypeVar, Annotated
 
-from pydantic import Field
+from pydantic import Field, model_validator, RootModel
 
 from core.predicates.collections.array_predicates import (
     GenericArrayNotEqualTo,
@@ -26,7 +26,9 @@ from core.predicates.collections.object_predicates import (
     GenericObjectEqualTo,
     GenericObjectHasValue,
     GenericObjectHasNoValue,
+    GenericDynamicKeyMatch,
 )
+from core.predicates.helpers import deserialize_json_predicate_format
 from core.predicates.logical.logical_predicates import (
     AnyPredicate,
     VoidPredicate,
@@ -67,6 +69,7 @@ from core.predicates.scalars.string_predicates import (
 )
 
 __all__ = [
+    'RootPredicate',
     #
     't_Py2PredicateType',
     't_ScalarBooleanPredicate',
@@ -119,6 +122,7 @@ __all__ = [
     'GenericArrayNotContains',
     'GenericArrayContains',
     # objects
+    'DynamicKeyMatch',
     'GenericObjectContainsSubset',
     'GenericObjectNotContainsSubset',
     'GenericObjectNotEqualTo',
@@ -135,7 +139,6 @@ __all__ = [
     'GenericNestedObjectNotContainsSubset',
     'GenericNestedObjectContainsSubset',
 ]
-
 
 t_ScalarBooleanPredicate = Union[BooleanEqualTo, IsNull]
 t_ScalarIntegerPredicate = Union[
@@ -169,11 +172,29 @@ t_ScalarPredicate = Union[
     t_ScalarStringPredicate,
 ]
 
-_t_DefaultPredicateType = Union[Annotated['t_Predicate', Field(discriminator='type_of')], 't_Py2PredicateType']
+type t_Py2PredicateType = Union[
+    str, int, NoneType, float, list['t_DefaultPredicateType'], dict
+]  # bug if dict[str, 't_DefaultPredicateType']
+type t_DefaultPredicateType = Union[Annotated['t_Predicate', Field(discriminator='type_of')], t_Py2PredicateType]
 
-OrPredicate = GenericOrPredicate[_t_DefaultPredicateType]
-AndPredicate = GenericAndPredicate[_t_DefaultPredicateType]
-NotPredicate = GenericNotPredicate[_t_DefaultPredicateType]
+
+class DynamicKeyMatch(GenericDynamicKeyMatch[t_DefaultPredicateType]):
+    pass
+
+
+class OrPredicate(GenericOrPredicate[t_DefaultPredicateType]):
+    def __invert__(self):
+        return AndPredicate(predicates=[~p for p in self.compiled_value])
+
+
+class AndPredicate(GenericAndPredicate[t_DefaultPredicateType]):
+    def __invert__(self):
+        return OrPredicate(predicates=[~p for p in self.compiled_value])
+
+
+class NotPredicate(GenericNotPredicate[t_DefaultPredicateType]):
+    pass
+
 
 t_LogicalPredicate = Union[
     OrPredicate,
@@ -212,26 +233,96 @@ t_GenericNestedPredicate = Union[
     GenericNestedObjectContainsSubset[_t_SpecifiedType],
 ]
 
-ArrayContains = GenericArrayContains[_t_DefaultPredicateType]
-ArrayNotContains = GenericArrayNotContains[_t_DefaultPredicateType]
-ArrayEqualTo = GenericArrayEqualTo[_t_DefaultPredicateType]
-ArrayNotEqualTo = GenericArrayNotEqualTo[_t_DefaultPredicateType]
 
-ObjectContainsSubset = GenericObjectContainsSubset[_t_DefaultPredicateType]
-ObjectNotContainsSubset = GenericObjectNotContainsSubset[_t_DefaultPredicateType]
-ObjectNotEqualTo = GenericObjectNotEqualTo[_t_DefaultPredicateType]
-ObjectEqualTo = GenericObjectEqualTo[_t_DefaultPredicateType]
-ObjectHasValue = GenericObjectHasValue[_t_DefaultPredicateType]
-ObjectHasNoValue = GenericObjectHasNoValue[_t_DefaultPredicateType]
+class ArrayContains(GenericArrayContains[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ArrayNotContains(value=self.value)
 
-NestedArrayContains = GenericNestedArrayContains[_t_DefaultPredicateType]
-NestedArrayNotContains = GenericNestedArrayNotContains[_t_DefaultPredicateType]
-NestedArrayEqualTo = GenericNestedArrayEqualTo[_t_DefaultPredicateType]
-NestedObjectEqualTo = GenericNestedObjectEqualTo[_t_DefaultPredicateType]
-NestedObjectNotEqualTo = GenericNestedObjectNotEqualTo[_t_DefaultPredicateType]
-NestedArrayNotEqualTo = GenericNestedArrayNotEqualTo[_t_DefaultPredicateType]
-NestedObjectNotContainsSubset = GenericNestedObjectNotContainsSubset[_t_DefaultPredicateType]
-NestedObjectContainsSubset = GenericNestedObjectContainsSubset[_t_DefaultPredicateType]
+
+class ArrayNotContains(GenericArrayNotContains[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ArrayContains(value=self.value)
+
+
+class ArrayEqualTo(GenericArrayEqualTo[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
+
+
+class ArrayNotEqualTo(GenericArrayNotEqualTo[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
+
+
+class ObjectContainsSubset(GenericObjectContainsSubset[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ObjectNotContainsSubset(value=self.value, dynamic_matches=self.dynamic_matches)
+
+
+class ObjectNotContainsSubset(GenericObjectNotContainsSubset[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ObjectContainsSubset(value=self.value, dynamic_matches=self.dynamic_matches)
+
+
+class ObjectNotEqualTo(GenericObjectNotEqualTo[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ObjectEqualTo(value=self.value, dynamic_matches=self.dynamic_matches)
+
+
+class ObjectEqualTo(GenericObjectEqualTo[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ObjectNotEqualTo(value=self.value, dynamic_matches=self.dynamic_matches)
+
+
+class ObjectHasValue(GenericObjectHasValue[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ObjectHasNoValue(predicate=self.predicate)
+
+
+class ObjectHasNoValue(GenericObjectHasNoValue[t_DefaultPredicateType]):
+    def __invert__(self):
+        return ObjectHasValue(predicate=self.predicate)
+
+
+class NestedArrayContains(GenericNestedArrayContains[t_DefaultPredicateType]):
+    def __invert__(self):
+        return NestedArrayNotContains(value=self.value)
+
+
+class NestedArrayNotContains(GenericNestedArrayNotContains[t_DefaultPredicateType]):
+    def __invert__(self):
+        return NestedArrayContains(value=self.value)
+
+
+class NestedArrayEqualTo(GenericNestedArrayEqualTo[t_DefaultPredicateType]):
+    def __invert__(self):
+        return NestedArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
+
+
+class NestedObjectEqualTo(GenericNestedObjectEqualTo[t_DefaultPredicateType]):
+    def __invert__(self):
+        return NestedObjectNotEqualTo(value=self.value)
+
+
+class NestedObjectNotEqualTo(GenericNestedObjectNotEqualTo[t_DefaultPredicateType]):
+    def __invert__(self):
+        return NestedObjectEqualTo(value=self.value)
+
+
+class NestedArrayNotEqualTo(GenericNestedArrayNotEqualTo[t_DefaultPredicateType]):
+    def __invert__(self):
+        return NestedArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
+
+
+class NestedObjectNotContainsSubset(GenericNestedObjectNotContainsSubset[t_DefaultPredicateType]):
+    def __invert__(self):
+        return NestedObjectContainsSubset(value=self.value)
+
+
+class NestedObjectContainsSubset(GenericNestedObjectContainsSubset[t_DefaultPredicateType]):
+    def __invert__(self):
+        return NestedObjectNotContainsSubset(value=self.value)
+
 
 t_ArrayPredicate = Union[
     ArrayContains,
@@ -270,8 +361,6 @@ t_Predicate = Annotated[
     Field(discriminator='type_of'),
 ]
 
-t_Py2PredicateType = Union[str, int, NoneType, float, list, dict]
-
 t_StringPredicate = Union[
     t_ScalarStringPredicate,
     GenericOrPredicate['t_StringPredicate'],
@@ -284,10 +373,18 @@ t_IntegerPredicate = Union[
     GenericAndPredicate['t_IntegerPredicate'],
 ]
 
-
 t_UnspecifiedPredicate = TypeVar(
     't_UnspecifiedPredicate',
 )
+
+
+class RootPredicate(RootModel):
+    root: t_Predicate = Field(discriminator='type_of')
+
+    @model_validator(mode='before')
+    @classmethod
+    def json_type_of_deserializer(cls, data):
+        return deserialize_json_predicate_format(data)
 
 
 if not TYPE_CHECKING:
@@ -316,6 +413,7 @@ if not TYPE_CHECKING:
     NestedObjectNotEqualTo.model_rebuild()
 
     # objects
+    DynamicKeyMatch.model_rebuild()
     ObjectContainsSubset.model_rebuild()
     ObjectEqualTo.model_rebuild()
     ObjectHasNoValue.model_rebuild()

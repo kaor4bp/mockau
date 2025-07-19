@@ -38,6 +38,13 @@ class OptionalPredicate(BaseNullPredicate):
 
     predicate: Union['t_Predicate', 't_Py2PredicateType']
 
+    def normalize(self):
+        from core.predicates import OrPredicate
+
+        return OrPredicate(
+            predicates=[IsNull(), self.predicate.normalize()],
+        ).normalize()
+
     @field_validator('predicate', mode='before')
     @classmethod
     def handle_py2predicate(cls, data):

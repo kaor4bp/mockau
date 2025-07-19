@@ -1,14 +1,12 @@
-from copy import deepcopy
-from functools import reduce
+from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
 import z3
-from pydantic import field_validator
 
 from core.predicates.base_predicate import (
     BaseLogicalPredicate,
-    BasePredicate,
     BaseScalarPredicate,
+    ParityPredicateMixin,
     PredicateType,
     VariableContext,
 )
@@ -31,7 +29,7 @@ class VoidPredicate(BaseLogicalPredicate):
 
     @property
     def predicate_types(self):
-        return {PredicateType.Undefined}
+        return {PredicateType.Any}
 
     def to_z3(self, ctx: VariableContext):
         return z3.BoolVal(False, ctx=ctx.z3_context)
@@ -82,46 +80,57 @@ class AnyPredicate(BaseScalarPredicate):
         return z3.BoolVal(True, ctx=ctx.z3_context)
 
 
-class GenericNotPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
+class GenericNotPredicate(BaseLogicalPredicate, ParityPredicateMixin, Generic[_t_SpecifiedType]):
     type_of: Literal['$-mockau-not'] = '$-mockau-not'
 
     predicate: _t_SpecifiedType
 
-    @field_validator('predicate', mode='before')
-    @classmethod
-    def handle_py2predicate(cls, data):
-        if not isinstance(data, BasePredicate):
-            return py_value_to_predicate(data)
-        else:
-            return data
+    def normalize(self):
+        value = self.compiled_value.normalize()
 
-    @field_validator('predicate', mode='after')
-    @classmethod
-    def validate_predicates(cls, value):
-        if not isinstance(value, BasePredicate):
-            raise ValueError(f'Item predicate must be a BasePredicate, got {value}')
-        return value
+        if isinstance(value, VoidPredicate):
+            return AnyPredicate()
+        if isinstance(value, AnyPredicate):
+            return VoidPredicate()
+
+        if isinstance(value, GenericNotPredicate):
+            return (~value).normalize()
+        else:
+            return GenericNotPredicate[Any](predicate=value.normalize())
+
+    @cached_property
+    def compiled_value(self):
+        p = py_value_to_predicate(self.predicate)
+        if isinstance(p, ParityPredicateMixin):
+            p._parity = not self._parity
+        return p
 
     def __invert__(self):
-        return self.predicate
+        return self.compiled_value
 
     def verify(self, value):
         other_types = ALLOWED_POOL_PREDICATE_TYPES - self.predicate_types
 
-        constraints = [not self.predicate.verify(value)]
+        constraints = [not self.compiled_value.verify(value)]
         for other_type in other_types:
             constraints.append(isinstance(value, PREDICATE_TYPE_TO_PYTHON_TYPE[other_type]))
         return any(constraints)
 
     @property
     def predicate_types(self) -> set[PredicateType]:
-        return self.predicate.predicate_types
+        if self._parity:
+            if isinstance(self.compiled_value, GenericNotPredicate):
+                return self.compiled_value.compiled_value.predicate_types
+            else:
+                return self.compiled_value.predicate_types
+        else:
+            return ALLOWED_POOL_PREDICATE_TYPES
 
     def calculate_limitations(self) -> PredicateLimitations:
-        return (~self.predicate).calculate_limitations()
+        return (~self.compiled_value).calculate_limitations()
 
     def to_z3(self, ctx: VariableContext):
-        inverted_predicate = ~self.predicate
+        inverted_predicate = ~self.compiled_value
         additional_constraints = []
 
         if PredicateType.Any not in self.predicate_types:
@@ -150,40 +159,79 @@ class GenericNotPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
         return z3.Or(inverted_predicate.to_z3(ctx), *additional_constraints)
 
 
-class GenericAndPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
+class GenericAndPredicate(BaseLogicalPredicate, ParityPredicateMixin, Generic[_t_SpecifiedType]):
     type_of: Literal['$-mockau-and'] = '$-mockau-and'
 
     predicates: list[_t_SpecifiedType]
 
-    @field_validator('predicates', mode='before')
-    @classmethod
-    def handle_py2predicate(cls, data):
-        if not isinstance(data, list):
-            return data
-        data = deepcopy(data)
-        for item_index, item in enumerate(data):
-            if not isinstance(item, BasePredicate):
-                data[item_index] = py_value_to_predicate(item)
-        return data
+    def normalize(self):
+        """
+        Normalizes the predicate by transforming it into Conjunctive Normal Form (CNF)
+        using De Morgan's laws: ``AND(P1, P2, ...)`` becomes ``NOT(OR(NOT(P1), NOT(P2), ...))``.
 
-    @field_validator('predicates', mode='after')
-    @classmethod
-    def validate_predicates(cls, value):
-        for item_pred in value:
-            if not isinstance(item_pred, BasePredicate):
-                raise ValueError(f'Item predicate must be a BasePredicate, got {item_pred}')
-        return value
+        This specific normalization strategy is intentionally applied to ensure that
+        logically equivalent ``AND`` predicates result in identical normalized forms.
+        The primary goal of this normalization is to facilitate the robust
+        verification of predicate equivalence, allowing for direct comparison
+        after transformation to a canonical CNF representation.
+
+        :returns: A new ``GenericNotPredicate`` instance representing the CNF form.
+        :rtype: GenericNotPredicate
+
+        .. Generated by Athena (Gemini 2.5 Flash).
+        """
+
+        flattened_predicates = []
+        for p in self.compiled_value:
+            if isinstance(p, GenericAndPredicate):
+                flattened_predicates += p.compiled_value
+            else:
+                flattened_predicates.append(p)
+
+        unique_flattened_predicates = {}
+        for p in flattened_predicates:
+            if isinstance(p, AnyPredicate):
+                continue
+            unique_flattened_predicates[p.model_dump_json(by_alias=True)] = p
+        flattened_predicates = list(unique_flattened_predicates.values())
+
+        if any(isinstance(p, VoidPredicate) for p in flattened_predicates):
+            return VoidPredicate()
+
+        if len(flattened_predicates) == 1:
+            return flattened_predicates[0].normalize()
+        if len(flattened_predicates) == 0:
+            return VoidPredicate()
+
+        flattened_predicates.sort(key=lambda x: x.model_dump_json(by_alias=True))
+
+        return GenericNotPredicate[Any](
+            predicate=GenericOrPredicate[Any](
+                predicates=[GenericNotPredicate[Any](predicate=p) for p in flattened_predicates]
+            ).normalize()
+        ).normalize()
+
+    @cached_property
+    def compiled_value(self):
+        assert isinstance(self.predicates, list)
+
+        items = [py_value_to_predicate(item) for item in self.predicates]
+        for item in items:
+            if isinstance(item, ParityPredicateMixin):
+                item._parity = self._parity
+
+        return items
 
     def verify(self, value):
-        return all(p.verify(value) for p in self.predicates)
+        return all(p.verify(value) for p in self.compiled_value)
 
     def calculate_limitations(self) -> PredicateLimitations:
-        if self.predicates:
+        if not self.predicates:
             return PredicateLimitations()
         else:
-            limitation = self.predicates[0].calculate_limitations()
-            for other_limitation in self.predicates[1:]:
-                limitation.push(other_limitation)
+            limitation = self.compiled_value[0].calculate_limitations()
+            for other_limitation in self.compiled_value[1:]:
+                limitation.push(other_limitation.calculate_limitations())
             return limitation
 
     @property
@@ -198,14 +246,14 @@ class GenericAndPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        intersected_types = reduce(lambda x, y: x & y, [p.predicate_types for p in self.predicates])
+        intersected_types = reduce(lambda x, y: x & y, [p.predicate_types for p in self.compiled_value])
         if intersected_types:
             return intersected_types
         else:
             return {PredicateType.Null}
 
     def __invert__(self):
-        return GenericOrPredicate[Any](predicates=[~p for p in self.predicates])
+        return GenericOrPredicate[Any](predicates=[~p for p in self.compiled_value])
 
     def to_z3(self, ctx: VariableContext):
         """Convert the AND predicate to a Z3 expression.
@@ -224,38 +272,70 @@ class GenericAndPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
             return z3.BoolVal(False, ctx=ctx.z3_context)
         else:
             return z3.And(
-                [inner_predicate.to_z3(ctx) for inner_predicate in self.predicates]
+                [inner_predicate.to_z3(ctx) for inner_predicate in self.compiled_value]
                 + [z3.BoolVal(True, ctx=ctx.z3_context)]
             )
 
 
-class GenericOrPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
+class GenericOrPredicate(BaseLogicalPredicate, ParityPredicateMixin, Generic[_t_SpecifiedType]):
     type_of: Literal['$-mockau-or'] = '$-mockau-or'
 
     predicates: list[_t_SpecifiedType]
 
-    @field_validator('predicates', mode='before')
-    @classmethod
-    def handle_py2predicate(cls, data):
-        if not isinstance(data, list):
-            return data
-        data = deepcopy(data)
+    def normalize(self):
+        flattened_predicates = []
+        # not_flattened_predicates = []
+        for p in self.compiled_value:
+            if isinstance(p, GenericOrPredicate):
+                flattened_predicates += [sub_p.normalize() for sub_p in p.compiled_value]
+            else:
+                flattened_predicates.append(p.normalize())
 
-        for item_index, item in enumerate(data):
-            if not isinstance(item, BasePredicate):
-                data[item_index] = py_value_to_predicate(item)
-        return data
+        # for p in list(flattened_predicates):
+        #     if isinstance(p, GenericNotPredicate):
+        #         not_flattened_predicates.append(
+        #             flattened_predicates.pop(flattened_predicates.index(p))
+        #         )
+        # if len(not_flattened_predicates) > 1:
+        #     flattened_predicates.append(
+        #         GenericNotPredicate[Any](
+        #             predicate=GenericOrPredicate[Any](predicates=[~p for p in not_flattened_predicates])
+        #         )
+        #     )
+        # elif len(not_flattened_predicates) == 1:
+        #     flattened_predicates.append(not_flattened_predicates[0])
 
-    @field_validator('predicates', mode='after')
-    @classmethod
-    def validate_predicates(cls, value):
-        for item_pred in value:
-            if not isinstance(item_pred, BasePredicate):
-                raise ValueError(f'Item predicate must be a BasePredicate, got {item_pred}')
-        return value
+        unique_flattened_predicates = {}
+        for p in flattened_predicates:
+            if isinstance(p, VoidPredicate):
+                continue
+            unique_flattened_predicates[p.model_dump_json(by_alias=True)] = p
+        flattened_predicates = list(unique_flattened_predicates.values())
+
+        if any(isinstance(p, AnyPredicate) for p in flattened_predicates):
+            return AnyPredicate()
+
+        if len(flattened_predicates) == 1:
+            return flattened_predicates[0]
+        if len(flattened_predicates) == 0:
+            return AnyPredicate()
+
+        flattened_predicates.sort(key=lambda x: x.model_dump_json(by_alias=True))
+
+        return GenericOrPredicate[Any](predicates=flattened_predicates)
+
+    @cached_property
+    def compiled_value(self):
+        assert isinstance(self.predicates, list)
+        items = [py_value_to_predicate(item) for item in self.predicates]
+        for item in items:
+            if isinstance(item, ParityPredicateMixin):
+                item._parity = self._parity
+
+        return items
 
     def verify(self, value):
-        return any(p.verify(value) for p in self.predicates)
+        return any(p.verify(value) for p in self.compiled_value)
 
     @property
     def predicate_types(self) -> set[PredicateType]:
@@ -269,20 +349,20 @@ class GenericOrPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
         .. Docstring created by Gemini 2.5 Flash
         """
         if self.predicates:
-            return set.union(*[inner_predicate.predicate_types for inner_predicate in self.predicates])
+            return set.union(*[inner_predicate.predicate_types for inner_predicate in self.compiled_value])
         else:
             return set()
 
     def __invert__(self):
-        return GenericAndPredicate[Any](predicates=[~p for p in self.predicates])
+        return GenericAndPredicate[Any](predicates=[~(p) for p in self.compiled_value])
 
     def calculate_limitations(self) -> PredicateLimitations:
-        if self.predicates:
+        if not self.predicates:
             return PredicateLimitations()
         else:
-            limitation = self.predicates[0].calculate_limitations()
-            for other_limitation in self.predicates[1:]:
-                limitation.push(other_limitation)
+            limitation = self.compiled_value[0].calculate_limitations()
+            for other_limitation in self.compiled_value[1:]:
+                limitation.push(other_limitation.calculate_limitations())
             return limitation
 
     def to_z3(self, ctx: VariableContext):
@@ -296,6 +376,6 @@ class GenericOrPredicate(BaseLogicalPredicate, Generic[_t_SpecifiedType]):
         .. Docstring created by Gemini 2.5 Flash
         """
         or_predicates = [z3.BoolVal(False, ctx=ctx.z3_context)]
-        or_predicates += [inner_predicate.to_z3(ctx) for inner_predicate in self.predicates]
+        or_predicates += [inner_predicate.to_z3(ctx) for inner_predicate in self.compiled_value]
 
         return z3.Or(*or_predicates)

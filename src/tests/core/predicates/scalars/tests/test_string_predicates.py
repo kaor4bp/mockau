@@ -1,6 +1,14 @@
 import pytest
 
-from core.predicates import AndPredicate, AnyPredicate, OrPredicate, StringContains, StringEqualTo, StringPattern
+from core.predicates import (
+    AndPredicate,
+    AnyPredicate,
+    OrPredicate,
+    RootPredicate,
+    StringContains,
+    StringEqualTo,
+    StringPattern,
+)
 from utils.formatters import get_params_argv
 
 EQUIVALENTS = {
@@ -255,3 +263,31 @@ class TestStringPredicates:
     def test_string_any(self):
         any_predicate = AnyPredicate()
         assert any_predicate.is_matched('holmes') is True
+
+
+class TestConsistency:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_is_consistent(self, p1, p2):
+        assert p1.is_consistent()
+        assert p2.is_consistent()
+
+
+class TestSelfEquality:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_predicate_is_equivalent_to_itself(self, p1, p2):
+        assert p1.is_equal_to(p1)
+        assert p2.is_equal_to(p2)
+
+
+class TestSerialization:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_json_dump(self, p1, p2):
+        p1.model_dump_json()
+        p2.model_dump_json()
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_json_load(self, p1, p2):
+        restored_p1 = RootPredicate.model_validate_json(p1.model_dump_json(by_alias=True))
+        assert restored_p1.root.is_equal_to(p1)
+        restored_p2 = RootPredicate.model_validate_json(p2.model_dump_json(by_alias=True))
+        assert restored_p2.root.is_equal_to(p2)

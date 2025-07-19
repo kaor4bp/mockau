@@ -4,6 +4,7 @@ import pytest
 from core.predicates import (
     AndPredicate,
     AnyPredicate,
+    DynamicKeyMatch,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
     IntegerGreaterThan,
@@ -28,18 +29,21 @@ NOT_INTERSECTIONS = {
     ],
     'nested_dict_different_structures_eq': [
         ObjectEqualTo(
-            value={
-                StringContains(value='llo'): {'lol': 'kek'},  # e.g. {"hello": {"lol": "kek"}}
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='llo'),
+                    value={'lol': 'kek'},
+                )
+            ],
         ),
         ObjectEqualTo(
-            value={
-                StringContains(value='hello'): ObjectEqualTo(
-                    value={'lol': StringContains(value='cheburek'), 'new_key': 1}
-                ),
-                # e.g. {"hello": {"lol": "cheburek", "new_key": 1}}
-            }
-        ),  # If "hello" matches both, inner dicts are different.
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='hello'),
+                    value=ObjectEqualTo(value={'lol': StringContains(value='cheburek'), 'new_key': 1}),
+                )
+            ]
+        ),
     ],
     'obj_eq_key_a_val_1_vs_obj_eq_key_b_val_1': [ObjectEqualTo(value={'a': 1}), ObjectEqualTo(value={'b': 1})],
     'obj_eq_val_predicate_mismatch': [
@@ -52,15 +56,20 @@ INTERSECTIONS = {
     'obj_eq_lol_kek_self_intersect': [ObjectEqualTo(value={'lol': 'kek'}), ObjectEqualTo(value={'lol': 'kek'})],
     'nested_dict_predicate_key_intersect': [  # Key "hello" can match StringContains('llo') and StringContains('hello')
         ObjectEqualTo(
-            value={
-                StringContains(value='llo'): {'lol': 'kek'},  # Matches e.g. {"hello": {"lol": "kek"}}
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='llo'),
+                    value={'lol': 'kek'},
+                )
+            ]
         ),
         ObjectEqualTo(
-            value={
-                StringContains(value='hello'): ObjectEqualTo(value={'lol': StringContains(value='kek')}),
-                # Matches e.g. {"hello": {"lol": "superkek"}}
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='hello'),
+                    value=ObjectEqualTo(value={'lol': StringContains(value='kek')}),
+                )
+            ]
         ),  # Intersects if an object like {"hello": {"lol": "kek"}} exists
     ],
     'obj_eq_val_predicate_intersect': [
@@ -70,10 +79,16 @@ INTERSECTIONS = {
     ],
     'concurrent_predicate_keys_intersect_1': [  # Original test
         ObjectEqualTo(
-            value={
-                StringContains(value='ello'): IntegerGreaterThan(value=4),  # key "hello", value > 4
-                StringContains(value='ell'): IntegerGreaterThan(value=1),  # key "hello", value > 1
-            }
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value='ello'),
+                    value=IntegerGreaterThan(value=4),
+                ),
+                DynamicKeyMatch(
+                    key=StringContains(value='ell'),
+                    value=IntegerGreaterThan(value=1),
+                ),
+            ]
         ),
         ObjectEqualTo(
             value={  # Test against concrete keys
@@ -360,7 +375,14 @@ MATCHED = {
     'obj_contains_subset_empty_dict': [ObjectContainsSubset(value={}), {'any': 'object'}],
     'obj_contains_subset_empty_dict_on_empty_dict': [ObjectContainsSubset(value={}), {}],
     'key_is_predicate_match': [
-        ObjectEqualTo(value={StringPattern(pattern="^key\\d$"): IntegerEqualTo(value=10)}),
+        ObjectEqualTo(
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringPattern(pattern="^key\\d$"),
+                    value=IntegerEqualTo(value=10),
+                )
+            ]
+        ),
         {'key1': 10},
     ],
     'any_predicate_as_value_matches': [
@@ -414,11 +436,25 @@ NOT_MATCHED = {
     'obj_eq_empty_vs_non_empty': [ObjectEqualTo(value={}), {'not': 'empty'}],
     'obj_contains_subset_non_empty_vs_empty': [ObjectContainsSubset(value={'key': 'val'}), {}],
     'key_is_predicate_no_match': [
-        ObjectEqualTo(value={StringPattern(pattern="^key\\d$"): IntegerEqualTo(value=10)}),
+        ObjectEqualTo(
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringPattern(pattern="^key\\d$"),
+                    value=IntegerEqualTo(value=10),
+                )
+            ]
+        ),
         {'keys': 10},  # key "keys" does not match pattern
     ],
     'key_is_predicate_val_mismatch_moved': [  # Moved from MATCHED as it's a non-match
-        ObjectEqualTo(value={StringContains(value="id"): IntegerEqualTo(value=1)}),
+        ObjectEqualTo(
+            dynamic_matches=[
+                DynamicKeyMatch(
+                    key=StringContains(value="id"),
+                    value=IntegerEqualTo(value=1),
+                )
+            ]
+        ),
         {'user_id': 2},
     ],
     # 'not_a_dict_input_for_eq': [ObjectEqualTo(value={'a': 1}), "string input"],

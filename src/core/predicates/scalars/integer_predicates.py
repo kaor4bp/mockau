@@ -56,6 +56,13 @@ class IntegerNotEqualTo(BaseIntegerPredicate):
     type_of: Literal['$-mockau-integer-neq'] = '$-mockau-integer-neq'
     value: int
 
+    def normalize(self):
+        from core.predicates import OrPredicate
+
+        return OrPredicate(
+            predicates=[IntegerGreaterThan(value=self.value), IntegerLessThan(value=self.value)],
+        ).normalize()
+
     def verify(self, value):
         return isinstance(value, int) and value != self.value
 
@@ -104,6 +111,13 @@ class IntegerGreaterOrEqualThan(BaseIntegerPredicate):
 
     type_of: Literal['$-mockau-integer-gte'] = '$-mockau-integer-gte'
     value: int
+
+    def normalize(self):
+        from core.predicates import OrPredicate
+
+        return OrPredicate(
+            predicates=[IntegerGreaterThan(value=self.value), IntegerEqualTo(value=self.value)],
+        ).normalize()
 
     def verify(self, value):
         return isinstance(value, int) and value >= self.value
@@ -162,6 +176,13 @@ class IntegerLessOrEqualThan(BaseIntegerPredicate):
 
     type_of: Literal['$-mockau-integer-lte'] = '$-mockau-integer-lte'
     value: int
+
+    def normalize(self):
+        from core.predicates import OrPredicate
+
+        return OrPredicate(
+            predicates=[IntegerLessThan(value=self.value), IntegerEqualTo(value=self.value)],
+        ).normalize()
 
     def verify(self, value):
         return isinstance(value, int) and value <= self.value

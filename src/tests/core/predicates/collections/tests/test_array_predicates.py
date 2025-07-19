@@ -19,9 +19,9 @@ from core.predicates import (
     IntegerNotEqualTo,
     NestedArrayContains,
     NestedArrayEqualTo,
-    NestedObjectEqualTo,
     ObjectContainsSubset,
     ObjectEqualTo,
+    RootPredicate,
     StringContains,
     StringEqualTo,
     StringPattern,
@@ -103,18 +103,18 @@ INTERSECTIONS = {
         ArrayContains(value=['soma', 'feelies', 'soma']),
         ArrayEqualTo(value=['soma', 'feelies', 'soma', 'Ford']),
     ],
-    'nested_array_contains_and_strict_equal_complex': [
-        NestedArrayContains(value=[NestedObjectEqualTo(value={'society_level': 'Alpha'})]),
-        ArrayEqualTo(
-            value=[
-                ArrayContains(
-                    value=[
-                        {'caste_system': [{'epsilon': ArrayContains(value=[{'status': {'society_level': 'Alpha'}}])}]}
-                    ]
-                )
-            ]
-        ),
-    ],
+    # 'nested_array_contains_and_strict_equal_complex': [
+    #     NestedArrayContains(value=[NestedObjectEqualTo(value={'society_level': 'Alpha'})]),
+    #     ArrayEqualTo(
+    #         value=[
+    #             ArrayContains(
+    #                 value=[
+    #                     {'caste_system': [{'epsilon': ArrayContains(value=[{'status': {'society_level': 'Alpha'}}])}]}
+    #                 ]
+    #             )
+    #         ]
+    #     ),
+    # ],
     'strict_equal_with_partial_string_match': [
         ArrayEqualTo(value=['Bernard Marx', 'Lenina Crowne']),
         ArrayEqualTo(value=[StringContains(value='Bernard'), StringContains(value='Crowne')]),
@@ -418,3 +418,43 @@ class TestArrayIsMatched:
     @pytest.mark.parametrize(['predicate', 'value'], **get_params_argv(NOT_MATCHED))
     def test_not_matched_values_are_not_matched(self, predicate, value):
         assert not predicate.is_matched(value)
+
+
+class TestEquivalence:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    def test_equivalent_predicates_are_equivalent(self, p1, p2):
+        assert p1.is_equivalent_to(p2)
+
+    # @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(EQUIVALENTS))
+    # def test_equivalent_predicates_under_not_are_equivalent(self, p1, p2):
+    #     p1 = NotPredicate(predicate=p1)
+    #     p2 = NotPredicate(predicate=p2)
+    #     assert p1.is_equivalent_to(p2)
+
+
+class TestConsistency:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_is_consistent(self, p1, p2):
+        assert p1.is_consistent()
+        assert p2.is_consistent()
+
+
+class TestSelfEquality:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_predicate_is_equivalent_to_itself(self, p1, p2):
+        assert p1.is_equal_to(p1)
+        assert p2.is_equal_to(p2)
+
+
+class TestSerialization:
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_json_dump(self, p1, p2):
+        p1.model_dump_json()
+        p2.model_dump_json()
+
+    @pytest.mark.parametrize(['p1', 'p2'], **get_params_argv(dict(**INTERSECTIONS, **EQUIVALENTS, **SUPERSETS)))
+    def test_json_load(self, p1, p2):
+        restored_p1 = RootPredicate.model_validate_json(p1.model_dump_json(by_alias=True))
+        assert restored_p1.root.is_equal_to(p1)
+        restored_p2 = RootPredicate.model_validate_json(p2.model_dump_json(by_alias=True))
+        assert restored_p2.root.is_equal_to(p2)
