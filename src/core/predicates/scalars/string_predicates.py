@@ -1,5 +1,6 @@
+import itertools
 import re
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, Union
 
 import exrex
 import z3
@@ -7,8 +8,12 @@ from z3 import InRe
 
 from core.predicates.base_predicate import BaseScalarPredicate, PredicateType, VariableContext
 from core.predicates.context.predicate_limitations import PredicateLimitations
+from core.predicates.helpers import py_value_to_predicate
 from utils.heuristics import get_pattern_estimated_length
 from utils.z3_helpers import ConvertEREToZ3Regex, string_to_case_insensitive_z3_regex
+
+if TYPE_CHECKING:
+    from core.predicates import t_ScalarStringPredicate, t_StringOrIntegerPredicateType
 
 
 def is_pattern_equal_to_string(value: str, pattern: str) -> bool:
@@ -316,4 +321,211 @@ class StringNotContains(StringContains):
             z3.Not(contains_expression, ctx=ctx.z3_context),
             ctx.json_type_variable.is_str(),
             ctx.get_limitations().max_string_len >= z3.Length(string_variable),
+        )
+
+
+class StringInList(BaseStringPredicate):
+    type_of: Literal['$-mockau-str-in-list'] = '$-mockau-str-in-list'
+    values: list[Union['t_ScalarStringPredicate', str]]
+
+    @property
+    def compiled_value(self):
+        return [py_value_to_predicate(item) for item in self.values]
+
+    def normalize_to_canonical_form(self):
+        from core.predicates import OrPredicate
+
+        return OrPredicate(
+            predicates=[item.normalize_to_canonical_form() for item in self.compiled_value],
+        ).normalize_to_canonical_form()
+
+    def verify(self, value):
+        for item in self.compiled_value:
+            if item.verify(value):
+                return True
+        return False
+
+    def __invert__(self):
+        return StringNotInList(values=self.values)
+
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations()
+        for item in self.compiled_value:
+            limitation.push(item.calculate_limitations())
+        return limitation
+
+    def to_z3(self, ctx: VariableContext):
+        or_constraints = []
+        for item in self.compiled_value:
+            or_constraints.append(item.to_z3(ctx))
+
+        if not or_constraints:
+            return z3.BoolVal(False, ctx=ctx.z3_context)
+
+        return z3.And(z3.Or(*or_constraints), ctx.json_type_variable.is_str())
+
+
+class StringNotInList(StringInList):
+    type_of: Literal['$-mockau-str-not-in-list'] = '$-mockau-str-not-in-list'
+    values: list[Union['t_ScalarStringPredicate', str]]
+
+    def normalize_to_canonical_form(self):
+        from core.predicates import AndPredicate
+
+        return AndPredicate(
+            predicates=[~item.normalize_to_canonical_form() for item in self.compiled_value],
+        ).normalize_to_canonical_form()
+
+    def verify(self, value):
+        for item in self.compiled_value:
+            if item.verify(value):
+                return False
+        return True
+
+    def __invert__(self):
+        return StringInList(values=self.values)
+
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations()
+        for item in self.compiled_value:
+            limitation.push(item.calculate_limitations())
+        return limitation
+
+    def to_z3(self, ctx: VariableContext):
+        or_constraints = []
+        for item in self.compiled_value:
+            or_constraints.append(item.to_z3(ctx))
+
+        if not or_constraints:
+            return z3.BoolVal(True, ctx=ctx.z3_context)
+
+        return z3.And(z3.Not(z3.Or(*or_constraints), ctx=ctx.z3_context), ctx.json_type_variable.is_str())
+
+
+class StringConcatEqualTo(BaseStringPredicate):
+    type_of: Literal['$-mockau-str-concat-eq'] = '$-mockau-str-concat-eq'
+    values: list['t_StringOrIntegerPredicateType']
+
+    @property
+    def compiled_value(self):
+        return [py_value_to_predicate(item) for item in self.values]
+
+    def verify(self, value):
+        if not isinstance(value, str):
+            return False
+        return self.is_intersected_with(StringEqualTo(value=value))
+
+    def __invert__(self):
+        return StringConcatNotEqualTo(values=self.values)
+
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations()
+        for item in self.compiled_value:
+            limitation.push(item.calculate_limitations())
+        return limitation
+
+    def to_z3(self, ctx: VariableContext):
+        string_variable = ctx.get_variable(self.predicate_type)
+
+        if len(self.compiled_value) == 0:
+            return z3.And(
+                string_variable == z3.StringVal('', ctx=ctx.z3_context),
+                ctx.json_type_variable.is_str(),
+            )
+
+        concats = []
+        constraints = []
+        for item in self.compiled_value:
+            item = item.compile_predicate()
+            sibling_ctx = ctx.create_sibling_context()
+            constraints += [
+                item.to_z3(sibling_ctx),
+                sibling_ctx.pop_from_global_constraints(),
+            ]
+            variants = []
+            for pt in item.predicate_types:
+                if pt == PredicateType.String:
+                    variants.append(sibling_ctx.get_variable(pt))
+                elif pt == PredicateType.Integer:
+                    variants.append(z3.IntToStr(sibling_ctx.get_variable(pt)))
+                else:
+                    raise ValueError(f'Unsupported predicate type: {pt}')
+            concats.append(variants)
+
+        or_constraints = []
+        for combination in itertools.product(*concats):
+            if len(combination) > 1:
+                or_constraints.append(z3.Concat(*combination) == string_variable)
+            else:
+                or_constraints.append(combination[0] == string_variable)
+
+        return z3.And(
+            z3.Or(*or_constraints),
+            *constraints,
+            ctx.json_type_variable.is_str(),
+        )
+
+
+class StringConcatNotEqualTo(BaseStringPredicate):
+    type_of: Literal['$-mockau-str-concat-neq'] = '$-mockau-str-concat-neq'
+    values: list['t_StringOrIntegerPredicateType']
+
+    @property
+    def compiled_value(self):
+        return [py_value_to_predicate(item) for item in self.values]
+
+    def verify(self, value):
+        if not isinstance(value, str):
+            return False
+        return self.is_intersected_with(StringEqualTo(value=value))
+
+    def __invert__(self):
+        return StringConcatEqualTo(values=self.values)
+
+    def calculate_limitations(self) -> PredicateLimitations:
+        limitation = PredicateLimitations()
+        for item in self.compiled_value:
+            limitation.push(item.calculate_limitations())
+        limitation.max_string_len = limitation.get_for_level(level=0).max_string_len + 1
+        return limitation
+
+    def to_z3(self, ctx: VariableContext):
+        string_variable = ctx.get_variable(self.predicate_type)
+
+        if len(self.compiled_value) == 0:
+            return z3.And(
+                string_variable != z3.StringVal('', ctx=ctx.z3_context),
+                ctx.json_type_variable.is_str(),
+            )
+
+        concats = []
+        constraints = []
+        for item in self.compiled_value:
+            item = item.compile_predicate()
+            sibling_ctx = ctx.create_sibling_context()
+            constraints += [
+                item.to_z3(sibling_ctx),
+                sibling_ctx.pop_from_global_constraints(),
+            ]
+            variants = []
+            for pt in item.predicate_types:
+                if pt == PredicateType.String:
+                    variants.append(sibling_ctx.get_variable(pt))
+                elif pt == PredicateType.Integer:
+                    variants.append(z3.IntToStr(sibling_ctx.get_variable(pt)))
+                else:
+                    raise ValueError(f'Unsupported predicate type: {pt}')
+            concats.append(variants)
+
+        or_constraints = []
+        for combination in itertools.product(*concats):
+            if len(combination) > 1:
+                or_constraints.append(z3.Concat(*combination) != string_variable)
+            else:
+                or_constraints.append(combination[0] != string_variable)
+
+        return z3.And(
+            z3.Or(*or_constraints),
+            *constraints,
+            ctx.json_type_variable.is_str(),
         )

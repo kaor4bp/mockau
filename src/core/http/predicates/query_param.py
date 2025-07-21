@@ -1,28 +1,28 @@
-from typing import TypeAliasType
+from typing import Optional, TypeAliasType
 
 from pydantic import Field
 
-from core.predicates_group import (
-    BasePredicateGroup,
+from core.predicates import (
+    BaseMetaPredicate,
     GenericArrayContains,
     GenericArrayEqualTo,
     t_GenericArrayPredicate,
-    t_StringPredicate,
+    t_StringPredicateType,
 )
 
 
-class QueryParamItem(BasePredicateGroup):
-    key: t_StringPredicate | str
-    value: t_StringPredicate | str = Field(default=None)
+class QueryParamItem(BaseMetaPredicate):
+    key: t_StringPredicateType
+    value: Optional[t_StringPredicateType] = Field(default=None)
 
 
-_QueryParamItemArrayPredicate = TypeAliasType(
-    '_QueryParamItemArrayPredicate', t_GenericArrayPredicate, type_params=(QueryParamItem,)
+t_QueryParamItemArrayPredicate = TypeAliasType(
+    't_QueryParamItemArrayPredicate', t_GenericArrayPredicate, type_params=(QueryParamItem,)
 )
 
 
-class QueryParamItems(BasePredicateGroup):
-    query_params: _QueryParamItemArrayPredicate
+class QueryParamItems(BaseMetaPredicate):
+    query_params: t_QueryParamItemArrayPredicate
 
 
 if __name__ == '__main__':

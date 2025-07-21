@@ -1,8 +1,10 @@
 from types import NoneType
-from typing import Union, TYPE_CHECKING, TypeVar, Annotated
+from typing import Annotated, Generic
+from typing import TypeVar, Union, TYPE_CHECKING, TypeAliasType
 
 from pydantic import Field, model_validator, RootModel
 
+from core.predicates.base_predicate import BaseMetaPredicate
 from core.predicates.collections.array_predicates import (
     ArrayNotEqualTo,
     ArrayEqualTo,
@@ -66,10 +68,15 @@ from core.predicates.scalars.string_predicates import (
     StringNotEqualTo,
     StringNotPattern,
     StringNotContains,
+    StringInList,
+    StringNotInList,
+    StringConcatEqualTo,
+    StringConcatNotEqualTo,
 )
 
 __all__ = [
     'RootPredicate',
+    'BaseMetaPredicate',
     #
     't_DefaultPredicateType',
     't_Py2PredicateType',
@@ -102,6 +109,8 @@ __all__ = [
     'StringNotEqualTo',
     'StringNotPattern',
     'StringNotContains',
+    'StringConcatEqualTo',
+    'StringConcatNotEqualTo',
     # number
     'NumberEqualTo',
     'NumberLessThan',
@@ -139,6 +148,30 @@ __all__ = [
     'NestedArrayNotEqualTo',
     'NestedObjectNotContainsSubset',
     'NestedObjectContainsSubset',
+    # aliases
+    't_StringPredicateType',
+    't_IntegerPredicateType',
+    't_StringOrIntegerPredicateType',
+    't_NumberPredicateType',
+    't_GenericArrayPredicate',
+    't_GenericObjectPredicate',
+    't_GenericNestedPredicate',
+    # Generics
+    'GenericNotPredicate',
+    'GenericOrPredicate',
+    'GenericAndPredicate',
+    'GenericArrayContains',
+    'GenericArrayNotContains',
+    'GenericArrayEqualTo',
+    'GenericArrayNotEqualTo',
+    'GenericObjectContainsSubset',
+    'GenericObjectNotContainsSubset',
+    'GenericObjectNotEqualTo',
+    'GenericObjectEqualTo',
+    'GenericObjectHasValue',
+    'GenericObjectHasNoValue',
+    'GenericDynamicKeyMatch',
+    #
 ]
 
 t_ScalarBooleanPredicate = Union[BooleanEqualTo, IsNull]
@@ -165,6 +198,10 @@ t_ScalarStringPredicate = Union[
     StringNotEqualTo,
     StringNotPattern,
     StringNotContains,
+    StringInList,
+    StringNotInList,
+    StringConcatEqualTo,
+    StringConcatNotEqualTo,
 ]
 t_ScalarPredicate = Union[
     t_ScalarBooleanPredicate,
@@ -178,25 +215,6 @@ type t_Py2PredicateType = Union[
 ]  # bug if dict[str, 't_DefaultPredicateType']
 type t_DefaultPredicateType = Union[Annotated['t_Predicate', Field(discriminator='type_of')], t_Py2PredicateType]
 
-
-# class DynamicKeyMatch(DynamicKeyMatch[t_DefaultPredicateType]):
-#     pass
-#
-#
-# class OrPredicate(OrPredicate[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return AndPredicate(predicates=[~p for p in self.compiled_value])
-#
-#
-# class AndPredicate(GenericAndPredicate[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return OrPredicate(predicates=[~p for p in self.compiled_value])
-#
-#
-# class NotPredicate(NotPredicate[t_DefaultPredicateType]):
-#     pass
-
-
 t_LogicalPredicate = Union[
     OrPredicate,
     AndPredicate,
@@ -204,126 +222,6 @@ t_LogicalPredicate = Union[
     VoidPredicate,
     NotPredicate,
 ]
-
-_t_SpecifiedType = TypeVar('_t_SpecifiedType')
-
-# t_GenericArrayPredicate = Union[
-#     ArrayContains,
-#     ArrayNotContains,
-#     ArrayEqualTo,
-#     ArrayNotEqualTo,
-# ]
-
-# t_GenericObjectPredicate = Union[
-#     ObjectContainsSubset[_t_SpecifiedType],
-#     ObjectNotContainsSubset[_t_SpecifiedType],
-#     ObjectNotEqualTo[_t_SpecifiedType],
-#     ObjectEqualTo[_t_SpecifiedType],
-#     ObjectHasValue[_t_SpecifiedType],
-#     ObjectHasNoValue[_t_SpecifiedType],
-# ]
-
-# t_GenericNestedPredicate = Union[
-#     NestedArrayContains[_t_SpecifiedType],
-#     NestedArrayNotContains[_t_SpecifiedType],
-#     NestedArrayEqualTo[_t_SpecifiedType],
-#     NestedObjectEqualTo[_t_SpecifiedType],
-#     NestedObjectNotEqualTo[_t_SpecifiedType],
-#     NestedArrayNotEqualTo[_t_SpecifiedType],
-#     NestedObjectNotContainsSubset[_t_SpecifiedType],
-#     NestedObjectContainsSubset[_t_SpecifiedType],
-# ]
-
-
-# class ArrayContains(ArrayContains[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ArrayNotContains(value=self.value)
-#
-#
-# class ArrayNotContains(ArrayNotContains[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ArrayContains(value=self.value)
-#
-#
-# class ArrayEqualTo(ArrayEqualTo[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
-#
-#
-# class ArrayNotEqualTo(ArrayNotEqualTo[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
-#
-#
-# class ObjectContainsSubset(ObjectContainsSubset[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ObjectNotContainsSubset(value=self.value, dynamic_matches=self.dynamic_matches)
-#
-#
-# class ObjectNotContainsSubset(ObjectNotContainsSubset[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ObjectContainsSubset(value=self.value, dynamic_matches=self.dynamic_matches)
-#
-#
-# class ObjectNotEqualTo(ObjectNotEqualTo[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ObjectEqualTo(value=self.value, dynamic_matches=self.dynamic_matches)
-#
-#
-# class ObjectEqualTo(ObjectEqualTo[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ObjectNotEqualTo(value=self.value, dynamic_matches=self.dynamic_matches)
-#
-#
-# class ObjectHasValue(ObjectHasValue[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ObjectHasNoValue(predicate=self.predicate)
-#
-#
-# class ObjectHasNoValue(ObjectHasNoValue[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return ObjectHasValue(predicate=self.predicate)
-#
-#
-# class NestedArrayContains(NestedArrayContains[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return NestedArrayNotContains(value=self.value)
-#
-#
-# class NestedArrayNotContains(NestedArrayNotContains[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return NestedArrayContains(value=self.value)
-#
-#
-# class NestedArrayEqualTo(NestedArrayEqualTo[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return NestedArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
-#
-#
-# class NestedObjectEqualTo(NestedObjectEqualTo[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return NestedObjectNotEqualTo(value=self.value)
-#
-#
-# class NestedObjectNotEqualTo(NestedObjectNotEqualTo[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return NestedObjectEqualTo(value=self.value)
-#
-#
-# class NestedArrayNotEqualTo(NestedArrayNotEqualTo[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return NestedArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
-#
-#
-# class NestedObjectNotContainsSubset(NestedObjectNotContainsSubset[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return NestedObjectContainsSubset(value=self.value)
-#
-#
-# class NestedObjectContainsSubset(NestedObjectContainsSubset[t_DefaultPredicateType]):
-#     def __invert__(self):
-#         return NestedObjectNotContainsSubset(value=self.value)
-
 
 t_ArrayPredicate = Union[
     ArrayContains,
@@ -362,22 +260,6 @@ t_Predicate = Annotated[
     Field(discriminator='type_of'),
 ]
 
-# t_StringPredicate = Union[
-#     t_ScalarStringPredicate,
-#     OrPredicate['t_StringPredicate'],
-#     GenericAndPredicate['t_StringPredicate'],
-# ]
-#
-# t_IntegerPredicate = Union[
-#     t_ScalarIntegerPredicate,
-#     OrPredicate['t_IntegerPredicate'],
-#     GenericAndPredicate['t_IntegerPredicate'],
-# ]
-
-t_UnspecifiedPredicate = TypeVar(
-    't_UnspecifiedPredicate',
-)
-
 
 class RootPredicate(RootModel):
     root: t_Predicate = Field(discriminator='type_of')
@@ -387,6 +269,171 @@ class RootPredicate(RootModel):
     def json_type_of_deserializer(cls, data):
         return deserialize_json_predicate_format(data)
 
+
+# region Generics and aliases
+_t_SpecifiedType = TypeVar('_t_SpecifiedType')
+
+
+class GenericOrPredicate(OrPredicate, Generic[_t_SpecifiedType]):
+    predicates: list[_t_SpecifiedType]
+
+
+class GenericNotPredicate(NotPredicate, Generic[_t_SpecifiedType]):
+    predicate: _t_SpecifiedType
+
+
+class GenericAndPredicate(AndPredicate, Generic[_t_SpecifiedType]):
+    predicates: list[_t_SpecifiedType]
+
+
+class GenericDynamicKeyMatch(DynamicKeyMatch, Generic[_t_SpecifiedType]):
+    key: Union[
+        't_StringPredicateType',
+        str,
+    ] = Field(alias='$key')
+    value: _t_SpecifiedType = Field(alias='$value')
+
+
+class GenericObjectContainsSubset(ObjectContainsSubset, Generic[_t_SpecifiedType]):
+    value: dict[str, _t_SpecifiedType] = Field(default_factory=dict)
+    dynamic_matches: list[GenericDynamicKeyMatch[_t_SpecifiedType]] = Field(default_factory=list)
+
+
+class GenericObjectNotContainsSubset(ObjectNotContainsSubset, Generic[_t_SpecifiedType]):
+    value: dict[str, _t_SpecifiedType] = Field(default_factory=dict)
+    dynamic_matches: list[GenericDynamicKeyMatch[_t_SpecifiedType]] = Field(default_factory=list)
+
+
+class GenericObjectNotEqualTo(ObjectNotEqualTo, Generic[_t_SpecifiedType]):
+    value: dict[str, _t_SpecifiedType] = Field(default_factory=dict)
+    dynamic_matches: list[GenericDynamicKeyMatch[_t_SpecifiedType]] = Field(default_factory=list)
+
+
+class GenericObjectEqualTo(ObjectEqualTo, Generic[_t_SpecifiedType]):
+    value: dict[str, _t_SpecifiedType] = Field(default_factory=dict)
+    dynamic_matches: list[GenericDynamicKeyMatch[_t_SpecifiedType]] = Field(default_factory=list)
+
+
+class GenericObjectHasValue(ObjectHasValue, Generic[_t_SpecifiedType]):
+    predicate: _t_SpecifiedType
+
+
+class GenericObjectHasNoValue(ObjectHasNoValue, Generic[_t_SpecifiedType]):
+    predicate: _t_SpecifiedType
+
+
+class GenericNestedArrayContains(NestedArrayContains, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+class GenericNestedArrayNotContains(NestedArrayNotContains, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+class GenericNestedArrayEqualTo(NestedArrayEqualTo, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+class GenericNestedObjectEqualTo(NestedObjectEqualTo, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+class GenericNestedObjectNotEqualTo(NestedObjectNotEqualTo, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+class GenericNestedArrayNotEqualTo(NestedArrayNotEqualTo, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+class GenericNestedObjectNotContainsSubset(NestedObjectNotContainsSubset, Generic[_t_SpecifiedType]):
+    value: dict[str, _t_SpecifiedType] = Field(default_factory=dict)
+    dynamic_matches: list[GenericDynamicKeyMatch[_t_SpecifiedType]] = Field(default_factory=list)
+
+
+class GenericNestedObjectContainsSubset(NestedObjectContainsSubset, Generic[_t_SpecifiedType]):
+    value: dict[str, _t_SpecifiedType] = Field(default_factory=dict)
+    dynamic_matches: list[GenericDynamicKeyMatch[_t_SpecifiedType]] = Field(default_factory=list)
+
+
+class GenericArrayNotEqualTo(ArrayNotEqualTo, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+class GenericArrayEqualTo(ArrayEqualTo, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+class GenericArrayNotContains(ArrayNotContains, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+class GenericArrayContains(ArrayContains, Generic[_t_SpecifiedType]):
+    value: list['_t_SpecifiedType']
+
+
+type t_StringPredicateType = Union[
+    t_ScalarStringPredicate,
+    GenericOrPredicate['t_StringPredicateType'],
+    GenericAndPredicate['t_StringPredicateType'],
+    str,
+]
+type t_IntegerPredicateType = Union[
+    t_ScalarIntegerPredicate,
+    GenericOrPredicate['t_IntegerPredicateType'],
+    GenericAndPredicate['t_IntegerPredicateType'],
+    int,
+]
+type t_StringOrIntegerPredicateType = Union[
+    t_ScalarIntegerPredicate,
+    t_ScalarStringPredicate,
+    GenericOrPredicate['t_StringOrIntegerPredicateType'],
+    GenericAndPredicate['t_StringOrIntegerPredicateType'],
+    int,
+    str,
+]
+type t_NumberPredicateType = Union[
+    t_ScalarNumberPredicate,
+    GenericOrPredicate['t_NumberPredicateType'],
+    GenericAndPredicate['t_NumberPredicateType'],
+    float,
+]
+
+
+type t_GenericArrayPredicate = Union[
+    GenericArrayContains, GenericArrayNotContains, GenericArrayEqualTo, GenericArrayNotEqualTo, list
+]
+
+t_GenericObjectPredicate = Union[
+    GenericObjectContainsSubset[_t_SpecifiedType],
+    GenericObjectNotContainsSubset[_t_SpecifiedType],
+    GenericObjectNotEqualTo[_t_SpecifiedType],
+    GenericObjectEqualTo[_t_SpecifiedType],
+    GenericObjectHasValue[_t_SpecifiedType],
+    GenericObjectHasNoValue[_t_SpecifiedType],
+    dict[t_StringPredicateType, _t_SpecifiedType],
+]
+
+t_GenericNestedPredicate = Union[
+    GenericNestedArrayContains[_t_SpecifiedType],
+    GenericNestedArrayNotContains[_t_SpecifiedType],
+    GenericNestedArrayEqualTo[_t_SpecifiedType],
+    GenericNestedObjectEqualTo[_t_SpecifiedType],
+    GenericNestedObjectNotEqualTo[_t_SpecifiedType],
+    GenericNestedArrayNotEqualTo[_t_SpecifiedType],
+    GenericNestedObjectNotContainsSubset[_t_SpecifiedType],
+    GenericNestedObjectContainsSubset[_t_SpecifiedType],
+    list[_t_SpecifiedType],
+    dict[t_StringPredicateType, _t_SpecifiedType],
+]
+
+type t_StringArrayPredicateType = TypeAliasType(
+    't_StringArrayPredicateType',
+    Union[t_GenericArrayPredicate],
+    type_params=(t_StringPredicateType,),
+)
+
+# endregion
 
 if not TYPE_CHECKING:
     # scalars
@@ -421,3 +468,11 @@ if not TYPE_CHECKING:
     ObjectHasValue.model_rebuild()
     ObjectNotContainsSubset.model_rebuild()
     ObjectNotEqualTo.model_rebuild()
+
+    # string list predicates
+    StringInList.model_rebuild()
+    StringNotInList.model_rebuild()
+
+    # string concatenation predicates
+    StringConcatEqualTo.model_rebuild()
+    StringConcatNotEqualTo.model_rebuild()

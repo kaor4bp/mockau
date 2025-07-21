@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from functools import cached_property
 from uuid import UUID, uuid4
 
+import yaml
 import z3
 from pydantic import ConfigDict, PrivateAttr, model_serializer, model_validator
 from typing_extensions import TypeVar
@@ -18,6 +19,33 @@ _t_Predicate = TypeVar('_t_Predicate', bound='BasePredicate')
 
 
 class BasePredicate(BaseSchema, ABC):
+    @abstractmethod
+    def compile_predicate(self):
+        pass
+
+
+class BaseMetaPredicate(BasePredicate, ABC):
+    def to_json_dsl(self) -> str:
+        return self.model_dump_json(indent=2, exclude_none=True, by_alias=True)
+
+    def to_yaml_dsl(self) -> str:
+        return yaml.safe_dump(self.model_dump(mode='json', exclude_none=True, by_alias=True))
+
+    def compile_predicate(self):
+        from core.predicates import ObjectContainsSubset
+
+        result = {}
+
+        for field_name in self.model_fields_set:
+            field_value = getattr(self, field_name)
+            if isinstance(field_value, BasePredicate):
+                field_value = field_value.compile_predicate()
+            result[field_name] = field_value
+
+        return ObjectContainsSubset(value=result)
+
+
+class BaseExecutablePredicate(BaseMetaPredicate, ABC):
     """Abstract base class for all predicate types.
 
     :ivar _internal_id: Unique identifier for predicate
@@ -51,8 +79,9 @@ class BasePredicate(BaseSchema, ABC):
     def compile_predicate(self):
         return self
 
+    @abstractmethod
     def __invert__(self):
-        return _DefaultInvertedPredicate(predicate=self)
+        pass
 
     def get_z3_context(self):
         global _CURRENT_Z3_CONTEXT
@@ -361,24 +390,24 @@ class BasePredicate(BaseSchema, ABC):
         return self.is_subset_of(other) and self.is_superset_of(other)
 
 
-class _DefaultInvertedPredicate(BasePredicate):
-    predicate: _t_Predicate
+# class _DefaultInvertedPredicate(BaseExecutablePredicate):
+#     predicate: _t_Predicate
+#
+#     def __invert__(self):
+#         return self.predicate
+#
+#     def verify(self, value):
+#         return not self.predicate.verify(value)
+#
+#     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+#         return z3.Not(self.predicate.to_z3(ctx), ctx=ctx.z3_context)
+#
+#     @property
+#     def predicate_types(self) -> set[PredicateType]:
+#         return self.predicate.predicate_types
 
-    def __invert__(self):
-        return self.predicate
 
-    def verify(self, value):
-        return not self.predicate.verify(value)
-
-    def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
-        return z3.Not(self.predicate.to_z3(ctx), ctx=ctx.z3_context)
-
-    @property
-    def predicate_types(self) -> set[PredicateType]:
-        return self.predicate.predicate_types
-
-
-class BaseScalarPredicate(BasePredicate, ABC):
+class BaseScalarPredicate(BaseExecutablePredicate, ABC):
     """Base class for scalar (single-type) predicates.
 
     .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
@@ -396,7 +425,7 @@ class BaseScalarPredicate(BasePredicate, ABC):
         return list(self.predicate_types)[0]
 
 
-class BaseCollectionPredicate(BasePredicate, ABC):
+class BaseCollectionPredicate(BaseExecutablePredicate, ABC):
     """Base class for collection predicates (arrays/objects).
 
     .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
@@ -420,5 +449,5 @@ class BaseLogicalPredicate(BaseScalarPredicate, ABC):
 _t_SpecifiedType = TypeVar('_t_SpecifiedType')
 
 
-class ParityPredicateMixin(BasePredicate, ABC):
+class ParityPredicateMixin(BaseExecutablePredicate, ABC):
     _parity: bool = PrivateAttr(default=True)

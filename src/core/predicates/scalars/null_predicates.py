@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Literal, Union
 import z3
 from pydantic import field_validator
 
-from core.predicates.base_predicate import BasePredicate, BaseScalarPredicate, PredicateType, VariableContext
+from core.predicates.base_predicate import BaseExecutablePredicate, BaseScalarPredicate, PredicateType, VariableContext
 from core.predicates.helpers import py_value_to_predicate
 from core.predicates.logical.logical_predicates import VoidPredicate
 
@@ -38,6 +38,9 @@ class OptionalPredicate(BaseNullPredicate):
 
     predicate: Union['t_Predicate', 't_Py2PredicateType']
 
+    def __invert__(self):
+        return ~self.predicate
+
     def normalize_to_canonical_form(self):
         from core.predicates import OrPredicate
 
@@ -53,7 +56,7 @@ class OptionalPredicate(BaseNullPredicate):
     @field_validator('predicate', mode='after')
     @classmethod
     def validate_predicates(cls, value):
-        if not isinstance(value, BasePredicate):
+        if not isinstance(value, BaseExecutablePredicate):
             raise ValueError(f'Item predicate must be a BasePredicate, got {value}')
         return value
 
