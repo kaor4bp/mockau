@@ -55,7 +55,7 @@ class TestDoubleNotPredicateFix:
         base = IntegerEqualTo(value=5)
         double_not = NotPredicate(predicate=NotPredicate(predicate=base))
 
-        normalized = double_not.normalize()
+        normalized = double_not.normalize_to_canonical_form()
 
         # Double NOT should normalize to the base predicate
         assert isinstance(normalized, IntegerEqualTo)

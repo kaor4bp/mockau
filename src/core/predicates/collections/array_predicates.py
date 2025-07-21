@@ -1,6 +1,6 @@
 from abc import ABC
 from functools import cached_property
-from typing import Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Literal
 from uuid import uuid4
 
 import z3
@@ -10,15 +10,15 @@ from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.helpers import py_value_to_predicate
 from utils.kuhn_matching_algorithm import KuhnMatchingAlgorithm
 
-_t_SpecifiedType = TypeVar('_t_SpecifiedType')
+if TYPE_CHECKING:
+    from core.predicates import t_DefaultPredicateType
 
 
-class BaseGenericArrayPredicate(
+class BaseArrayPredicate(
     BaseCollectionPredicate,
-    Generic[_t_SpecifiedType],
     ABC,
 ):
-    value: list[_t_SpecifiedType]
+    value: list['t_DefaultPredicateType']
 
     @cached_property
     def compiled_value(self):
@@ -40,10 +40,9 @@ class BaseGenericArrayPredicate(
 
 class BaseArrayItemPredicate(
     BaseCollectionPredicate,
-    Generic[_t_SpecifiedType],
     ABC,
 ):
-    predicate: _t_SpecifiedType
+    predicate: 't_DefaultPredicateType'
 
     def compile_predicate(self):
         return self._get_default_origin()(predicate=self.predicate.compile_predicate())
@@ -60,12 +59,9 @@ class BaseArrayItemPredicate(
         return limitation
 
 
-class GenericArrayEqualTo(
-    BaseGenericArrayPredicate[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
-):
+class ArrayEqualTo(BaseArrayPredicate):
     type_of: Literal['$-mockau-array-equal-to'] = '$-mockau-array-equal-to'
-    value: list[_t_SpecifiedType]
+    value: list['t_DefaultPredicateType']
     ignore_order: bool = False
 
     def compile_predicate(self):
@@ -111,8 +107,6 @@ class GenericArrayEqualTo(
             return self._verify_with_order(value)
 
     def __invert__(self):
-        from core.predicates import ArrayNotEqualTo
-
         return ArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
 
     def calculate_limitations(self) -> PredicateLimitations:
@@ -173,12 +167,11 @@ class GenericArrayEqualTo(
             return self._to_z3_with_order(ctx)
 
 
-class GenericArrayNotEqualTo(
-    BaseGenericArrayPredicate[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class ArrayNotEqualTo(
+    BaseArrayPredicate,
 ):
     type_of: Literal['$-mockau-array-not-equal-to'] = '$-mockau-array-not-equal-to'
-    value: list[_t_SpecifiedType]
+    value: list['t_DefaultPredicateType']
     ignore_order: bool = False
 
     def compile_predicate(self):
@@ -224,8 +217,6 @@ class GenericArrayNotEqualTo(
             return self._verify_with_order(value)
 
     def __invert__(self):
-        from core.predicates import ArrayEqualTo
-
         return ArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
 
     def calculate_limitations(self) -> PredicateLimitations:
@@ -292,12 +283,11 @@ class GenericArrayNotEqualTo(
             return self._to_z3_with_order(ctx)
 
 
-class GenericArrayContains(
-    BaseGenericArrayPredicate[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class ArrayContains(
+    BaseArrayPredicate,
 ):
     type_of: Literal['$-mockau-array-contains'] = '$-mockau-array-contains'
-    value: list[_t_SpecifiedType]
+    value: list['t_DefaultPredicateType']
 
     def compile_predicate(self):
         from core.predicates import ArrayContains
@@ -319,8 +309,6 @@ class GenericArrayContains(
         return True
 
     def __invert__(self):
-        from core.predicates import ArrayNotContains
-
         return ArrayNotContains(value=self.value)
 
     def calculate_limitations(self) -> PredicateLimitations:
@@ -358,12 +346,11 @@ class GenericArrayContains(
         return z3.And(*constraints, z3.BoolVal(True, ctx=ctx.z3_context))
 
 
-class GenericArrayNotContains(
-    BaseGenericArrayPredicate[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class ArrayNotContains(
+    BaseArrayPredicate,
 ):
     type_of: Literal['$-mockau-array-not-contains'] = '$-mockau-array-not-contains'
-    value: list[_t_SpecifiedType]
+    value: list['t_DefaultPredicateType']
 
     def compile_predicate(self):
         from core.predicates import ArrayNotContains
@@ -373,11 +360,9 @@ class GenericArrayNotContains(
         )
 
     def verify(self, value: list):
-        return not GenericArrayContains(value=self.value).verify(value)
+        return not ArrayContains(value=self.value).verify(value)
 
     def __invert__(self):
-        from core.predicates import ArrayContains
-
         return ArrayContains(value=self.value)
 
     def calculate_limitations(self) -> PredicateLimitations:

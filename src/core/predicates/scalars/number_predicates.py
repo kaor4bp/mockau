@@ -56,12 +56,12 @@ class NumberNotEqualTo(BaseNumberPredicate):
     type_of: Literal['$-mockau-float-neq'] = '$-mockau-float-neq'
     value: float
 
-    def normalize(self):
+    def normalize_to_canonical_form(self):
         from core.predicates import OrPredicate
 
         return OrPredicate(
             predicates=[NumberGreaterThan(value=self.value), NumberLessThan(value=self.value)],
-        ).normalize()
+        ).normalize_to_canonical_form()
 
     def verify(self, value):
         return isinstance(value, float) and value != self.value
@@ -112,12 +112,12 @@ class NumberGreaterOrEqualThan(BaseNumberPredicate):
     type_of: Literal['$-mockau-float-gte'] = '$-mockau-float-gte'
     value: float
 
-    def normalize(self):
+    def normalize_to_canonical_form(self):
         from core.predicates import OrPredicate
 
         return OrPredicate(
             predicates=[NumberGreaterThan(value=self.value), NumberEqualTo(value=self.value)],
-        ).normalize()
+        ).normalize_to_canonical_form()
 
     def verify(self, value):
         return isinstance(value, float) and value >= self.value
@@ -177,12 +177,12 @@ class NumberLessOrEqualThan(BaseNumberPredicate):
     type_of: Literal['$-mockau-float-lte'] = '$-mockau-float-lte'
     value: float
 
-    def normalize(self):
+    def normalize_to_canonical_form(self):
         from core.predicates import OrPredicate
 
         return OrPredicate(
             predicates=[NumberLessThan(value=self.value), NumberEqualTo(value=self.value)],
-        ).normalize()
+        ).normalize_to_canonical_form()
 
     def verify(self, value):
         return isinstance(value, float) and value <= self.value

@@ -210,6 +210,6 @@ class TestNormalization:
         Tests that logically equivalent predicates normalize to the same form
         and are considered equal by `is_equal_to`.
         """
-        p_normalized = p1.normalize()
+        p_normalized = p1.normalize_to_canonical_form()
         assert p1.is_equivalent_to(p_normalized)
         assert p2.is_equivalent_to(p_normalized)

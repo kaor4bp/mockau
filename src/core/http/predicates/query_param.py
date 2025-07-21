@@ -2,11 +2,16 @@ from typing import TypeAliasType
 
 from pydantic import Field
 
-from core.predicates import GenericArrayContains, GenericArrayEqualTo, t_GenericArrayPredicate, t_StringPredicate
-from core.predicates.base_composite_predicate import BaseCompositePredicate
+from core.predicates_group import (
+    BasePredicateGroup,
+    GenericArrayContains,
+    GenericArrayEqualTo,
+    t_GenericArrayPredicate,
+    t_StringPredicate,
+)
 
 
-class QueryParamItem(BaseCompositePredicate):
+class QueryParamItem(BasePredicateGroup):
     key: t_StringPredicate | str
     value: t_StringPredicate | str = Field(default=None)
 
@@ -16,7 +21,7 @@ _QueryParamItemArrayPredicate = TypeAliasType(
 )
 
 
-class QueryParamItems(BaseCompositePredicate):
+class QueryParamItems(BasePredicateGroup):
     query_params: _QueryParamItemArrayPredicate
 
 

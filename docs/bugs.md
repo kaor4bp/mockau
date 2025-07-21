@@ -10,7 +10,7 @@
     * **Test coverage:** Added comprehensive tests in `test_double_not_fix.py` to verify the fix.
     * *(Fixed by Augment Agent)*
 
-2.  **[ ] Architectural Decision: Separate the concerns of Generic predicates and concrete implementations.**
+2.  **[✓] FIXED:Architectural Decision: Separate the concerns of Generic predicates and concrete implementations.**
     * The current realization of Generic predicates (`BaseGenericArrayPredicate`, `BaseGenericObjectPredicate`, etc.) causes numerous type-related issues, despite their utility for `CompositePredicates`.
     * **Proposal:** Generic predicates should be solely responsible for **describing the data structure** and **Pydantic model validation**.
     * All **execution logic** (`verify`, `to_z3`, `normalize`, `calculate_limitations`, `__invert__` and similar methods) should be moved to the concrete (non-Generic) classes (e.g., `ArrayEqualTo`, `ObjectContainsSubset`, etc.).

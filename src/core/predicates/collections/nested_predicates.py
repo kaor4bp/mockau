@@ -1,21 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, Literal, TypeVar, Union
+from typing import TYPE_CHECKING, Literal, Union
 from uuid import uuid4
 
 import z3
 from pydantic import field_validator
 
 from core.predicates.base_predicate import BaseCollectionPredicate, ParityPredicateMixin
-from core.predicates.collections.array_predicates import BaseGenericArrayPredicate
-from core.predicates.collections.object_predicates import BaseGenericObjectPredicate
+from core.predicates.collections.array_predicates import BaseArrayPredicate
+from core.predicates.collections.object_predicates import BaseObjectPredicate
 from core.predicates.consts import ALLOWED_POOL_PREDICATE_TYPES, PredicateType
 from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.context.variable_context import VariableContext
 
 if TYPE_CHECKING:
-    from core.predicates import t_Predicate
-
-_t_SpecifiedType = TypeVar('_t_SpecifiedType')
+    from core.predicates import t_DefaultPredicateType, t_Predicate
 
 
 class BaseNested(BaseCollectionPredicate, ABC):
@@ -187,13 +185,12 @@ class BaseNestedNot(BaseNested, ParityPredicateMixin, ABC):
         )
 
 
-class BaseNestedGenericArray(
+class BaseNestedArray(
     BaseNested,
-    BaseGenericArrayPredicate[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+    BaseArrayPredicate,
     ABC,
 ):
-    value: list[_t_SpecifiedType]
+    value: list['t_DefaultPredicateType']
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = (
@@ -225,13 +222,12 @@ class BaseNestedGenericArray(
         return False
 
 
-class BaseNestedGenericArrayNot(
+class BaseNestedArrayNot(
     BaseNestedNot,
-    BaseGenericArrayPredicate[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+    BaseArrayPredicate,
     ABC,
 ):
-    value: list[_t_SpecifiedType]
+    value: list['t_DefaultPredicateType']
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = (
@@ -262,10 +258,9 @@ class BaseNestedGenericArrayNot(
         return True
 
 
-class BaseNestedGenericObject(
+class BaseNestedObject(
     BaseNested,
-    BaseGenericObjectPredicate[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+    BaseObjectPredicate,
     ABC,
 ):
     def calculate_limitations(self) -> PredicateLimitations:
@@ -296,25 +291,17 @@ class BaseNestedGenericObject(
         return False
 
 
-class BaseNestedGenericObjectNot(
+class BaseNestedObjectNot(
     BaseNestedNot,
-    BaseGenericObjectPredicate[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+    BaseObjectPredicate,
     ABC,
 ):
-    # value: dict[
-    #     Union[
-    #         Annotated['t_Predicate', Field(discriminator='type_of')],
-    #         str,
-    #     ],
-    #     _t_SpecifiedType,
-    # ]
     value: dict[
         Union[
             't_Predicate',
             str,
         ],
-        _t_SpecifiedType,
+        't_DefaultPredicateType',
     ]
 
     def calculate_limitations(self) -> PredicateLimitations:
@@ -345,9 +332,8 @@ class BaseNestedGenericObjectNot(
         return True
 
 
-class GenericNestedObjectEqualTo(
-    BaseNestedGenericObject[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class NestedObjectEqualTo(
+    BaseNestedObject,
 ):
     type_of: Literal['$-mockau-nested-object-equal-to'] = '$-mockau-nested-object-equal-to'
 
@@ -368,14 +354,11 @@ class GenericNestedObjectEqualTo(
         return ObjectEqualTo
 
     def __invert__(self):
-        from core.predicates import NestedObjectNotEqualTo
-
         return NestedObjectNotEqualTo(value=self.value)
 
 
-class GenericNestedObjectNotEqualTo(
-    BaseNestedGenericObjectNot[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class NestedObjectNotEqualTo(
+    BaseNestedObjectNot,
 ):
     type_of: Literal['$-mockau-nested-object-not-equal-to'] = '$-mockau-nested-object-not-equal-to'
 
@@ -396,14 +379,11 @@ class GenericNestedObjectNotEqualTo(
         return ObjectNotEqualTo
 
     def __invert__(self):
-        from core.predicates import NestedObjectEqualTo
-
         return NestedObjectEqualTo(value=self.value)
 
 
-class GenericNestedObjectContainsSubset(
-    BaseNestedGenericObject[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class NestedObjectContainsSubset(
+    BaseNestedObject,
 ):
     type_of: Literal['$-mockau-nested-object-contains'] = '$-mockau-nested-object-contains'
 
@@ -424,14 +404,11 @@ class GenericNestedObjectContainsSubset(
         return ObjectContainsSubset
 
     def __invert__(self):
-        from core.predicates import NestedObjectNotContainsSubset
-
         return NestedObjectNotContainsSubset(value=self.value)
 
 
-class GenericNestedObjectNotContainsSubset(
-    BaseNestedGenericObjectNot[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class NestedObjectNotContainsSubset(
+    BaseNestedObjectNot,
 ):
     type_of: Literal['$-mockau-nested-object-not-contains'] = '$-mockau-nested-object-not-contains'
 
@@ -452,14 +429,11 @@ class GenericNestedObjectNotContainsSubset(
         return ObjectNotContainsSubset
 
     def __invert__(self):
-        from core.predicates import NestedObjectContainsSubset
-
         return NestedObjectContainsSubset(value=self.value)
 
 
-class GenericNestedArrayEqualTo(
-    BaseNestedGenericArray[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class NestedArrayEqualTo(
+    BaseNestedArray,
 ):
     type_of: Literal['$-mockau-nested-array-equal-to'] = '$-mockau-nested-array-equal-to'
     ignore_order: bool = False
@@ -483,14 +457,11 @@ class GenericNestedArrayEqualTo(
         return {'ignore_order': self.ignore_order}
 
     def __invert__(self):
-        from core.predicates import NestedArrayNotEqualTo
-
         return NestedArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
 
 
-class GenericNestedArrayNotEqualTo(
-    BaseNestedGenericArrayNot[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class NestedArrayNotEqualTo(
+    BaseNestedArrayNot,
 ):
     type_of: Literal['$-mockau-nested-array-not-equal-to'] = '$-mockau-nested-array-not-equal-to'
     ignore_order: bool = False
@@ -514,14 +485,11 @@ class GenericNestedArrayNotEqualTo(
         return {'ignore_order': self.ignore_order}
 
     def __invert__(self):
-        from core.predicates import NestedArrayEqualTo
-
         return NestedArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
 
 
-class GenericNestedArrayContains(
-    BaseNestedGenericArray[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class NestedArrayContains(
+    BaseNestedArray,
 ):
     type_of: Literal['$-mockau-nested-array-contains'] = '$-mockau-nested-array-contains'
 
@@ -539,14 +507,11 @@ class GenericNestedArrayContains(
         return ArrayContains
 
     def __invert__(self):
-        from core.predicates import NestedArrayNotContains
-
         return NestedArrayNotContains(value=self.value)
 
 
-class GenericNestedArrayNotContains(
-    BaseNestedGenericArrayNot[_t_SpecifiedType],
-    Generic[_t_SpecifiedType],
+class NestedArrayNotContains(
+    BaseNestedArrayNot,
 ):
     type_of: Literal['$-mockau-nested-array-not-contains'] = '$-mockau-nested-array-not-contains'
 
@@ -564,6 +529,4 @@ class GenericNestedArrayNotContains(
         return ArrayNotContains
 
     def __invert__(self):
-        from core.predicates import NestedArrayContains
-
         return NestedArrayContains(value=self.value)

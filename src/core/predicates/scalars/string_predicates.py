@@ -220,8 +220,8 @@ class StringContains(BaseStringPredicate):
     value: str
     ignore_case: bool = False
 
-    def normalize(self):
-        return StringPattern(pattern=f".*{self.value}.*", ignore_case=self.ignore_case).normalize()
+    def normalize_to_canonical_form(self):
+        return StringPattern(pattern=f".*{self.value}.*", ignore_case=self.ignore_case).normalize_to_canonical_form()
 
     def verify(self, value):
         if self.ignore_case:
@@ -276,7 +276,7 @@ class StringNotContains(StringContains):
     type_of: Literal['$-mockau-str-not-contains'] = '$-mockau-str-not-contains'
     value: str
 
-    def normalize(self):
+    def normalize_to_canonical_form(self):
         return StringNotPattern(pattern=f".*{self.value}.*", ignore_case=self.ignore_case)
 
     def verify(self, value):

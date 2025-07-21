@@ -1,7 +1,6 @@
 import gc
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Any
 from uuid import UUID, uuid4
 
 import z3
@@ -83,15 +82,16 @@ class BasePredicate(BaseSchema, ABC):
     def calculate_limitations(self) -> PredicateLimitations:
         return PredicateLimitations()
 
-    def normalize(self):
+    def normalize_to_canonical_form(self):
         return self
 
+    def to_json_dsl(self):
+        return self.normalize_to_canonical_form().model_dump_json(by_alias=True)
+
     def is_equal_to(self, other):
-        p1 = self.normalize()
-        p2 = other.normalize()
-        x1 = p1.model_dump_json(by_alias=True)
-        x2 = p2.model_dump_json(by_alias=True)
-        return x1 == x2
+        p1 = self.to_json_dsl()
+        p2 = other.to_json_dsl()
+        return p1 == p2
 
     @abstractmethod
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
@@ -205,7 +205,7 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        from core.predicates import GenericNotPredicate
+        from core.predicates import NotPredicate
 
         if not self.is_intersected_with(other):
             return False
@@ -213,13 +213,13 @@ class BasePredicate(BaseSchema, ABC):
         check_result = z3.unknown
 
         limitations = self.calculate_limitations()
-        limitations.push(GenericNotPredicate[Any](predicate=other).calculate_limitations())
+        limitations.push(NotPredicate(predicate=other).calculate_limitations())
         for main_context, z3_solver in self._solver_iter(limitations.get_max_level()):
             ctx = VariableContext(main_context=main_context)
             main_context.set_limitations(limitations)
 
             z3_solver.add(self.to_z3(ctx))
-            z3_solver.add(GenericNotPredicate[Any](predicate=other).to_z3(ctx))
+            z3_solver.add(NotPredicate(predicate=other).to_z3(ctx))
             z3_solver.add(ctx.pop_from_global_constraints())
 
             check_result = z3_solver.check()
@@ -246,7 +246,7 @@ class BasePredicate(BaseSchema, ABC):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        from core.predicates import GenericNotPredicate
+        from core.predicates import NotPredicate
 
         if not self.is_intersected_with(other):
             return False
@@ -262,7 +262,7 @@ class BasePredicate(BaseSchema, ABC):
             main_context.set_limitations(limitation)
 
             z3_solver.add(other.to_z3(ctx))
-            z3_solver.add(GenericNotPredicate[Any](predicate=self).to_z3(ctx))
+            z3_solver.add(NotPredicate(predicate=self).to_z3(ctx))
             z3_solver.add(ctx.pop_from_global_constraints())
 
             check_result = z3_solver.check()
