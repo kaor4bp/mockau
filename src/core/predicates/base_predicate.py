@@ -62,14 +62,6 @@ class BaseExecutablePredicate(BaseMetaPredicate, ABC):
     def json_type_of_serializer(self) -> dict:
         result = self.model_dump(by_alias=True, mode='python')
         return serialize_to_json_predicate_format(result)
-        # if isinstance(self, BaseCompositePredicate):
-        #     return result
-        # else:
-        #     if '$type_of' in result:
-        #         type_of = result.pop('$type_of')
-        #     else:
-        #         type_of = 'unknown'
-        #     return {type_of: result}
 
     @model_validator(mode='before')
     @classmethod

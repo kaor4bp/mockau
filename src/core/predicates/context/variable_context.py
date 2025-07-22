@@ -1,4 +1,5 @@
 from abc import ABC
+from uuid import uuid4
 
 import z3
 
@@ -250,3 +251,94 @@ class VariableContext(BaseVariableContext):
             *nested_context_constraints,
             z3.BoolVal(True, ctx=self.z3_context),
         )
+
+    @staticmethod
+    def _translate_json_type_var(source_var, main_ctx, source_level, target_level):
+        if source_level == target_level:
+            return source_var, z3.BoolVal(True, ctx=main_ctx.z3_context)
+        dts = main_ctx.AllJsonTypes
+
+        new_var = z3.Const(f'var_{target_level}_{uuid4()}', dts[target_level])
+
+        constraints = [
+            dts[target_level].is_null(new_var) == dts[source_level].is_null(source_var),
+            dts[target_level].is_undefined(new_var) == dts[source_level].is_undefined(source_var),
+            dts[target_level].is_bool(new_var) == dts[source_level].is_bool(source_var),
+            dts[target_level].is_int(new_var) == dts[source_level].is_int(source_var),
+            dts[target_level].is_real(new_var) == dts[source_level].is_real(source_var),
+            dts[target_level].is_str(new_var) == dts[source_level].is_str(source_var),
+        ]
+
+        try:
+            constraints += [
+                dts[target_level].is_object(new_var) == dts[source_level].is_object(source_var),
+                dts[target_level].is_array(new_var) == dts[source_level].is_array(source_var),
+            ]
+        except AttributeError:
+            # dirty hack to stop on JsonType without is_object/is_array (end of nesting)
+            return new_var, z3.And(*constraints)
+
+        k = z3.String(f'k_{uuid4()}', ctx=main_ctx.z3_context)
+        j = z3.Int(f'j_{uuid4()}', ctx=main_ctx.z3_context)
+
+        sub_var, sub_constraints = VariableContext._translate_json_type_var(
+            dts[source_level].get_object(source_var)[k],
+            main_ctx,
+            source_level + 1,
+            target_level + 1,
+        )
+        constraints += [
+            z3.Implies(
+                dts[source_level].is_object(source_var),
+                z3.And(
+                    z3.ForAll([k], dts[target_level].get_object(new_var)[k] == sub_var),
+                    sub_constraints,
+                ),
+            ),
+        ]
+        #
+        sub_var, sub_constraints = VariableContext._translate_json_type_var(
+            dts[source_level].get_array(source_var)[j],
+            main_ctx,
+            source_level + 1,
+            target_level + 1,
+        )
+        constraints += [
+            z3.Implies(
+                dts[source_level].is_array(source_var),
+                z3.And(
+                    z3.ForAll(
+                        [j],
+                        z3.And(
+                            dts[target_level].get_array(new_var)[j] == sub_var,
+                            j >= 0,
+                            j < z3.Length(dts[target_level].get_array(new_var)),
+                            z3.Length(dts[target_level].get_array(new_var))
+                            == z3.Length(dts[source_level].get_array(source_var)),
+                        ),
+                    ),
+                    sub_constraints,
+                ),
+            ),
+        ]
+        return new_var, z3.And(*constraints)
+
+    def translate_to(self, target_level: int) -> 'VariableContext':
+        # works unstable
+
+        if target_level == self.level:
+            return self
+        source_var = self._json_var.z3_variable
+
+        new_context = self.create_sibling_context()
+        while target_level < new_context.level:
+            new_context = new_context.parent
+        while target_level > new_context.level:
+            new_context = new_context.create_child_context()
+
+        new_var, new_var_constraint = self._translate_json_type_var(
+            source_var, self._main_context, self.level, target_level
+        )
+        self.push_to_global_constraints(new_var_constraint)
+        self.push_to_global_constraints(new_context.json_type_variable.z3_variable == new_var)
+        return new_context
