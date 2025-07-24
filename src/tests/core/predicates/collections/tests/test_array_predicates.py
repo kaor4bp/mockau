@@ -163,8 +163,8 @@ EQUIVALENTS = {
 
 SUPERSETS = {
     'strict_equal_pattern_superset': [
-        ArrayEqualTo(value=[StringPattern(pattern='\\w+')]),
-        ArrayEqualTo(value=[StringPattern(pattern='[a-z]+')]),
+        ArrayEqualTo(value=[StringPattern(pattern='\\w+')], var='hello'),
+        ArrayEqualTo(value=[StringPattern(pattern='[a-z]+')], var='hello'),
     ],
     'strict_equal_contains_superset': [
         ArrayEqualTo(value=[StringContains(value='world', ignore_case=True)]),

@@ -9,6 +9,36 @@ class JsonDatatypeWrapper:
         self._datatype = datatype
         self._z3_context = z3_context
 
+    def equal_to(self, other: 'JsonDatatypeWrapper'):
+        return z3.And(
+            z3.Implies(
+                self.is_str(),
+                self.get_str() == other.get_str(),
+            ),
+            z3.Implies(
+                self.is_int(),
+                self.get_int() == other.get_int(),
+            ),
+            z3.Implies(
+                self.is_real(),
+                self.get_real() == other.get_real(),
+            ),
+            z3.Implies(
+                self.is_bool(),
+                self.get_bool() == other.get_bool(),
+            ),
+            z3.Implies(
+                self.is_object(),
+                self.get_object() == other.get_object(),
+            ),
+            z3.Implies(
+                self.is_array(),
+                self.get_array() == other.get_array(),
+            ),
+            self.is_null() == other.is_null(),
+            self.is_undefined() == other.is_undefined(),
+        )
+
     def is_expression_by_type(self, predicate_type: PredicateType):
         if predicate_type == PredicateType.String:
             return self.is_str()

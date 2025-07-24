@@ -1,11 +1,12 @@
 import gc
 from abc import ABC, abstractmethod
 from functools import cached_property
+from typing import Generator
 from uuid import UUID, uuid4
 
 import yaml
 import z3
-from pydantic import ConfigDict, PrivateAttr, model_serializer, model_validator
+from pydantic import ConfigDict, Field, PrivateAttr, model_serializer, model_validator
 from typing_extensions import TypeVar
 
 from core.bases.base_schema import BaseSchema
@@ -13,7 +14,11 @@ from core.predicates.consts import DEFAULT_SOLVER_TIMEOUT, PredicateType
 from core.predicates.context.main_context import MainContext
 from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.context.variable_context import VariableContext
-from core.predicates.helpers import deserialize_json_predicate_format, serialize_to_json_predicate_format
+from core.predicates.helpers import (
+    deserialize_json_predicate_format,
+    py_value_to_predicate,
+    serialize_to_json_predicate_format,
+)
 
 _t_Predicate = TypeVar('_t_Predicate', bound='BasePredicate')
 
@@ -45,6 +50,9 @@ class BaseMetaPredicate(BasePredicate, ABC):
         return ObjectContainsSubset(value=result)
 
 
+_t_ExecutablePredicate = TypeVar('_t_ExecutablePredicate', bound='BaseExecutablePredicate')
+
+
 class BaseExecutablePredicate(BaseMetaPredicate, ABC):
     """Abstract base class for all predicate types.
 
@@ -56,6 +64,7 @@ class BaseExecutablePredicate(BaseMetaPredicate, ABC):
 
     model_config = ConfigDict(populate_by_name=True, alias_generator=lambda x: f'${x}')
 
+    var: str | None = Field(default=None)
     _internal_id: UUID = PrivateAttr(default_factory=uuid4)
 
     @model_serializer(when_used='json')
@@ -80,6 +89,16 @@ class BaseExecutablePredicate(BaseMetaPredicate, ABC):
         if _CURRENT_Z3_CONTEXT is None:
             _CURRENT_Z3_CONTEXT = z3.Context()
         return _CURRENT_Z3_CONTEXT
+
+    def get_all_predicates(self) -> Generator['_t_ExecutablePredicate', None, None]:
+        yield self
+
+    @property
+    def is_verify_allowed(self):
+        for p in self.get_all_predicates():
+            if p.var is not None:
+                return False
+        return True
 
     @abstractmethod
     def verify(self, value):
@@ -200,7 +219,7 @@ class BaseExecutablePredicate(BaseMetaPredicate, ABC):
             main_context.set_limitations(limitations)
 
             z3_solver.add(self.to_z3(ctx))
-            z3_solver.add(ctx.pop_from_global_constraints())
+            z3_solver.add(ctx.root_parent.pop_from_global_constraints())
 
             check_result = z3_solver.check()
 
@@ -241,7 +260,7 @@ class BaseExecutablePredicate(BaseMetaPredicate, ABC):
 
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add(NotPredicate(predicate=other).to_z3(ctx))
-            z3_solver.add(ctx.pop_from_global_constraints())
+            z3_solver.add(ctx.root_parent.pop_from_global_constraints())
 
             check_result = z3_solver.check()
             # if check_result == z3.sat:
@@ -284,7 +303,7 @@ class BaseExecutablePredicate(BaseMetaPredicate, ABC):
 
             z3_solver.add(other.to_z3(ctx))
             z3_solver.add(NotPredicate(predicate=self).to_z3(ctx))
-            z3_solver.add(ctx.pop_from_global_constraints())
+            z3_solver.add(ctx.root_parent.pop_from_global_constraints())
 
             check_result = z3_solver.check()
 
@@ -322,7 +341,7 @@ class BaseExecutablePredicate(BaseMetaPredicate, ABC):
 
             z3_solver.add(self.to_z3(ctx))
             z3_solver.add(other.to_z3(ctx))
-            z3_solver.add(ctx.pop_from_global_constraints())
+            z3_solver.add(ctx.root_parent.pop_from_global_constraints())
             check_result = z3_solver.check()
 
             # if check_result == z3.sat:
@@ -340,29 +359,13 @@ class BaseExecutablePredicate(BaseMetaPredicate, ABC):
         return False
 
     def is_matched(self, value) -> bool:
-        return self.verify(value)
-
-    # def is_matched(self, value) -> bool:
-    #     value_as_predicate = value_to_predicate(value)
-    #
-    #     check_result = z3.unknown
-    #
-    #     for z3_solver in self._solver_iter():
-    #         ctx = VariableContext()
-    #         ctx.set_limitations(self.calculate_limitations().push(value_as_predicate.calculate_limitations()))
-    #
-    #         z3_solver.add(self.to_z3(ctx))
-    #         z3_solver.add(value_as_predicate.to_z3(ctx))
-    #         z3_solver.add(ctx.to_global_constraints())
-    #         check_result = z3_solver.check()
-    #
-    #         if check_result != z3.unknown:
-    #             break
-    #
-    #     assert check_result != z3.unknown
-    #     result = check_result == z3.sat
-    #     # assert result == self.verify(value)
-    #     return result
+        if self.is_verify_allowed:
+            print(f'verify {value}')
+            return self.verify(value)
+        else:
+            other = py_value_to_predicate(value)
+            print(f'search intersection with {other}')
+            return self.is_intersected_with(other)
 
     def is_equivalent_to(self, other):
         """Check if predicates are equivalent.

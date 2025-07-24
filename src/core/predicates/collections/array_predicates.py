@@ -64,6 +64,11 @@ class ArrayEqualTo(BaseArrayPredicate):
     value: list['t_DefaultPredicateType']
     ignore_order: bool = False
 
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
+
     def compile_predicate(self):
         from core.predicates import ArrayEqualTo
 
@@ -107,7 +112,11 @@ class ArrayEqualTo(BaseArrayPredicate):
             return self._verify_with_order(value)
 
     def __invert__(self):
-        return ArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
+        return ArrayNotEqualTo(
+            value=self.value,
+            ignore_order=self.ignore_order,
+            var=self.var,
+        )
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = super().calculate_limitations()
@@ -116,6 +125,7 @@ class ArrayEqualTo(BaseArrayPredicate):
 
     def _to_z3_with_order(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
+        ctx.set_as_user_variable(self.var)
         constraints = []
 
         for item_index, item in enumerate(self.compiled_value):
@@ -134,6 +144,7 @@ class ArrayEqualTo(BaseArrayPredicate):
 
     def _to_z3_without_order(self, ctx: VariableContext) -> z3.ExprRef:
         array_var = ctx.get_variable(PredicateType.Array)
+        ctx.set_as_user_variable(self.var)
         constraints = []
         all_index_vars = []
 
@@ -173,6 +184,11 @@ class ArrayNotEqualTo(
     type_of: Literal['$-mockau-array-not-equal-to'] = '$-mockau-array-not-equal-to'
     value: list['t_DefaultPredicateType']
     ignore_order: bool = False
+
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
 
     def compile_predicate(self):
         from core.predicates import ArrayNotEqualTo
@@ -217,7 +233,7 @@ class ArrayNotEqualTo(
             return self._verify_with_order(value)
 
     def __invert__(self):
-        return ArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
+        return ArrayEqualTo(value=self.value, ignore_order=self.ignore_order, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = super().calculate_limitations()
@@ -228,6 +244,7 @@ class ArrayNotEqualTo(
         from core.predicates import NotPredicate
 
         array_var = ctx.get_variable(PredicateType.Array)
+        ctx.set_as_user_variable(self.var)
         constraints = []
         or_constraints = [z3.BoolVal(False, ctx=ctx.z3_context)]
 
@@ -250,6 +267,7 @@ class ArrayNotEqualTo(
         constraints = []
         or_constraints = [z3.BoolVal(False, ctx=ctx.z3_context)]
         array_var = ctx.get_variable(PredicateType.Array)
+        ctx.set_as_user_variable(self.var)
 
         for item in self.compiled_value:
             child_ctx = ctx.create_child_context()
@@ -289,6 +307,11 @@ class ArrayContains(
     type_of: Literal['$-mockau-array-contains'] = '$-mockau-array-contains'
     value: list['t_DefaultPredicateType']
 
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
+
     def compile_predicate(self):
         from core.predicates import ArrayContains
 
@@ -309,7 +332,7 @@ class ArrayContains(
         return True
 
     def __invert__(self):
-        return ArrayNotContains(value=self.value)
+        return ArrayNotContains(value=self.value, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = super().calculate_limitations()
@@ -319,6 +342,7 @@ class ArrayContains(
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         constraints = []
         array_var = ctx.get_variable(PredicateType.Array)
+        ctx.set_as_user_variable(self.var)
         all_index_vars = []
 
         for item in self.compiled_value:
@@ -352,6 +376,11 @@ class ArrayNotContains(
     type_of: Literal['$-mockau-array-not-contains'] = '$-mockau-array-not-contains'
     value: list['t_DefaultPredicateType']
 
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
+
     def compile_predicate(self):
         from core.predicates import ArrayNotContains
 
@@ -363,7 +392,7 @@ class ArrayNotContains(
         return not ArrayContains(value=self.value).verify(value)
 
     def __invert__(self):
-        return ArrayContains(value=self.value)
+        return ArrayContains(value=self.value, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = super().calculate_limitations()
@@ -376,6 +405,7 @@ class ArrayNotContains(
         constraints = []
         or_constraints = [z3.BoolVal(False, ctx=ctx.z3_context)]
         array_var = ctx.get_variable(PredicateType.Array)
+        ctx.set_as_user_variable(self.var)
 
         for item in self.compiled_value:
             inverted_item = NotPredicate(predicate=item)

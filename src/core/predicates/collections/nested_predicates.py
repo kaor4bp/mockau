@@ -11,6 +11,7 @@ from core.predicates.collections.object_predicates import BaseObjectPredicate
 from core.predicates.consts import ALLOWED_POOL_PREDICATE_TYPES, PredicateType
 from core.predicates.context.predicate_limitations import PredicateLimitations
 from core.predicates.context.variable_context import VariableContext
+from core.predicates.helpers import py_value_to_predicate
 
 if TYPE_CHECKING:
     from core.predicates import t_DefaultPredicateType, t_Predicate
@@ -48,6 +49,7 @@ class BaseNested(BaseCollectionPredicate, ABC):
         return value
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        ctx.set_as_user_variable(self.var)
         main_predicate = self.sub_predicate(value=self.value, **self.sub_predicate_kwargs)
         constraints = []
 
@@ -56,6 +58,7 @@ class BaseNested(BaseCollectionPredicate, ABC):
             - main_predicate.calculate_limitations().get_max_level()
             - ctx.level
         )
+
         for sub_level in range(max_sub_level):
             child_ctx = ctx.create_child_context()
 
@@ -83,6 +86,7 @@ class BaseNested(BaseCollectionPredicate, ABC):
                     ),
                     z3.And(
                         object_var[object_iterator] == child_ctx.json_type_variable.z3_variable,
+                        # z3.Contains(ctx.main_context.get_all_object_keys_var(), z3.Unit(object_iterator)),
                         ctx.json_type_variable.is_object(),
                     ),
                 )
@@ -118,14 +122,19 @@ class BaseNestedNot(BaseNested, ParityPredicateMixin, ABC):
 
         if level < max_allowed_level:
             child_ctx = ctx.create_child_context()
-            nested_object_expression = z3.ForAll(
-                [object_iterator],
-                self.build_nested_for_all(
-                    ctx=child_ctx,
-                    cur_obj=dts[level].get_object(cur_obj)[object_iterator],
-                    level=level + 1,
-                    start_level=start_level,
-                ),
+            nested_object_expression = z3.And(
+                z3.ForAll(
+                    [object_iterator],
+                    z3.And(
+                        # z3.Contains(ctx.main_context.get_all_object_keys_var(), z3.Unit(object_iterator)),
+                        self.build_nested_for_all(
+                            ctx=child_ctx,
+                            cur_obj=dts[level].get_object(cur_obj)[object_iterator],
+                            level=level + 1,
+                            start_level=start_level,
+                        )
+                    ),
+                )
             )
             nested_array_expression = z3.ForAll(
                 [array_iterator],
@@ -177,6 +186,7 @@ class BaseNestedNot(BaseNested, ParityPredicateMixin, ABC):
         )
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        ctx.set_as_user_variable(self.var)
         return self.build_nested_for_all(
             ctx=ctx,
             level=ctx.level,
@@ -192,6 +202,15 @@ class BaseNestedArray(
 ):
     value: list['t_DefaultPredicateType']
 
+    @property
+    def compiled_value(self):
+        return [py_value_to_predicate(item) for item in self.value]
+
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
+
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = (
             self.sub_predicate(value=self.value, **self.sub_predicate_kwargs).calculate_limitations().reset_level_lte()
@@ -201,7 +220,7 @@ class BaseNestedArray(
         return limitation
 
     def verify(self, value: dict | list):
-        main_predicate = self.sub_predicate(value=self.value, **self.sub_predicate_kwargs)
+        main_predicate = self.sub_predicate(value=self.compiled_value, **self.sub_predicate_kwargs)
 
         if main_predicate.verify(value):
             return True
@@ -228,6 +247,15 @@ class BaseNestedArrayNot(
     ABC,
 ):
     value: list['t_DefaultPredicateType']
+
+    @property
+    def compiled_value(self):
+        return [py_value_to_predicate(item) for item in self.value]
+
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = (
@@ -304,6 +332,16 @@ class BaseNestedObjectNot(
         't_DefaultPredicateType',
     ]
 
+    @property
+    def compiled_value(self):
+        return {py_value_to_predicate(k): py_value_to_predicate(v) for k, v in self.value.items()}
+
+    def get_all_predicates(self):
+        yield self
+        for key_pred, val_pred in self.compiled_value.items():
+            yield from key_pred.get_all_predicates()
+            yield from val_pred.get_all_predicates()
+
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = (
             self.sub_predicate(value=self.value, **self.sub_predicate_kwargs).calculate_limitations().reset_level_lte()
@@ -337,6 +375,16 @@ class NestedObjectEqualTo(
 ):
     type_of: Literal['$-mockau-nested-object-equal-to'] = '$-mockau-nested-object-equal-to'
 
+    @property
+    def compiled_value(self):
+        return {py_value_to_predicate(k): py_value_to_predicate(v) for k, v in self.value.items()}
+
+    def get_all_predicates(self):
+        yield self
+        for key_pred, val_pred in self.compiled_value.items():
+            yield from key_pred.get_all_predicates()
+            yield from val_pred.get_all_predicates()
+
     def compile_predicate(self):
         from core.predicates import DynamicKeyMatch, NestedObjectEqualTo
 
@@ -354,13 +402,23 @@ class NestedObjectEqualTo(
         return ObjectEqualTo
 
     def __invert__(self):
-        return NestedObjectNotEqualTo(value=self.value)
+        return NestedObjectNotEqualTo(value=self.value, var=self.var)
 
 
 class NestedObjectNotEqualTo(
     BaseNestedObjectNot,
 ):
     type_of: Literal['$-mockau-nested-object-not-equal-to'] = '$-mockau-nested-object-not-equal-to'
+
+    @property
+    def compiled_value(self):
+        return {py_value_to_predicate(k): py_value_to_predicate(v) for k, v in self.value.items()}
+
+    def get_all_predicates(self):
+        yield self
+        for key_pred, val_pred in self.compiled_value.items():
+            yield from key_pred.get_all_predicates()
+            yield from val_pred.get_all_predicates()
 
     def compile_predicate(self):
         from core.predicates import DynamicKeyMatch, NestedObjectNotEqualTo
@@ -379,13 +437,23 @@ class NestedObjectNotEqualTo(
         return ObjectNotEqualTo
 
     def __invert__(self):
-        return NestedObjectEqualTo(value=self.value)
+        return NestedObjectEqualTo(value=self.value, var=self.var)
 
 
 class NestedObjectContainsSubset(
     BaseNestedObject,
 ):
     type_of: Literal['$-mockau-nested-object-contains'] = '$-mockau-nested-object-contains'
+
+    @property
+    def compiled_value(self):
+        return {py_value_to_predicate(k): py_value_to_predicate(v) for k, v in self.value.items()}
+
+    def get_all_predicates(self):
+        yield self
+        for key_pred, val_pred in self.compiled_value.items():
+            yield from key_pred.get_all_predicates()
+            yield from val_pred.get_all_predicates()
 
     def compile_predicate(self):
         from core.predicates import DynamicKeyMatch, NestedObjectContainsSubset
@@ -404,13 +472,23 @@ class NestedObjectContainsSubset(
         return ObjectContainsSubset
 
     def __invert__(self):
-        return NestedObjectNotContainsSubset(value=self.value)
+        return NestedObjectNotContainsSubset(value=self.value, var=self.var)
 
 
 class NestedObjectNotContainsSubset(
     BaseNestedObjectNot,
 ):
     type_of: Literal['$-mockau-nested-object-not-contains'] = '$-mockau-nested-object-not-contains'
+
+    @property
+    def compiled_value(self):
+        return {py_value_to_predicate(k): py_value_to_predicate(v) for k, v in self.value.items()}
+
+    def get_all_predicates(self):
+        yield self
+        for key_pred, val_pred in self.compiled_value.items():
+            yield from key_pred.get_all_predicates()
+            yield from val_pred.get_all_predicates()
 
     def compile_predicate(self):
         from core.predicates import DynamicKeyMatch, NestedObjectNotContainsSubset
@@ -429,7 +507,7 @@ class NestedObjectNotContainsSubset(
         return ObjectNotContainsSubset
 
     def __invert__(self):
-        return NestedObjectContainsSubset(value=self.value)
+        return NestedObjectContainsSubset(value=self.value, var=self.var)
 
 
 class NestedArrayEqualTo(
@@ -437,6 +515,15 @@ class NestedArrayEqualTo(
 ):
     type_of: Literal['$-mockau-nested-array-equal-to'] = '$-mockau-nested-array-equal-to'
     ignore_order: bool = False
+
+    @property
+    def compiled_value(self):
+        return [py_value_to_predicate(item) for item in self.value]
+
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
 
     def compile_predicate(self):
         from core.predicates import NestedArrayEqualTo
@@ -457,7 +544,7 @@ class NestedArrayEqualTo(
         return {'ignore_order': self.ignore_order}
 
     def __invert__(self):
-        return NestedArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order)
+        return NestedArrayNotEqualTo(value=self.value, ignore_order=self.ignore_order, var=self.var)
 
 
 class NestedArrayNotEqualTo(
@@ -465,6 +552,15 @@ class NestedArrayNotEqualTo(
 ):
     type_of: Literal['$-mockau-nested-array-not-equal-to'] = '$-mockau-nested-array-not-equal-to'
     ignore_order: bool = False
+
+    @property
+    def compiled_value(self):
+        return [py_value_to_predicate(item) for item in self.value]
+
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
 
     def compile_predicate(self):
         from core.predicates import NestedArrayNotEqualTo
@@ -485,13 +581,22 @@ class NestedArrayNotEqualTo(
         return {'ignore_order': self.ignore_order}
 
     def __invert__(self):
-        return NestedArrayEqualTo(value=self.value, ignore_order=self.ignore_order)
+        return NestedArrayEqualTo(value=self.value, ignore_order=self.ignore_order, var=self.var)
 
 
 class NestedArrayContains(
     BaseNestedArray,
 ):
     type_of: Literal['$-mockau-nested-array-contains'] = '$-mockau-nested-array-contains'
+
+    @property
+    def compiled_value(self):
+        return [py_value_to_predicate(item) for item in self.value]
+
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
 
     def compile_predicate(self):
         from core.predicates import NestedArrayContains
@@ -507,13 +612,22 @@ class NestedArrayContains(
         return ArrayContains
 
     def __invert__(self):
-        return NestedArrayNotContains(value=self.value)
+        return NestedArrayNotContains(value=self.value, var=self.var)
 
 
 class NestedArrayNotContains(
     BaseNestedArrayNot,
 ):
     type_of: Literal['$-mockau-nested-array-not-contains'] = '$-mockau-nested-array-not-contains'
+
+    @property
+    def compiled_value(self):
+        return [py_value_to_predicate(item) for item in self.value]
+
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
 
     def compile_predicate(self):
         from core.predicates import NestedArrayNotContains
@@ -529,4 +643,4 @@ class NestedArrayNotContains(
         return ArrayNotContains
 
     def __invert__(self):
-        return NestedArrayContains(value=self.value)
+        return NestedArrayContains(value=self.value, var=self.var)

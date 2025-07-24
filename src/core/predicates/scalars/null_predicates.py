@@ -26,10 +26,11 @@ class IsNull(BaseNullPredicate):
     def __invert__(self):
         # `Not(IsNull)` usually means "non-null values."
         # But with `preserve_type=True`, we'd need a null-like type that isn't null — a logical impossibility
-        return VoidPredicate()
+        return VoidPredicate(var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return ctx.json_type_variable.is_null()
 
 
@@ -64,4 +65,5 @@ class OptionalPredicate(BaseNullPredicate):
         return value is None or self.predicate.verify(value)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
+        ctx.set_as_user_variable(self.var)
         return z3.Or(ctx.json_type_variable.is_null(), self.predicate.to_z3(ctx))

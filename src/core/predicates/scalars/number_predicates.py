@@ -36,7 +36,7 @@ class NumberEqualTo(BaseNumberPredicate):
         return isinstance(value, float) and value == self.value
 
     def __invert__(self):
-        return NumberNotEqualTo(value=self.value)
+        return NumberNotEqualTo(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the number equality predicate to a Z3 expression.
@@ -49,6 +49,7 @@ class NumberEqualTo(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(real_variable == z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
@@ -67,10 +68,11 @@ class NumberNotEqualTo(BaseNumberPredicate):
         return isinstance(value, float) and value != self.value
 
     def __invert__(self):
-        return NumberEqualTo(value=self.value)
+        return NumberEqualTo(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         real_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(real_variable != z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
@@ -87,7 +89,7 @@ class NumberGreaterThan(BaseNumberPredicate):
         return isinstance(value, float) and value > self.value
 
     def __invert__(self):
-        return NumberLessOrEqualThan(value=self.value)
+        return NumberLessOrEqualThan(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the number greater-than predicate to a Z3 expression.
@@ -100,6 +102,7 @@ class NumberGreaterThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(real_variable > z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
@@ -123,7 +126,7 @@ class NumberGreaterOrEqualThan(BaseNumberPredicate):
         return isinstance(value, float) and value >= self.value
 
     def __invert__(self):
-        return NumberLessThan(value=self.value)
+        return NumberLessThan(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the number greater-than-or-equal-to predicate to a Z3 expression.
@@ -136,6 +139,7 @@ class NumberGreaterOrEqualThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(real_variable >= z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
@@ -152,7 +156,7 @@ class NumberLessThan(BaseNumberPredicate):
         return isinstance(value, float) and value < self.value
 
     def __invert__(self):
-        return NumberGreaterOrEqualThan(value=self.value)
+        return NumberGreaterOrEqualThan(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the number less-than predicate to a Z3 expression.
@@ -165,6 +169,7 @@ class NumberLessThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(real_variable < z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())
 
 
@@ -188,7 +193,7 @@ class NumberLessOrEqualThan(BaseNumberPredicate):
         return isinstance(value, float) and value <= self.value
 
     def __invert__(self):
-        return NumberGreaterThan(value=self.value)
+        return NumberGreaterThan(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the number less-than-or-equal-to predicate to a Z3 expression.
@@ -201,4 +206,5 @@ class NumberLessOrEqualThan(BaseNumberPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         real_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(real_variable <= z3.RealVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_real())

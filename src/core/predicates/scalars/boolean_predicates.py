@@ -33,7 +33,7 @@ class BooleanEqualTo(BaseBooleanPredicate):
     value: bool
 
     def __invert__(self):
-        return BooleanNotEqualTo(value=self.value)
+        return BooleanNotEqualTo(value=self.value, var=self.var)
 
     def verify(self, value):
         return isinstance(value, bool) and value == self.value
@@ -49,6 +49,7 @@ class BooleanEqualTo(BaseBooleanPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         boolean_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(
             boolean_variable == z3.BoolVal(self.value, ctx=ctx.z3_context),
             ctx.json_type_variable.is_bool(),
@@ -60,11 +61,12 @@ class BooleanNotEqualTo(BaseBooleanPredicate):
     value: bool
 
     def __invert__(self):
-        return BooleanEqualTo(value=self.value)
+        return BooleanEqualTo(value=self.value, var=self.var)
 
     def verify(self, value):
         return isinstance(value, bool) and value != self.value
 
     def to_z3(self, ctx: VariableContext):
         boolean_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(boolean_variable != z3.BoolVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_bool())

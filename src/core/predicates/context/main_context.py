@@ -1,9 +1,13 @@
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import z3
 
 from core.predicates.context.json_datatype import JsonDatatypeWrapper, build_json_datatype
 from core.predicates.context.predicate_limitations import PredicateLimitations
+
+if TYPE_CHECKING:
+    from core.predicates.context.variable_context import VariableContext
 
 
 class MainContext:
@@ -19,6 +23,24 @@ class MainContext:
         )
         self._limitations = None
         self._root_var_ctx = VariableContext(main_context=self, level=-1)
+        self._user_variables = {}
+        self._all_object_keys_var = z3.Const(
+            f'all_object_keys_{uuid4()}', z3.SeqSort(z3.StringSort(ctx=self._z3_context))
+        )
+
+    def get_all_object_keys_var(self):
+        return self._all_object_keys_var
+
+    def get_or_create_user_variable(self, name: str) -> 'VariableContext':
+        from core.predicates.context.variable_context import VariableContext
+
+        if name not in self._user_variables.keys():
+            self._user_variables[name] = VariableContext(
+                main_context=self,
+                level=0,
+                parent=self._root_var_ctx,
+            )
+        return self._user_variables[name]
 
     @property
     def max_nesting_level(self):

@@ -72,7 +72,7 @@ class StringEqualTo(BaseStringPredicate):
             return isinstance(value, str) and value == self.value
 
     def __invert__(self):
-        return StringNotEqualTo(value=self.value, ignore_case=self.ignore_case)
+        return StringNotEqualTo(value=self.value, ignore_case=self.ignore_case, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         return PredicateLimitations(
@@ -91,6 +91,7 @@ class StringEqualTo(BaseStringPredicate):
         """
 
         string_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         if self.ignore_case:
             case_insensitive_regex = ConvertEREToZ3Regex(ctx.z3_context, self.value, is_case_sensitive=False).convert()
             z3_expression = InRe(string_variable, case_insensitive_regex)
@@ -112,7 +113,7 @@ class StringNotEqualTo(BaseStringPredicate):
             return isinstance(value, str) and value != self.value
 
     def __invert__(self):
-        return StringEqualTo(value=self.value, ignore_case=self.ignore_case)
+        return StringEqualTo(value=self.value, ignore_case=self.ignore_case, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         return PredicateLimitations(
@@ -121,6 +122,7 @@ class StringNotEqualTo(BaseStringPredicate):
 
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         if self.ignore_case:
             case_insensitive_regex = ConvertEREToZ3Regex(ctx.z3_context, self.value, is_case_sensitive=False).convert()
             z3_expression = InRe(string_variable, case_insensitive_regex)
@@ -149,7 +151,7 @@ class StringPattern(BaseStringPredicate):
             return isinstance(value, str) and bool(re.match(self.pattern, value))
 
     def __invert__(self):
-        return StringNotPattern(pattern=self.pattern, ignore_case=self.ignore_case)
+        return StringNotPattern(pattern=self.pattern, ignore_case=self.ignore_case, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         return PredicateLimitations(
@@ -168,6 +170,7 @@ class StringPattern(BaseStringPredicate):
         """
 
         string_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         pattern_regex = ConvertEREToZ3Regex(
             ctx.z3_context, self.pattern, is_case_sensitive=not self.ignore_case
         ).convert()
@@ -192,7 +195,7 @@ class StringNotPattern(BaseStringPredicate):
             return isinstance(value, str) and not bool(re.match(self.pattern, value))
 
     def __invert__(self):
-        return StringPattern(pattern=self.pattern, ignore_case=self.ignore_case)
+        return StringPattern(pattern=self.pattern, ignore_case=self.ignore_case, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         return PredicateLimitations(
@@ -201,6 +204,7 @@ class StringNotPattern(BaseStringPredicate):
 
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         pattern_regex = ConvertEREToZ3Regex(
             ctx.z3_context, self.pattern, is_case_sensitive=not self.ignore_case
         ).convert()
@@ -235,7 +239,7 @@ class StringContains(BaseStringPredicate):
             return isinstance(value, str) and self.value in value
 
     def __invert__(self):
-        return StringNotContains(value=self.value, ignore_case=self.ignore_case)
+        return StringNotContains(value=self.value, ignore_case=self.ignore_case, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         return PredicateLimitations(
@@ -253,6 +257,7 @@ class StringContains(BaseStringPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         string_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         any_character_regex = z3.AllChar(z3.ReSort(z3.StringSort(ctx=ctx.z3_context)))
 
         if self.ignore_case:
@@ -291,7 +296,7 @@ class StringNotContains(StringContains):
             return isinstance(value, str) and self.value not in value
 
     def __invert__(self):
-        return StringContains(value=self.value, ignore_case=self.ignore_case)
+        return StringContains(value=self.value, ignore_case=self.ignore_case, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         return PredicateLimitations(
@@ -300,6 +305,7 @@ class StringNotContains(StringContains):
 
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         any_character_regex = z3.AllChar(z3.ReSort(z3.StringSort(ctx=ctx.z3_context)))
 
         if self.ignore_case:
@@ -346,7 +352,7 @@ class StringInList(BaseStringPredicate):
         return False
 
     def __invert__(self):
-        return StringNotInList(values=self.values)
+        return StringNotInList(values=self.values, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = PredicateLimitations()
@@ -355,6 +361,7 @@ class StringInList(BaseStringPredicate):
         return limitation
 
     def to_z3(self, ctx: VariableContext):
+        ctx.set_as_user_variable(self.var)
         or_constraints = []
         for item in self.compiled_value:
             or_constraints.append(item.to_z3(ctx))
@@ -383,7 +390,7 @@ class StringNotInList(StringInList):
         return True
 
     def __invert__(self):
-        return StringInList(values=self.values)
+        return StringInList(values=self.values, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = PredicateLimitations()
@@ -392,6 +399,7 @@ class StringNotInList(StringInList):
         return limitation
 
     def to_z3(self, ctx: VariableContext):
+        ctx.set_as_user_variable(self.var)
         or_constraints = []
         for item in self.compiled_value:
             or_constraints.append(item.to_z3(ctx))
@@ -416,7 +424,7 @@ class StringConcatEqualTo(BaseStringPredicate):
         return self.is_intersected_with(StringEqualTo(value=value))
 
     def __invert__(self):
-        return StringConcatNotEqualTo(values=self.values)
+        return StringConcatNotEqualTo(values=self.values, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = PredicateLimitations()
@@ -426,6 +434,7 @@ class StringConcatEqualTo(BaseStringPredicate):
 
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
 
         if len(self.compiled_value) == 0:
             return z3.And(
@@ -480,7 +489,7 @@ class StringConcatNotEqualTo(BaseStringPredicate):
         return self.is_intersected_with(StringEqualTo(value=value))
 
     def __invert__(self):
-        return StringConcatEqualTo(values=self.values)
+        return StringConcatEqualTo(values=self.values, var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         limitation = PredicateLimitations()
@@ -491,6 +500,7 @@ class StringConcatNotEqualTo(BaseStringPredicate):
 
     def to_z3(self, ctx: VariableContext):
         string_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
 
         if len(self.compiled_value) == 0:
             return z3.And(

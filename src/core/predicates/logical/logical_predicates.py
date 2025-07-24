@@ -32,10 +32,11 @@ class VoidPredicate(BaseLogicalPredicate):
         return {PredicateType.Any}
 
     def to_z3(self, ctx: VariableContext):
+        ctx.set_as_user_variable(self.var)
         return z3.BoolVal(False, ctx=ctx.z3_context)
 
     def __invert__(self):
-        return AnyPredicate()
+        return AnyPredicate(var=self.var)
 
 
 class AnyPredicate(BaseScalarPredicate):
@@ -52,7 +53,7 @@ class AnyPredicate(BaseScalarPredicate):
         return True
 
     def __invert__(self):
-        return VoidPredicate()
+        return VoidPredicate(var=self.var)
 
     @property
     def predicate_types(self):
@@ -77,6 +78,7 @@ class AnyPredicate(BaseScalarPredicate):
 
         .. Docstring created by Gemini 2.5 Flash
         """
+        ctx.set_as_user_variable(self.var)
         return z3.BoolVal(True, ctx=ctx.z3_context)
 
 
@@ -84,6 +86,10 @@ class NotPredicate(BaseLogicalPredicate, ParityPredicateMixin):
     type_of: Literal['$-mockau-not'] = '$-mockau-not'
 
     predicate: 't_DefaultPredicateType'
+
+    def get_all_predicates(self):
+        yield self
+        yield from self.compiled_value.get_all_predicates()
 
     def normalize_to_canonical_form(self):
         value = self.compiled_value.normalize_to_canonical_form()
@@ -135,6 +141,7 @@ class NotPredicate(BaseLogicalPredicate, ParityPredicateMixin):
         return (~self.compiled_value).calculate_limitations()
 
     def to_z3(self, ctx: VariableContext):
+        ctx.set_as_user_variable(self.var)
         inverted_predicate = ~self.compiled_value
         additional_constraints = []
 
@@ -168,6 +175,11 @@ class AndPredicate(BaseLogicalPredicate, ParityPredicateMixin):
     type_of: Literal['$-mockau-and'] = '$-mockau-and'
 
     predicates: list['t_DefaultPredicateType']
+
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
 
     def normalize_to_canonical_form(self):
         """
@@ -258,7 +270,7 @@ class AndPredicate(BaseLogicalPredicate, ParityPredicateMixin):
             return {PredicateType.Null}
 
     def __invert__(self):
-        return OrPredicate(predicates=[~p for p in self.compiled_value])
+        return OrPredicate(predicates=[~p for p in self.compiled_value], var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the AND predicate to a Z3 expression.
@@ -273,22 +285,26 @@ class AndPredicate(BaseLogicalPredicate, ParityPredicateMixin):
 
         .. Docstring created by Gemini 2.5 Flash
         """
-        if self.predicate_types == {PredicateType.Null}:
-            return z3.BoolVal(False, ctx=ctx.z3_context)
+        ctx.set_as_user_variable(self.var)
+
+        z3_constraints = [inner_predicate.to_z3(ctx) for inner_predicate in self.compiled_value]
+        if len(z3_constraints) == 0:
+            return z3.BoolVal(True, ctx=ctx.z3_context)
+        elif len(z3_constraints) == 1:
+            return z3_constraints[0]
         else:
-            z3_constraints = [inner_predicate.to_z3(ctx) for inner_predicate in self.compiled_value]
-            if len(z3_constraints) == 0:
-                return z3.BoolVal(True, ctx=ctx.z3_context)
-            elif len(z3_constraints) == 1:
-                return z3_constraints[0]
-            else:
-                return z3.And(*z3_constraints)
+            return z3.And(*z3_constraints)
 
 
 class OrPredicate(BaseLogicalPredicate, ParityPredicateMixin):
     type_of: Literal['$-mockau-or'] = '$-mockau-or'
 
     predicates: list['t_DefaultPredicateType']
+
+    def get_all_predicates(self):
+        yield self
+        for predicate in self.compiled_value:
+            yield from predicate.get_all_predicates()
 
     def normalize_to_canonical_form(self):
         flattened_predicates = []
@@ -347,7 +363,7 @@ class OrPredicate(BaseLogicalPredicate, ParityPredicateMixin):
             return set()
 
     def __invert__(self):
-        return AndPredicate(predicates=[~(p) for p in self.compiled_value])
+        return AndPredicate(predicates=[~(p) for p in self.compiled_value], var=self.var)
 
     def calculate_limitations(self) -> PredicateLimitations:
         if not self.predicates:
@@ -368,6 +384,7 @@ class OrPredicate(BaseLogicalPredicate, ParityPredicateMixin):
 
         .. Docstring created by Gemini 2.5 Flash
         """
+        ctx.set_as_user_variable(self.var)
         z3_constraints = [inner_predicate.to_z3(ctx) for inner_predicate in self.compiled_value]
         if len(z3_constraints) == 0:
             return z3.BoolVal(False, ctx=ctx.z3_context)

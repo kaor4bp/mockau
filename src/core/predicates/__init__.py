@@ -211,7 +211,13 @@ t_ScalarPredicate = Union[
 ]
 
 type t_Py2PredicateType = Union[
-    str, int, NoneType, float, list['t_DefaultPredicateType'], dict
+    Annotated[bool, Field(strict=True)],
+    Annotated[str, Field(strict=True)],
+    Annotated[int, Field(strict=True)],
+    NoneType,
+    Annotated[float, Field(strict=True)],
+    Annotated[list['t_DefaultPredicateType'], Field(strict=True)],
+    Annotated[dict, Field(strict=True)],
 ]  # bug if dict[str, 't_DefaultPredicateType']
 type t_DefaultPredicateType = Union[Annotated['t_Predicate', Field(discriminator='type_of')], t_Py2PredicateType]
 

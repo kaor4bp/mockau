@@ -40,6 +40,12 @@ class BaseObjectPredicate(
     value: dict[str, 't_DefaultPredicateType'] = Field(default_factory=dict)
     dynamic_matches: list[DynamicKeyMatch] = Field(default_factory=list)
 
+    def get_all_predicates(self):
+        yield self
+        for key_pred, val_pred in self.compiled_value.items():
+            yield from key_pred.get_all_predicates()
+            yield from val_pred.get_all_predicates()
+
     @cached_property
     def compiled_value(self):
         result = {}
@@ -107,10 +113,11 @@ class ObjectEqualTo(
         return len(best_candidate.keys()) == len(self.compiled_value.keys()) == len(value.keys())
 
     def __invert__(self):
-        return ObjectNotEqualTo(value=self.value, dynamic_matches=self.dynamic_matches)
+        return ObjectNotEqualTo(value=self.value, dynamic_matches=self.dynamic_matches, var=self.var)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
+        ctx.set_as_user_variable(self.var)
 
         child_ctx = ctx.create_child_context()
         child_ctx.get_variable(PredicateType.Undefined)
@@ -133,6 +140,7 @@ class ObjectEqualTo(
             ]
 
             key_var = key_context.get_variable(PredicateType.String)
+
             my_arr = z3.Store(my_arr, key_var, value_context.json_type_variable.z3_variable)
             ctx.register_key_var(key_var)
 
@@ -147,7 +155,6 @@ class ObjectEqualTo(
             z3_object_variable == my_arr,
             ctx.json_type_variable.is_object(),
         ]
-
         return z3.And(*constraints, *key_constraints, z3.BoolVal(True, ctx=ctx.z3_context))
 
 
@@ -155,13 +162,6 @@ class ObjectNotEqualTo(
     BaseObjectPredicate,
 ):
     type_of: Literal['$-mockau-object-not-equal-to'] = '$-mockau-object-not-equal-to'
-    # value: dict[
-    #     Union[
-    #         't_Predicate',
-    #         str,
-    #     ],
-    #     _t_SpecifiedType,
-    # ]
 
     def compile_predicate(self):
         from core.predicates import DynamicKeyMatch, ObjectNotEqualTo
@@ -192,12 +192,13 @@ class ObjectNotEqualTo(
         )
 
     def __invert__(self):
-        return ObjectEqualTo(value=self.value, dynamic_matches=self.dynamic_matches)
+        return ObjectEqualTo(value=self.value, dynamic_matches=self.dynamic_matches, var=self.var)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         from core.predicates import NotPredicate
 
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
+        ctx.set_as_user_variable(self.var)
         all_keys_set = z3.EmptySet(z3.StringSort(ctx=ctx.z3_context))
         existing_key_vars = []
 
@@ -217,16 +218,7 @@ class ObjectNotEqualTo(
 
             key_var = key_context.get_variable(PredicateType.String)
             or_constraints.append(z3_object_variable[key_var] == value_context.json_type_variable.z3_variable)
-            # k = z3.String(f'k_{uuid4()}', ctx=ctx.z3_context)
-            # or_constraints.append(
-            #     z3.ForAll(
-            #         [k],
-            #         z3.And(
-            #             z3.Contains(k, 'rabbit'),
-            #             z3_object_variable[k] == value_context.json_type_variable.z3_variable,
-            #         )
-            #     )
-            # )
+
             all_keys_set = z3.SetAdd(all_keys_set, key_var)
             ctx.register_key_var(key_var)
 
@@ -297,10 +289,11 @@ class ObjectContainsSubset(
         return len(best_candidate.keys()) >= len(self.compiled_value.keys())
 
     def __invert__(self):
-        return ObjectNotContainsSubset(value=self.value, dynamic_matches=self.dynamic_matches)
+        return ObjectNotContainsSubset(value=self.value, dynamic_matches=self.dynamic_matches, var=self.var)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
+        ctx.set_as_user_variable(self.var)
         constraints = []
         existing_key_vars = []
 
@@ -316,6 +309,7 @@ class ObjectContainsSubset(
             ]
 
             key_var = key_context.get_variable(PredicateType.String)
+
             constraints.append(value_context.json_type_variable.z3_variable == z3_object_variable[key_var])
             ctx.register_key_var(key_var)
 
@@ -363,12 +357,13 @@ class ObjectNotContainsSubset(
         return len(best_candidate.keys()) < len(self.compiled_value.keys())
 
     def __invert__(self):
-        return ObjectContainsSubset(value=self.compiled_value)
+        return ObjectContainsSubset(value=self.compiled_value, var=self.var)
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         from core.predicates import NotPredicate
 
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
+        ctx.set_as_user_variable(self.var)
         constraints = []
         existing_key_vars = []
 
@@ -389,6 +384,7 @@ class ObjectNotContainsSubset(
             ]
 
             key_var = key_context.get_variable(PredicateType.String)
+
             or_constraints += [
                 z3_object_variable[key_var] == value_context.json_type_variable.z3_variable,
                 z3_object_variable[key_var] == undefined_var,
@@ -402,7 +398,6 @@ class ObjectNotContainsSubset(
             del value_context
 
         constraints.append(ctx.json_type_variable.is_object())
-
         return z3.And(*constraints, z3.Or(*or_constraints))
 
 
@@ -411,6 +406,10 @@ class ObjectHasValue(
 ):
     type_of: Literal['$-mockau-object-has-value'] = '$-mockau-object-has-value'
     predicate: 't_DefaultPredicateType'
+
+    def get_all_predicates(self):
+        yield self
+        yield from self.compiled_value.get_all_predicates()
 
     def compile_predicate(self):
         from core.predicates import ObjectHasValue
@@ -433,7 +432,7 @@ class ObjectHasValue(
         return False
 
     def __invert__(self):
-        return ObjectHasNoValue(predicate=self.predicate)
+        return ObjectHasNoValue(predicate=self.predicate, var=self.var)
 
     @property
     def predicate_types(self) -> set[PredicateType]:
@@ -441,11 +440,13 @@ class ObjectHasValue(
 
     def to_z3(self, ctx: VariableContext) -> z3.ExprRef:
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
+        ctx.set_as_user_variable(self.var)
         constraints = []
 
         child_ctx = ctx.create_child_context()
         constraints.append(self.compiled_value.to_z3(child_ctx))
         key_var = z3.String(f'key_{uuid4()}', ctx=ctx.z3_context)
+
         constraints.append(z3_object_variable[key_var] == child_ctx.json_type_variable.z3_variable)
         constraints.append(ctx.json_type_variable.is_object())
         ctx.register_key_var(key_var)
@@ -468,6 +469,10 @@ class ObjectHasNoValue(
     type_of: Literal['$-mockau-object-has-no-value'] = '$-mockau-object-has-no-value'
     predicate: 't_DefaultPredicateType'
 
+    def get_all_predicates(self):
+        yield self
+        yield from self.compiled_value.get_all_predicates()
+
     def compile_predicate(self):
         from core.predicates import ObjectHasNoValue
 
@@ -489,7 +494,7 @@ class ObjectHasNoValue(
         return True
 
     def __invert__(self):
-        return ObjectHasValue(predicate=self.predicate)
+        return ObjectHasValue(predicate=self.predicate, var=self.var)
 
     @property
     def predicate_types(self) -> set[PredicateType]:
@@ -499,6 +504,7 @@ class ObjectHasNoValue(
         from core.predicates import NotPredicate
 
         z3_object_variable = ctx.get_variable(predicate_type=PredicateType.Object)
+        ctx.set_as_user_variable(self.var)
         constraints = []
         or_constraints = [z3.BoolVal(False, ctx=ctx.z3_context)]
 

@@ -36,7 +36,7 @@ class IntegerEqualTo(BaseIntegerPredicate):
         return isinstance(value, int) and value == self.value
 
     def __invert__(self):
-        return IntegerNotEqualTo(value=self.value)
+        return IntegerNotEqualTo(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the integer equality predicate to a Z3 expression.
@@ -49,6 +49,7 @@ class IntegerEqualTo(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(integer_variable == z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
@@ -67,10 +68,11 @@ class IntegerNotEqualTo(BaseIntegerPredicate):
         return isinstance(value, int) and value != self.value
 
     def __invert__(self):
-        return IntegerEqualTo(value=self.value)
+        return IntegerEqualTo(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         integer_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(integer_variable != z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
@@ -87,7 +89,7 @@ class IntegerGreaterThan(BaseIntegerPredicate):
         return isinstance(value, int) and value > self.value
 
     def __invert__(self):
-        return IntegerLessOrEqualThan(value=self.value)
+        return IntegerLessOrEqualThan(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the integer greater-than predicate to a Z3 expression.
@@ -100,6 +102,7 @@ class IntegerGreaterThan(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(integer_variable > z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
@@ -123,7 +126,7 @@ class IntegerGreaterOrEqualThan(BaseIntegerPredicate):
         return isinstance(value, int) and value >= self.value
 
     def __invert__(self):
-        return IntegerLessThan(value=self.value)
+        return IntegerLessThan(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the integer greater-than-or-equal-to predicate to a Z3 expression.
@@ -136,6 +139,7 @@ class IntegerGreaterOrEqualThan(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(integer_variable >= z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
@@ -152,7 +156,7 @@ class IntegerLessThan(BaseIntegerPredicate):
         return isinstance(value, int) and value < self.value
 
     def __invert__(self):
-        return IntegerGreaterOrEqualThan(value=self.value)
+        return IntegerGreaterOrEqualThan(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the integer less-than predicate to a Z3 expression.
@@ -165,6 +169,7 @@ class IntegerLessThan(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(integer_variable < z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())
 
 
@@ -188,7 +193,7 @@ class IntegerLessOrEqualThan(BaseIntegerPredicate):
         return isinstance(value, int) and value <= self.value
 
     def __invert__(self):
-        return IntegerGreaterThan(value=self.value)
+        return IntegerGreaterThan(value=self.value, var=self.var)
 
     def to_z3(self, ctx: VariableContext):
         """Convert the integer less-than-or-equal-to predicate to a Z3 expression.
@@ -201,4 +206,5 @@ class IntegerLessOrEqualThan(BaseIntegerPredicate):
         .. Docstring created by Gemini 2.5 Flash
         """
         integer_variable = ctx.get_variable(self.predicate_type)
+        ctx.set_as_user_variable(self.var)
         return z3.And(integer_variable <= z3.IntVal(self.value, ctx=ctx.z3_context), ctx.json_type_variable.is_int())

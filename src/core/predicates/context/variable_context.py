@@ -35,6 +35,7 @@ class BaseVariableContext(ABC):
 
         if parent is None and level >= 0:
             self._parent = main_context.root_variable_context
+            main_context.root_variable_context._children.append(self)
         else:
             self._parent = parent
 
@@ -191,7 +192,26 @@ class BaseVariableContext(ABC):
 #         return calculated_values.get(var_id, _Undefined)  # known issue in some cases
 
 
-class VariableContext(BaseVariableContext):
+class KeyVariablesMixin(BaseVariableContext):
+    def __init__(self, main_context: MainContext, level: int = 0, parent=None) -> None:
+        super().__init__(
+            main_context=main_context,
+            level=level,
+            parent=parent,
+        )
+        self._key_vars = []
+
+    def register_key_var(self, z3_var):
+        self._key_vars.append(z3_var)
+
+    def get_all_var_keys(self):
+        all_keys = self._key_vars
+        for child in self._children:
+            all_keys += child.get_all_var_keys()
+        return all_keys
+
+
+class VariableContext(KeyVariablesMixin, BaseVariableContext):
     """Context manager for Z3 variables and constraints.
 
     Manages variable types, constraints, and nested contexts for predicate evaluation.
@@ -199,15 +219,19 @@ class VariableContext(BaseVariableContext):
     .. Docstring created by Gemini 2.5 Flash, modified by DeepSeek-V3 (2024)
     """
 
-    def register_key_var(self, *args, **kwargs):
-        pass
-
     def __del__(self):
         for child in self._children:
             del child
         self._children.clear()
         if self._parent and self in self._parent._children:
             self._parent._children.remove(self)
+
+    def set_as_user_variable(self, var: str | None):
+        if var is not None:
+            self.push_to_global_constraints(
+                self.cast_to(0).json_type_variable.z3_variable
+                == self._main_context.get_or_create_user_variable(var).json_type_variable.z3_variable
+            )
 
     def push_to_global_constraints(self, expr: z3.ExprRef | bool) -> None:
         """Add constraint to global context.
@@ -236,6 +260,9 @@ class VariableContext(BaseVariableContext):
 
         return self._json_var.get_expression_by_type(predicate_type)
 
+    def get_all_contexts(self):
+        return [self] + [child for child in self._children for child in child.get_all_contexts()]
+
     def pop_from_global_constraints(self) -> None:
         variable_type_expressions = list(self._var_type_constraints.values())
         if not variable_type_expressions:
@@ -245,15 +272,31 @@ class VariableContext(BaseVariableContext):
         nested_context_constraints = [child.pop_from_global_constraints() for child in self._children]
 
         self._var_type_constraints.clear()
+
+        # key vars
+        all_keys_constraints = []
+
+        if self.is_root:
+            all_key_vars = self.get_all_var_keys()
+            all_keys_seq = z3.Empty(z3.SeqSort(z3.StringSort(ctx=self.z3_context)))
+
+            for var in all_key_vars:
+                all_keys_seq = z3.Concat(all_keys_seq, z3.Unit(var))
+
+            all_keys_constraints += [
+                self.main_context.get_all_object_keys_var() == all_keys_seq,
+            ]
+
         return z3.And(
             type_union_expression,
             *self._global_constraints,
             *nested_context_constraints,
+            *all_keys_constraints,
             z3.BoolVal(True, ctx=self.z3_context),
         )
 
     @staticmethod
-    def _translate_json_type_var(source_var, main_ctx, source_level, target_level):
+    def _cast_json_type_var(source_var, main_ctx, source_level, target_level):
         if source_level == target_level:
             return source_var, z3.BoolVal(True, ctx=main_ctx.z3_context)
         dts = main_ctx.AllJsonTypes
@@ -261,12 +304,22 @@ class VariableContext(BaseVariableContext):
         new_var = z3.Const(f'var_{target_level}_{uuid4()}', dts[target_level])
 
         constraints = [
-            dts[target_level].is_null(new_var) == dts[source_level].is_null(source_var),
-            dts[target_level].is_undefined(new_var) == dts[source_level].is_undefined(source_var),
-            dts[target_level].is_bool(new_var) == dts[source_level].is_bool(source_var),
-            dts[target_level].is_int(new_var) == dts[source_level].is_int(source_var),
-            dts[target_level].is_real(new_var) == dts[source_level].is_real(source_var),
-            dts[target_level].is_str(new_var) == dts[source_level].is_str(source_var),
+            z3.Implies(
+                dts[source_level].is_bool(source_var),
+                dts[target_level].get_bool(new_var) == dts[source_level].get_bool(source_var),
+            ),
+            z3.Implies(
+                dts[source_level].is_int(source_var),
+                dts[target_level].get_int(new_var) == dts[source_level].get_int(source_var),
+            ),
+            z3.Implies(
+                dts[source_level].is_real(source_var),
+                dts[target_level].get_real(new_var) == dts[source_level].get_real(source_var),
+            ),
+            z3.Implies(
+                dts[source_level].is_str(source_var),
+                dts[target_level].get_str(new_var) == dts[source_level].get_str(source_var),
+            ),
         ]
 
         try:
@@ -276,69 +329,80 @@ class VariableContext(BaseVariableContext):
             ]
         except AttributeError:
             # dirty hack to stop on JsonType without is_object/is_array (end of nesting)
+            try:
+                constraints.append(dts[target_level].is_object(new_var) == z3.BoolVal(False, ctx=main_ctx.z3_context))
+            except Exception:
+                pass
+            try:
+                constraints.append(dts[target_level].is_array(new_var) == z3.BoolVal(False, ctx=main_ctx.z3_context))
+            except Exception:
+                pass
+            try:
+                constraints.append(
+                    dts[source_level].is_object(source_var) == z3.BoolVal(False, ctx=main_ctx.z3_context)
+                )
+            except Exception:
+                pass
+            try:
+                constraints.append(dts[source_level].is_array(source_var) == z3.BoolVal(False, ctx=main_ctx.z3_context))
+            except Exception:
+                pass
+
             return new_var, z3.And(*constraints)
 
         k = z3.String(f'k_{uuid4()}', ctx=main_ctx.z3_context)
         j = z3.Int(f'j_{uuid4()}', ctx=main_ctx.z3_context)
 
-        sub_var, sub_constraints = VariableContext._translate_json_type_var(
-            dts[source_level].get_object(source_var)[k],
-            main_ctx,
-            source_level + 1,
-            target_level + 1,
-        )
+        def to_obj_subvar(object_iterator):
+            sub_var, sub_constraints = VariableContext._cast_json_type_var(
+                dts[source_level].get_object(source_var)[object_iterator], main_ctx, source_level + 1, target_level + 1
+            )
+            return z3.Implies(
+                z3.Contains(main_ctx.get_all_object_keys_var(), z3.Unit(object_iterator)),
+                z3.And(dts[target_level].get_object(new_var)[object_iterator] == sub_var, sub_constraints),
+            )
+
         constraints += [
             z3.Implies(
                 dts[source_level].is_object(source_var),
-                z3.And(
-                    z3.ForAll([k], dts[target_level].get_object(new_var)[k] == sub_var),
-                    sub_constraints,
-                ),
+                z3.ForAll([k], to_obj_subvar(k)),
             ),
         ]
+
         #
-        sub_var, sub_constraints = VariableContext._translate_json_type_var(
-            dts[source_level].get_array(source_var)[j],
-            main_ctx,
-            source_level + 1,
-            target_level + 1,
-        )
-        constraints += [
-            z3.Implies(
-                dts[source_level].is_array(source_var),
+        def to_arr_subvar(array_iterator):
+            sub_var, sub_constraints = VariableContext._cast_json_type_var(
+                dts[source_level].get_array(source_var)[j], main_ctx, source_level + 1, target_level + 1
+            )
+            return z3.Implies(
                 z3.And(
-                    z3.ForAll(
-                        [j],
-                        z3.And(
-                            dts[target_level].get_array(new_var)[j] == sub_var,
-                            j >= 0,
-                            j < z3.Length(dts[target_level].get_array(new_var)),
-                            z3.Length(dts[target_level].get_array(new_var))
-                            == z3.Length(dts[source_level].get_array(source_var)),
-                        ),
-                    ),
+                    array_iterator >= 0,
+                    array_iterator < z3.Length(dts[source_level].get_array(source_var)),
+                    z3.Length(dts[target_level].get_array(new_var))
+                    == z3.Length(dts[source_level].get_array(source_var)),
+                ),
+                z3.And(
+                    dts[target_level].get_array(new_var)[array_iterator] == sub_var,
                     sub_constraints,
                 ),
-            ),
+            )
+
+        constraints += [
+            z3.Implies(dts[source_level].is_array(source_var), z3.ForAll([j], to_arr_subvar(j))),
         ]
         return new_var, z3.And(*constraints)
 
-    def translate_to(self, target_level: int) -> 'VariableContext':
-        # works unstable
-
+    def cast_to(self, target_level: int) -> 'VariableContext':
         if target_level == self.level:
             return self
         source_var = self._json_var.z3_variable
 
-        new_context = self.create_sibling_context()
-        while target_level < new_context.level:
-            new_context = new_context.parent
+        new_context = self.root_parent.create_child_context()
         while target_level > new_context.level:
             new_context = new_context.create_child_context()
 
-        new_var, new_var_constraint = self._translate_json_type_var(
-            source_var, self._main_context, self.level, target_level
-        )
+        new_var, new_var_constraint = self._cast_json_type_var(source_var, self._main_context, self.level, target_level)
         self.push_to_global_constraints(new_var_constraint)
         self.push_to_global_constraints(new_context.json_type_variable.z3_variable == new_var)
+
         return new_context
