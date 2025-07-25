@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from core.modifiers.abstract_modifier import AbstractModifier
+from core.deprecated_modifiers.abstract_modifier import AbstractModifier
 from schemas.variables import VariablesContext
 
 
