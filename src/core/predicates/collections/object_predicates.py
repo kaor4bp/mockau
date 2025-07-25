@@ -16,13 +16,13 @@ if TYPE_CHECKING:
 
 
 class DynamicKeyMatch(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, alias_generator=lambda x: f'${x}')
 
     key: Union[
         't_Predicate',
         str,
-    ] = Field(alias='$key')
-    value: 't_DefaultPredicateType' = Field(alias='$value')
+    ]
+    value: 't_DefaultPredicateType'
 
 
 class BaseObjectPredicate(
@@ -310,7 +310,7 @@ class ObjectContainsSubset(
 
             key_var = key_context.get_variable(PredicateType.String)
 
-            constraints.append(value_context.json_type_variable.z3_variable == z3_object_variable[key_var])
+            constraints.append(z3_object_variable[key_var] == value_context.json_type_variable.z3_variable)
             ctx.register_key_var(key_var)
 
             for v in existing_key_vars:

@@ -11,6 +11,7 @@ from core.predicates import (
     AndPredicate,
     AnyPredicate,
     ArrayContains,
+    ArrayEqualTo,
     DynamicKeyMatch,
     IntegerEqualTo,
     IntegerGreaterOrEqualThan,
@@ -18,14 +19,8 @@ from core.predicates import (
     IntegerLessOrEqualThan,
     IntegerLessThan,
     IntegerNotEqualTo,
-    NestedArrayContains,
-    NestedArrayEqualTo,
-    NestedArrayNotContains,
-    NestedArrayNotEqualTo,
-    NestedObjectContainsSubset,
-    NestedObjectEqualTo,
-    NestedObjectNotContainsSubset,
-    NestedObjectNotEqualTo,
+    NestedAnyOf,
+    NestedNoneOf,
     ObjectContainsSubset,
     ObjectEqualTo,
     ObjectHasValue,
@@ -112,32 +107,32 @@ NOT_INTERSECTIONS = {
         ObjectEqualTo(value={'alice': 1}),
     ],
     'nested_object_equal_to_and_flat_object_equal_to_type_mismatch': [
-        NestedObjectEqualTo(value={'card': 'queen'}),
+        NestedAnyOf(predicate=ObjectEqualTo(value={'card': 'queen'})),
         ObjectEqualTo(value={'card': 1}),
     ],
     'nested_object_equal_to_and_deep_object_equal_to_array_type_mismatch': [
-        NestedObjectEqualTo(value={'card': 'queen'}),
+        NestedAnyOf(predicate=ObjectEqualTo(value={'card': 'queen'})),
         ObjectEqualTo(value={'card': [{'tea': {'hatter': 'mad'}}]}),
     ],
     'not_nested_object_equal_to_and_deep_object_equal_to_array_no_match_1': [
-        NestedObjectNotEqualTo(value={'card': 'queen'}),
+        NestedNoneOf(predicate=ObjectEqualTo(value={'card': 'queen'})),
         ObjectEqualTo(value={'card': [{'tea': {'hatter': 'mad', 'dormouse': {'card': 'queen'}}}]}),
     ],
     'not_nested_object_equal_to_and_deep_object_equal_to_array_no_match_2': [
-        NestedObjectNotEqualTo(value={'card': 'queen'}),
+        NestedNoneOf(predicate=ObjectEqualTo(value={'card': 'queen'})),
         ObjectEqualTo(value={'card': [{'tea': {'hatter': 'mad', 'dormouse': [{'card': 'queen'}]}}]}),
     ],
     'object_with_nested_subset_and_flat_nested_value_mismatch': [
         ObjectEqualTo(
             value={
                 'alice': 'rabbit',
-                'hatter': NestedObjectContainsSubset(value={'alice': 'rabbit'}),
+                'hatter': NestedAnyOf(predicate=ObjectContainsSubset(value={'alice': 'rabbit'})),
             }
         ),
         ObjectEqualTo(value={'alice': 'rabbit', 'hatter': {'alice': 123}}),
     ],
     'nested_subset_and_unrelated_object': [
-        NestedObjectContainsSubset(value={'alice': 'rabbit'}),
+        NestedAnyOf(predicate=ObjectContainsSubset(value={'alice': 'rabbit'})),
         ObjectEqualTo(value={'queen': 'cards'}),
     ],
     'non_overlapping_integer_ranges': [
@@ -156,26 +151,30 @@ NOT_INTERSECTIONS = {
 
 INTERSECTIONS = {
     '0': [
-        NestedObjectContainsSubset(
-            value={
-                'alice': 'rabbit',
-                'kek': {'hello': NestedArrayNotEqualTo(value=['hello', 'world', '!'])},
-            }
+        NestedAnyOf(
+            predicate=ObjectContainsSubset(
+                value={
+                    'alice': 'rabbit',
+                    'kek': {'hello': NestedNoneOf(predicate=ArrayEqualTo(value=['hello', 'world', '!']))},
+                }
+            )
         ),
-        NestedArrayEqualTo(value=['hello', 'world', '!']),
+        NestedAnyOf(predicate=ArrayEqualTo(value=['hello', 'world', '!'])),
     ],
     '1': [
-        NestedObjectContainsSubset(
-            value={
-                'alice': 'rabbit',
-                'kek': {'a': NestedArrayNotContains(value=['hello', 'world', '!'])},
-            }
+        NestedAnyOf(
+            predicate=ObjectContainsSubset(
+                value={
+                    'alice': 'rabbit',
+                    'kek': {'a': NestedNoneOf(predicate=ArrayContains(value=['hello', 'world', '!']))},
+                }
+            )
         ),
-        NestedArrayContains(value=['hello', 'world', '!']),
+        NestedAnyOf(predicate=ArrayContains(value=['hello', 'world', '!'])),
     ],
     '2': [
-        NestedObjectContainsSubset(value={'alice': 'rabbit'}),
-        NestedArrayContains(value=['hello', 'world', '!']),
+        NestedAnyOf(predicate=ObjectContainsSubset(value={'alice': 'rabbit'})),
+        NestedAnyOf(predicate=ArrayContains(value=['hello', 'world', '!'])),
     ],
     'complex_object_contains_subset_with_big_json_exact': [
         ObjectContainsSubset(
@@ -332,34 +331,39 @@ INTERSECTIONS = {
     #     ),
     # ],
     'nested_object_equal_to_with_nested_object_equal_to': [
-        ObjectEqualTo(value={'tea_cup': NestedObjectEqualTo(value={'tarts': 'stolen'})}),
-        NestedObjectEqualTo(
-            value={
-                'wonderland': {
-                    'garden': [
-                        {'rose': 'white'},
-                        {'tea_cup': {'madness': [{'tarts': 'stolen'}]}},
-                    ]
+        ObjectEqualTo(value={'tea_cup': NestedAnyOf(predicate=ObjectEqualTo(value={'tarts': 'stolen'}))}),
+        NestedAnyOf(
+            predicate=ObjectEqualTo(
+                value={
+                    'wonderland': {
+                        'garden': [
+                            {'rose': 'white'},
+                            {'tea_cup': {'madness': [{'tarts': 'stolen'}]}},
+                        ]
+                    }
                 }
-            }
+            )
         ),
     ],
     'nested_object_equal_to_and_nested_object_contains_subset_overlap': [
-        NestedObjectEqualTo(value={'alice': 'rabbit', 'queen': 'cards'}),
-        NestedObjectContainsSubset(value={'alice': 'rabbit'}),
+        NestedAnyOf(predicate=ObjectEqualTo(value={'alice': 'rabbit', 'queen': 'cards'})),
+        NestedAnyOf(predicate=ObjectContainsSubset(value={'alice': 'rabbit'})),
     ],
     'nested_object_equal_to_and_or_predicate_overlap': [
-        NestedObjectEqualTo(value={'alice': 'rabbit', 'queen': 'cards'}),
+        NestedAnyOf(predicate=ObjectEqualTo(value={'alice': 'rabbit', 'queen': 'cards'})),
         OrPredicate(
-            predicates=[NestedObjectEqualTo(value={'hatter': 'mad'}), ObjectEqualTo(value={'gryphon': 'mock_turtle'})]
+            predicates=[
+                NestedAnyOf(predicate=ObjectEqualTo(value={'hatter': 'mad'})),
+                ObjectEqualTo(value={'gryphon': 'mock_turtle'}),
+            ]
         ),
     ],
     'not_nested_object_equal_to_and_deep_object_with_extra_field': [
-        NestedObjectNotEqualTo(value={'alice': 'rabbit'}),
+        NestedNoneOf(predicate=ObjectEqualTo(value={'alice': 'rabbit'})),
         ObjectEqualTo(value={'alice': {'alice': 'rabbit', 'extra_tea': True}}),
     ],
     'not_nested_object_equal_to_and_deep_object_with_array_and_extra_field': [
-        NestedObjectNotEqualTo(value={'alice': 'rabbit'}),
+        NestedNoneOf(predicate=ObjectEqualTo(value={'alice': 'rabbit'})),
         ObjectEqualTo(
             value={'alice': [{'hatter': {'queen': 'cards', 'tea_time': [{'alice': 'rabbit', 'extra_tea': True}]}}]}
         ),
@@ -372,7 +376,7 @@ INTERSECTIONS = {
         ObjectEqualTo(
             value={
                 'alice': 'rabbit',
-                'hatter': NestedObjectNotContainsSubset(value={'alice': 'rabbit'}),
+                'hatter': NestedNoneOf(predicate=ObjectContainsSubset(value={'alice': 'rabbit'})),
             }
         ),
         ObjectEqualTo(value={'alice': 'rabbit', 'hatter': {'alice': 'flamingo'}}),
@@ -512,19 +516,19 @@ SUPERSETS = {
         ObjectContainsSubset(value={'tea_cup': IntegerGreaterThan(value=0), 'hatter': 'wonderland'}),
     ],
     'nested_object_equal_to_and_deeply_nested_object': [
-        NestedObjectEqualTo(value={'hatter': 'wonderland'}),
+        NestedAnyOf(predicate=ObjectEqualTo(value={'hatter': 'wonderland'})),
         ObjectEqualTo(value={'alice': {'hatter': 'wonderland'}}),
     ],
     'nested_object_equal_to_and_exact_object_equal_to': [
-        NestedObjectEqualTo(value={'hatter': 'wonderland'}),
+        NestedAnyOf(predicate=ObjectEqualTo(value={'hatter': 'wonderland'})),
         ObjectEqualTo(value={'hatter': 'wonderland'}),
     ],
     'nested_object_contains_subset_and_exact_object_equal_to': [
-        NestedObjectContainsSubset(value={'hatter': 'wonderland'}),
+        NestedAnyOf(predicate=ObjectContainsSubset(value={'hatter': 'wonderland'})),
         ObjectEqualTo(value={'hatter': 'wonderland'}),
     ],
     'nested_object_contains_subset_and_or_predicate': [
-        NestedObjectContainsSubset(value={'hatter': 'wonderland'}),
+        NestedAnyOf(predicate=ObjectContainsSubset(value={'hatter': 'wonderland'})),
         OrPredicate(
             predicates=[
                 ObjectEqualTo(value={'alice': {'hatter': 'wonderland'}}),
@@ -533,32 +537,40 @@ SUPERSETS = {
         ),
     ],
     'nested_object_contains_subset_and_another_nested_object': [
-        NestedObjectContainsSubset(value={'madness': 'curiosity'}),
+        NestedAnyOf(predicate=ObjectContainsSubset(value={'madness': 'curiosity'})),
         ObjectEqualTo(value={'tea_party': {'madness': 'curiosity'}}),
     ],
     'object_equal_to_with_nested_subset_and_concrete_nested_value': [
         ObjectEqualTo(
-            value={'alice_door': NestedObjectContainsSubset(value={'madness': 'curiosity'}), 'rabbit_watch': 'late'}
+            value={
+                'alice_door': NestedAnyOf(predicate=ObjectContainsSubset(value={'madness': 'curiosity'})),
+                'rabbit_watch': 'late',
+            }
         ),
         ObjectEqualTo(value={'alice_door': {'wonder_garden': {'madness': 'curiosity'}}, 'rabbit_watch': 'late'}),
     ],
     'object_equal_to_with_nested_equal_to_and_concrete_nested_value': [
         ObjectEqualTo(
-            value={'alice_door': NestedObjectEqualTo(value={'madness': 'curiosity'}), 'rabbit_watch': 'late'}
+            value={
+                'alice_door': NestedAnyOf(predicate=ObjectEqualTo(value={'madness': 'curiosity'})),
+                'rabbit_watch': 'late',
+            }
         ),
         ObjectEqualTo(value={'alice_door': {'wonder_garden': {'madness': 'curiosity'}}, 'rabbit_watch': 'late'}),
     ],
     'object_equal_to_with_nested_string_contains_and_concrete_string': [
         ObjectEqualTo(
             value={
-                'alice_door': NestedObjectEqualTo(value={'madness': StringContains(value='DrinkMe')}),
+                'alice_door': NestedAnyOf(predicate=ObjectEqualTo(value={'madness': StringContains(value='DrinkMe')})),
                 'rabbit_watch': 'late',
             }
         ),
         ObjectEqualTo(value={'alice_door': {'wonder_garden': {'madness': 'DrinkMe potion!'}}, 'rabbit_watch': 'late'}),
     ],
     'object_equal_to_with_nested_none_and_concrete_none_value': [
-        ObjectEqualTo(value={'alice_door': NestedObjectEqualTo(value={'madness': None}), 'rabbit_watch': 'late'}),
+        ObjectEqualTo(
+            value={'alice_door': NestedAnyOf(predicate=ObjectEqualTo(value={'madness': None})), 'rabbit_watch': 'late'}
+        ),
         ObjectEqualTo(value={'alice_door': {'wonder_garden': {'madness': None}}, 'rabbit_watch': 'late'}),
     ],
     'integer_range_superset': [
@@ -636,24 +648,28 @@ MATCHED = {
         json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text()),
     ],
     'big_json_request_1_with_nested_object_equal_to': [
-        NestedObjectEqualTo(
-            value={
-                'label_format': StringEqualTo(value='pdf', ignore_case=True),
-                'label_size': '4X6',
-                'postage_label_inline': False,
-                'currency': 'USD',
-                'payment': ObjectEqualTo(value={'type': 'SENDER'}),
-                'date_advance': IntegerGreaterOrEqualThan(value=0),
-            }
+        NestedAnyOf(
+            predicate=ObjectEqualTo(
+                value={
+                    'label_format': StringEqualTo(value='pdf', ignore_case=True),
+                    'label_size': '4X6',
+                    'postage_label_inline': False,
+                    'currency': 'USD',
+                    'payment': ObjectEqualTo(value={'type': 'SENDER'}),
+                    'date_advance': IntegerGreaterOrEqualThan(value=0),
+                }
+            )
         ),
         json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text()),
     ],
     'big_json_request_1_with_nested_object_contains_subset': [
-        NestedObjectContainsSubset(
-            value={
-                'payment': ObjectEqualTo(value={'type': 'SENDER'}),
-                'date_advance': IntegerGreaterOrEqualThan(value=0),
-            }
+        NestedAnyOf(
+            predicate=ObjectContainsSubset(
+                value={
+                    'payment': ObjectEqualTo(value={'type': 'SENDER'}),
+                    'date_advance': IntegerGreaterOrEqualThan(value=0),
+                }
+            )
         ),
         json.loads(BIG_JSON_REQUEST_1_FILE_PATH.read_text()),
     ],
@@ -712,7 +728,7 @@ NOT_MATCHED = {
         {'story': 'strange_plot'},
     ],
     'nested_object_equal_to_key_not_found': [
-        NestedObjectEqualTo(value={'door': 'closed'}),
+        NestedAnyOf(predicate=ObjectEqualTo(value={'door': 'closed'})),
         {'garden': {'path': 'winding'}},
     ],
     'object_has_value_no_match': [

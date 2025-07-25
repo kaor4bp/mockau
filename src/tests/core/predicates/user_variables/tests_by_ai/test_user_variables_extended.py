@@ -23,8 +23,7 @@ from core.predicates import (
     IntegerGreaterThan,
     IntegerLessThan,
     IsNull,
-    NestedArrayEqualTo,
-    NestedObjectEqualTo,
+    NestedAnyOf,
     NotPredicate,
     NumberEqualTo,
     NumberGreaterThan,
@@ -89,11 +88,13 @@ class TestUserVariablesExtended:
 
     def test_nested_array_with_consistent_variables(self):
         """Test nested arrays with consistent user variables."""
-        p1 = NestedArrayEqualTo(
-            value=[
-                [AnyPredicate(var='item'), AnyPredicate(var='item')],
-                [AnyPredicate(var='item'), AnyPredicate(var='item')],
-            ]
+        p1 = NestedAnyOf(
+            predicate=ArrayEqualTo(
+                value=[
+                    [AnyPredicate(var='item'), AnyPredicate(var='item')],
+                    [AnyPredicate(var='item'), AnyPredicate(var='item')],
+                ]
+            )
         )
         # All 'item' variables should have the same value
         assert p1.is_matched([['a', 'a'], ['a', 'a']])
@@ -103,13 +104,15 @@ class TestUserVariablesExtended:
 
     def test_nested_object_with_variable_keys_and_values(self):
         """Test nested objects with variables in both keys and values."""
-        p1 = NestedObjectEqualTo(
-            value={
-                'users': [
-                    {'name': AnyPredicate(var='username'), 'id': AnyPredicate(var='user_id')},
-                    {'name': AnyPredicate(var='username'), 'id': AnyPredicate(var='user_id')},
-                ]
-            }
+        p1 = NestedAnyOf(
+            predicate=ObjectEqualTo(
+                value={
+                    'users': [
+                        {'name': AnyPredicate(var='username'), 'id': AnyPredicate(var='user_id')},
+                        {'name': AnyPredicate(var='username'), 'id': AnyPredicate(var='user_id')},
+                    ]
+                }
+            )
         )
         # Both users should have same name and id
         test_data = {'users': [{'name': 'alice', 'id': 123}, {'name': 'alice', 'id': 123}]}
@@ -692,11 +695,13 @@ class TestUserVariablesExtended:
     def test_nested_variable_relationships(self):
         """Test relationships with nested structures and variables."""
         # Nested array with variable
-        p1 = NestedArrayEqualTo(value=[[AnyPredicate(var='item')], [AnyPredicate(var='item')]])
+        p1 = NestedAnyOf(predicate=ArrayEqualTo(value=[[AnyPredicate(var='item')], [AnyPredicate(var='item')]]))
 
         # More specific nested array
-        p2 = NestedArrayEqualTo(
-            value=[[StringEqualTo(value='test', var='item')], [StringEqualTo(value='test', var='item')]]
+        p2 = NestedAnyOf(
+            predicate=ArrayEqualTo(
+                value=[[StringEqualTo(value='test', var='item')], [StringEqualTo(value='test', var='item')]]
+            )
         )
 
         # p2 should be subset of p1
@@ -1139,17 +1144,19 @@ class TestUserVariablesExtended:
 
     def test_variable_linking_nested_arrays(self):
         """Test variable linking in nested array structures."""
-        p1 = NestedArrayEqualTo(
-            value=[
-                [
-                    ObjectEqualTo(value={'id': AnyPredicate(var='batch_id')}),
-                    ObjectEqualTo(value={'batch': AnyPredicate(var='batch_id')}),
-                ],
-                [
-                    ObjectEqualTo(value={'id': AnyPredicate(var='batch_id')}),
-                    ObjectEqualTo(value={'batch': AnyPredicate(var='batch_id')}),
-                ],
-            ]
+        p1 = NestedAnyOf(
+            predicate=ArrayEqualTo(
+                value=[
+                    [
+                        ObjectEqualTo(value={'id': AnyPredicate(var='batch_id')}),
+                        ObjectEqualTo(value={'batch': AnyPredicate(var='batch_id')}),
+                    ],
+                    [
+                        ObjectEqualTo(value={'id': AnyPredicate(var='batch_id')}),
+                        ObjectEqualTo(value={'batch': AnyPredicate(var='batch_id')}),
+                    ],
+                ]
+            )
         )
 
         # All batch references should be consistent

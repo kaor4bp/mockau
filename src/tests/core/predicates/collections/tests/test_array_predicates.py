@@ -17,8 +17,7 @@ from core.predicates import (
     IntegerLessOrEqualThan,
     IntegerLessThan,
     IntegerNotEqualTo,
-    NestedArrayContains,
-    NestedArrayEqualTo,
+    NestedAnyOf,
     ObjectContainsSubset,
     ObjectEqualTo,
     RootPredicate,
@@ -156,8 +155,8 @@ EQUIVALENTS = {
         ArrayEqualTo(value=['lenina', 'john'], ignore_order=True),
     ],
     'nested_strict_equal_identical': [
-        NestedArrayEqualTo(value=[{'caste': 'Gamma'}]),
-        NestedArrayEqualTo(value=[{'caste': 'Gamma'}]),
+        NestedAnyOf(predicate=ArrayEqualTo(value=[{'caste': 'Gamma'}])),
+        NestedAnyOf(predicate=ArrayEqualTo(value=[{'caste': 'Gamma'}])),
     ],
 }
 
@@ -171,7 +170,7 @@ SUPERSETS = {
         ArrayEqualTo(value=[StringEqualTo(value='Brave New World!')]),
     ],
     'nested_array_strict_equal_superset_flat': [
-        NestedArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        NestedAnyOf(predicate=ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])),
         ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
     ],
     'array_contains_superset_of_strict_equal': [
@@ -179,7 +178,7 @@ SUPERSETS = {
         ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
     ],
     'nested_array_strict_equal_superset_object_value': [
-        NestedArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        NestedAnyOf(predicate=ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])),
         ArrayEqualTo(
             value=[
                 ObjectEqualTo(value={'society_ranks': ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
@@ -187,23 +186,23 @@ SUPERSETS = {
         ),
     ],
     'nested_array_strict_equal_superset_direct_object': [
-        NestedArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
+        NestedAnyOf(predicate=ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])),
         ObjectEqualTo(value={'world_castes': ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
     ],
     'nested_array_contains_superset_strict_equal': [
-        NestedArrayContains(value=['Delta', 'Epsilon', 'Gamma']),
+        NestedAnyOf(predicate=ArrayContains(value=['Delta', 'Epsilon', 'Gamma'])),
         ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
     ],
     'nested_array_contains_superset_of_subset_elements': [
-        NestedArrayContains(value=['Delta', 'Epsilon']),
+        NestedAnyOf(predicate=ArrayContains(value=['Delta', 'Epsilon'])),
         ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma']),
     ],
     'nested_array_contains_superset_of_array_contains': [
-        NestedArrayContains(value=['Delta', 'Epsilon']),
+        NestedAnyOf(predicate=ArrayContains(value=['Delta', 'Epsilon'])),
         ArrayContains(value=['Delta', 'Epsilon', 'Gamma']),
     ],
     'nested_array_contains_superset_of_nested_object_value': [
-        NestedArrayContains(value=['Delta', 'Epsilon', 'Gamma']),
+        NestedAnyOf(predicate=ArrayContains(value=['Delta', 'Epsilon', 'Gamma'])),
         ArrayEqualTo(
             value=[
                 ObjectEqualTo(value={'world_castes': ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
@@ -211,11 +210,11 @@ SUPERSETS = {
         ),
     ],
     'nested_array_contains_superset_of_direct_object_value': [
-        NestedArrayContains(value=['Delta', 'Epsilon', 'Gamma']),
+        NestedAnyOf(predicate=ArrayContains(value=['Delta', 'Epsilon', 'Gamma'])),
         ObjectEqualTo(value={'caste_system': ArrayEqualTo(value=['Delta', 'Epsilon', 'Gamma'])}),
     ],
     'nested_array_contains_superset_of_array_contains_in_object': [
-        NestedArrayContains(value=['Delta', 'Epsilon', 'Gamma']),
+        NestedAnyOf(predicate=ArrayContains(value=['Delta', 'Epsilon', 'Gamma'])),
         ObjectEqualTo(value={'caste_system': ArrayContains(value=['Delta', 'Epsilon', 'Gamma'])}),
     ],
     'not_strict_equal_superset_of_not_contains': [
@@ -223,7 +222,7 @@ SUPERSETS = {
         ArrayNotContains(value=['Alpha', 'Beta', 'Gamma']),
     ],
     'nested_array_contains_with_mixed_types': [
-        NestedArrayContains(value=[632, 'Mustapha', None]),
+        NestedAnyOf(predicate=ArrayContains(value=[632, 'Mustapha', None])),
         ArrayEqualTo(value=[632, 'Mustapha', None]),
     ],
     'array_equal_without_order_is_superset_of_strict_equal_superset': [
@@ -374,11 +373,11 @@ MATCHED = {
         ['Lenina', 'John'],
     ],
     'nested_array_strict_equal_match': [
-        NestedArrayEqualTo(value=[{'caste': 'Alpha'}, {'caste': 'Beta'}]),
+        NestedAnyOf(predicate=ArrayEqualTo(value=[{'caste': 'Alpha'}, {'caste': 'Beta'}])),
         [{'caste': 'Alpha'}, {'caste': 'Beta'}],
     ],
     'nested_array_contains_match': [
-        NestedArrayContains(value=[ObjectContainsSubset(value={'id': IntegerGreaterThan(value=10)})]),
+        NestedAnyOf(predicate=ArrayContains(value=[ObjectContainsSubset(value={'id': IntegerGreaterThan(value=10)})])),
         [{'id': 11, 'name': 'Unit 11'}, {'id': 12, 'name': 'Unit 12'}],
     ],
 }
@@ -400,11 +399,11 @@ NOT_MATCHED = {
         ['John', 'Lenina', 'Bernard'],
     ],
     'nested_array_strict_equal_value_mismatch': [
-        NestedArrayEqualTo(value=[{'caste': 'Alpha'}]),
+        NestedAnyOf(predicate=ArrayEqualTo(value=[{'caste': 'Alpha'}])),
         [{'caste': 'Beta'}],
     ],
     'nested_array_contains_no_match': [
-        NestedArrayContains(value=[{'id': IntegerGreaterThan(value=1000)}]),
+        NestedAnyOf(predicate=ArrayContains(value=[{'id': IntegerGreaterThan(value=1000)}])),
         [{'id': 10, 'name': 'Unit 10'}],
     ],
 }
