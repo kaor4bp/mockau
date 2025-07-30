@@ -101,97 +101,6 @@ class BaseVariableContext(ABC):
             return self._parent.root_parent
 
 
-# class EvaluateValueMixin(BaseVariableContext):
-#     def __init__(self,  main_context: MainContext, level=0, parent=None) -> None:
-#         super().__init__(main_context=main_context, level=level, parent=parent)
-#         self._key_vars = []
-#
-#     def register_key_var(self, key_var):
-#         self._key_vars.append(key_var)
-#
-#     def _get_all_possible_keys(self, solver):
-#         results = [solver.model().eval(key_var, model_completion=True).as_string() for key_var in self._key_vars]
-#         for child in self._children:
-#             results += child._get_all_possible_keys(solver)
-#         return results
-#
-#     def _guess_type(self, solver, var):
-#         for level in reversed(range(100)):
-#             try:
-#                 json_var = JsonDatatype.from_var(self.z3_context, solver.model().eval(var, model_completion=True), level=level)
-#                 solver.model().eval(
-#                     json_var.is_object(),
-#                     model_completion=True,
-#                 )
-#             except z3.Z3Exception:
-#                 pass
-#             else:
-#                 fake_context = self.__class__()
-#                 fake_context._json_var = json_var
-#                 return fake_context.evaluate_value(solver)
-#
-#     def _calculate_var_values(self, solver: z3.Solver):
-#         results = {}
-#         for child in self._children:
-#             results.update(child._calculate_var_values(solver))
-#
-#         raw_val = solver.model().eval(self._json_var.z3_variable, model_completion=True).ast.value
-#
-#         if solver.model().eval(self._json_var.is_int(), model_completion=True):
-#             results[raw_val] = solver.model().eval(self._json_var.get_int(), model_completion=True).as_long()
-#         if solver.model().eval(self._json_var.is_str(), model_completion=True):
-#             results[raw_val] = solver.model().eval(self._json_var.get_str(), model_completion=True).as_string()
-#         if solver.model().eval(self._json_var.is_real(), model_completion=True):
-#             results[raw_val] = solver.model().eval(self._json_var.get_real(), model_completion=True).as_decimal(10)
-#         if solver.model().eval(self._json_var.is_bool(), model_completion=True):
-#             results[raw_val] = solver.model().eval(self._json_var.get_bool(), model_completion=True)
-#         if solver.model().eval(self._json_var.is_object(), model_completion=True):
-#             sub_result = {}
-#             for key in self._get_all_possible_keys(solver):
-#                 if key:
-#                     var_id = solver.model().eval(z3.Select(self._json_var.get_object(), z3.StringVal(key, ctx=self.z3_context))).ast.value
-#                     if var_id not in results.keys():
-#                         guessed_type = self._guess_type(
-#                             solver=solver,
-#                             var=solver.model().eval(
-#                                 z3.Select(self._json_var.get_object(), z3.StringVal(key, ctx=self.z3_context)),
-#                                 model_completion=True,
-#                             ),
-#                         )
-#                         if guessed_type is not _Undefined:
-#                             sub_result[key] = guessed_type
-#                     elif results[var_id] is not _Undefined:
-#                         sub_result[key] = results[var_id]
-#                 else:
-#                     break
-#             results[raw_val] = sub_result
-#         if solver.model().eval(self._json_var.is_array(), model_completion=True):
-#             sub_result = []
-#             array_len = solver.model().eval(z3.Length(self._json_var.get_array()), model_completion=True).as_long()
-#             for i in range(array_len):
-#                 var_id = solver.model().eval(self._json_var.get_array()[i]).ast.value
-#                 if var_id not in results.keys():
-#                     sub_result.append(
-#                         self._guess_type(
-#                             solver=solver, var=solver.model().eval(self._json_var.get_array()[i], model_completion=True)
-#                         )
-#                     )
-#                 else:
-#                     sub_result.append(results[var_id])
-#             results[raw_val] = sub_result
-#         if solver.model().eval(self._json_var.is_null(), model_completion=True):
-#             results[raw_val] = None
-#         if solver.model().eval(self._json_var.is_undefined(), model_completion=True):
-#             results[raw_val] = _Undefined
-#
-#         return results
-#
-#     def evaluate_value(self, solver: z3.Solver):
-#         calculated_values = self._calculate_var_values(solver)
-#         var_id = solver.model().eval(self._json_var.z3_variable, model_completion=True).ast.value
-#         return calculated_values.get(var_id, _Undefined)  # known issue in some cases
-
-
 class KeyVariablesMixin(BaseVariableContext):
     def __init__(self, main_context: MainContext, level: int = 0, parent=None) -> None:
         super().__init__(
@@ -209,6 +118,80 @@ class KeyVariablesMixin(BaseVariableContext):
         for child in self._children:
             all_keys += child.get_all_var_keys()
         return all_keys
+
+    def _var_to_value(self, z3_solver, json_var: JsonDatatypeWrapper, level: int, used_keys: list[str]):
+        if z3_solver.model().eval(json_var.is_int(), model_completion=True):
+            return z3_solver.model().eval(json_var.get_int(), model_completion=True).as_long()
+        elif z3_solver.model().eval(json_var.is_str(), model_completion=True):
+            return z3_solver.model().eval(json_var.get_str(), model_completion=True).as_string()
+        elif z3_solver.model().eval(json_var.is_real(), model_completion=True):
+            return float(z3_solver.model().eval(json_var.get_real(), model_completion=True).as_decimal(10))
+        elif z3_solver.model().eval(json_var.is_bool(), model_completion=True):
+            return z3_solver.model().eval(json_var.get_bool(), model_completion=True).py_value()
+        elif z3_solver.model().eval(json_var.is_object(), model_completion=True):
+            result = {}
+            additional_keys = []
+            for i in range(len(used_keys) + 1):
+                rand_keys = [f'*[{i}]', f'rand_key_{uuid4()}']
+                rand_keys.sort()
+                if rand_keys[0] not in used_keys and rand_keys[0] not in additional_keys:
+                    additional_keys.append(rand_keys[0])
+                else:
+                    additional_keys.append(rand_keys[1])
+
+            for key in used_keys + additional_keys:
+                value = self._var_to_value(
+                    z3_solver=z3_solver,
+                    json_var=JsonDatatypeWrapper(
+                        var=z3_solver.model().eval(
+                            z3.Select(json_var.get_object(), z3.StringVal(key, ctx=self.z3_context)),
+                            model_completion=True,
+                        ),
+                        datatype=self._main_context.AllJsonTypes[level + 1],
+                        z3_context=self.z3_context,
+                    ),
+                    level=level + 1,
+                    used_keys=used_keys,
+                )
+
+                assert not isinstance(value, z3.Z3PPObject), f'{value}'
+                if value is _Undefined:
+                    continue
+                if key in additional_keys and value in list(result.values()):
+                    continue
+
+                result[key] = value
+
+            return result
+        elif z3_solver.model().eval(json_var.is_array(), model_completion=True):
+            result = []
+            for i in range(z3_solver.model().eval(z3.Length(json_var.get_array()), model_completion=True).as_long()):
+                item = self._var_to_value(
+                    z3_solver=z3_solver,
+                    json_var=JsonDatatypeWrapper(
+                        var=z3_solver.model().eval(json_var.get_array()[i], model_completion=True),
+                        datatype=self._main_context.AllJsonTypes[level + 1],
+                        z3_context=self.z3_context,
+                    ),
+                    level=level + 1,
+                    used_keys=used_keys,
+                )
+                if item is not _Undefined:
+                    result.append(item)
+            return result
+        elif z3_solver.model().eval(json_var.is_null(), model_completion=True):
+            return None
+        elif z3_solver.model().eval(json_var.is_undefined(), model_completion=True):
+            return _Undefined
+        else:
+            raise ValueError(f'Foo: {json_var}')
+
+    def to_possible_value(self, z3_solver: z3.Solver):
+        used_keys = [
+            z3_solver.model().eval(key_var, model_completion=True).as_string()
+            for key_var in self.root_parent.get_all_var_keys()
+        ]
+        return self._var_to_value(z3_solver, self.json_type_variable, self.level, used_keys)
 
 
 class VariableContext(KeyVariablesMixin, BaseVariableContext):
@@ -232,6 +215,7 @@ class VariableContext(KeyVariablesMixin, BaseVariableContext):
                 self.cast_to(0).json_type_variable.z3_variable
                 == self._main_context.get_or_create_user_variable(var).json_type_variable.z3_variable
             )
+            self._main_context._real_user_variables.setdefault(var, []).append(self)
 
     def push_to_global_constraints(self, expr: z3.ExprRef | bool) -> None:
         """Add constraint to global context.

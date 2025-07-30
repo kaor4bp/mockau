@@ -11,6 +11,9 @@ class BaseNumberPredicate(BaseScalarPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
+    def get_all_predicates(self):
+        yield self
+
     @property
     def predicate_types(self):
         """Get supported predicate types for this class.

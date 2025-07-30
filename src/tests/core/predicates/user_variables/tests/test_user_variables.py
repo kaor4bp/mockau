@@ -2,11 +2,15 @@ from core.predicates import (
     AndPredicate,
     AnyPredicate,
     ArrayEqualTo,
+    AvailableTemplate,
     BooleanEqualTo,
     ObjectEqualTo,
     OrPredicate,
+    ResultContext,
+    StringConcatEqualTo,
     StringContains,
     StringEqualTo,
+    StringTemplate,
 )
 
 
@@ -24,7 +28,9 @@ class TestUserVariables:
                 {'2': 1},
             ]
         )
-        assert p1.is_intersected_with(p2)
+        result_ctx = ResultContext()
+        assert p1.is_intersected_with(p2, result_ctx=result_ctx)
+        assert result_ctx.get_user_var_value('hello') == 1
 
     def test_2(self):
         p1 = ArrayEqualTo(
@@ -68,7 +74,9 @@ class TestUserVariables:
                 [1, 2, 3],
             ]
         )
-        assert p1.is_intersected_with(p2)
+        result_ctx = ResultContext()
+        assert p1.is_intersected_with(p2, result_ctx=result_ctx)
+        assert result_ctx.get_user_var_value('hello') == [1, 2, 3]
 
     def test_5(self):
         p1 = ArrayEqualTo(
@@ -83,7 +91,9 @@ class TestUserVariables:
                 {'hello': 'world'},
             ]
         )
-        assert p1.is_intersected_with(p2)
+        result_ctx = ResultContext()
+        assert p1.is_intersected_with(p2, result_ctx=result_ctx)
+        assert result_ctx.get_user_var_value('hello') == {'hello': 'world'}
 
     def test_6(self):
         p1 = ArrayEqualTo(
@@ -98,7 +108,9 @@ class TestUserVariables:
                 {'lol': {'hello': 'world'}},
             ]
         )
-        assert p1.is_superset_of(p2)
+        result_ctx = ResultContext()
+        assert p1.is_superset_of(p2, result_ctx=result_ctx)
+        assert result_ctx.get_user_var_value('hello') == {'hello': 'world'}
 
     def test_7(self):
         p = ArrayEqualTo(value=[BooleanEqualTo(value=True, var='flag'), BooleanEqualTo(value=True, var='flag')])
@@ -113,7 +125,10 @@ class TestUserVariables:
             var='hello',
         )
         p2 = StringEqualTo(value='hello', var='hello')
-        assert p1.is_intersected_with(p2)
+
+        result_ctx = ResultContext()
+        assert p1.is_intersected_with(p2, result_ctx=result_ctx)
+        assert result_ctx.get_user_var_value('hello') == 'hello'
 
     def test_hack_to_fetch_variables_from_or_with_objects(self):
         p = AndPredicate(
@@ -133,4 +148,23 @@ class TestUserVariables:
             ]
         )
 
-        assert p.is_matched({'user': 'admin', 'status': 'active'})
+        result_ctx = ResultContext()
+        assert p.is_matched({'user': 'admin', 'status': 'active'}, result_ctx=result_ctx)
+        assert result_ctx.get_user_var_value('user') == 'admin'
+        assert result_ctx.get_user_var_value('status') == 'active'
+
+    def test_hack_of_lookbehind(self):
+        p = StringConcatEqualTo(
+            values=[
+                StringEqualTo(value='adr_'),
+                StringTemplate(
+                    template=AvailableTemplate.UUID_V4,
+                    var='lol',
+                ),
+            ],
+        )
+
+        result_ctx = ResultContext()
+        test_uuid = 'adr_9272b6b0f2184d8198ddda684a4a03b8'
+        assert p.is_matched(test_uuid, result_ctx=result_ctx)
+        assert result_ctx.get_user_var_value('lol') == '9272b6b0f2184d8198ddda684a4a03b8'

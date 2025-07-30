@@ -233,7 +233,7 @@ class ConvertEREToZ3Regex:
                     if not results:
                         raise ValueError('Quantifier ? is used without preceding character class or character set')
                     cursor += 1
-                    results.append(z3.Option(z3.StringVal(results.pop(-1), ctx=self._z3_context)))
+                    results.append(z3.Option(results.pop(-1)))
                 case '+':
                     if not results:
                         raise ValueError('Quantifier + is used without preceding character class or character set')

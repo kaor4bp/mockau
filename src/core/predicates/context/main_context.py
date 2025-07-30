@@ -27,6 +27,7 @@ class MainContext:
         self._all_object_keys_var = z3.Const(
             f'all_object_keys_{uuid4()}', z3.SeqSort(z3.StringSort(ctx=self._z3_context))
         )
+        self._real_user_variables: dict[str, list[VariableContext]] = {}
 
     def get_all_object_keys_var(self):
         return self._all_object_keys_var

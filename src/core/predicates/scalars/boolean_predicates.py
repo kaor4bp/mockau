@@ -22,6 +22,9 @@ class BaseBooleanPredicate(BaseScalarPredicate):
         """
         return {PredicateType.Boolean}
 
+    def get_all_predicates(self):
+        yield self
+
 
 class BooleanEqualTo(BaseBooleanPredicate):
     """Predicate for checking if a boolean value is equal to a specific value.

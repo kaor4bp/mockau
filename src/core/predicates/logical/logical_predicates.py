@@ -31,6 +31,9 @@ class VoidPredicate(BaseLogicalPredicate):
 
     type_of: Literal['$-mockau-void'] = '$-mockau-void'
 
+    def get_all_predicates(self):
+        yield self
+
     def verify(self, value):
         """Always returns False as void predicate matches nothing.
 
@@ -87,6 +90,9 @@ class AnyPredicate(BaseScalarPredicate):
     """
 
     type_of: Literal['$-mockau-any'] = '$-mockau-any'
+
+    def get_all_predicates(self):
+        yield self
 
     def verify(self, value):
         """Always returns True as any predicate matches everything.

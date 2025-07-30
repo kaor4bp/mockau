@@ -20,6 +20,9 @@ class BaseNullPredicate(BaseScalarPredicate):
 class IsNull(BaseNullPredicate):
     type_of: Literal['$-mockau-is-null'] = '$-mockau-is-null'
 
+    def get_all_predicates(self):
+        yield self
+
     def verify(self, value):
         return value is None
 
@@ -41,6 +44,10 @@ class OptionalPredicate(BaseNullPredicate):
 
     def __invert__(self):
         return ~self.predicate
+
+    def get_all_predicates(self):
+        yield self
+        yield from self.predicate.get_all_predicates()
 
     def normalize_to_canonical_form(self):
         from core.predicates import OrPredicate

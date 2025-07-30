@@ -32,6 +32,8 @@ from core.predicates.collections.object_predicates import (
     ObjectHasNoValue,
     DynamicKeyMatch,
 )
+from core.predicates.compound.string_predicates import StringTemplate, AvailableTemplate
+from core.predicates.context.result_context import ResultContext
 from core.predicates.helpers import deserialize_json_predicate_format
 from core.predicates.logical.logical_predicates import (
     AnyPredicate,
@@ -80,6 +82,7 @@ __all__ = [
     # Core classes
     'RootPredicate',
     'BaseMetaPredicate',
+    'ResultContext',
     # Type definitions
     't_DefaultPredicateType',
     't_Py2PredicateType',
@@ -171,6 +174,9 @@ __all__ = [
     'GenericObjectHasValue',
     'GenericObjectHasNoValue',
     'GenericDynamicKeyMatch',
+    # Compound predicates
+    'StringTemplate',
+    'AvailableTemplate',
 ]
 
 # Scalar predicate type unions
@@ -217,6 +223,7 @@ t_ScalarStringPredicate = Union[
     StringNotInList,
     StringConcatEqualTo,
     StringConcatNotEqualTo,
+    StringTemplate,
 ]
 """Union type for string predicates.
 

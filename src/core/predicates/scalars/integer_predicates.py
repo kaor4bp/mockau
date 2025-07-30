@@ -22,6 +22,9 @@ class BaseIntegerPredicate(BaseScalarPredicate):
         """
         return {PredicateType.Integer}
 
+    def get_all_predicates(self):
+        yield self
+
 
 class IntegerEqualTo(BaseIntegerPredicate):
     """Predicate for checking if an integer value is equal to a specific value.
