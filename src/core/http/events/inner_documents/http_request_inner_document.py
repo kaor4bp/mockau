@@ -15,7 +15,7 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
     url: str = Text(required=True)
     path: str = Keyword(required=True)
     method: str = Keyword(required=True)
-    mockau_traceparent: str = Keyword(required=True)
+    minow_traceparent: str = Keyword(required=True)
     http_version: str = Keyword(required=True)
     preview: Optional[str] = Keyword(required=False, store=True)
     curl: Optional[str] = Keyword(required=False, store=True)
@@ -31,7 +31,7 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
             url=str(model.full_url),
             path=model.path,
             method=model.method.value,
-            mockau_traceparent=model.mockau_traceparent,
+            minow_traceparent=model.minow_traceparent,
             preview=model.body.preview,
             curl=model.to_curl(),
             http_version=model.http_version,
@@ -47,5 +47,5 @@ class HttpRequestInnerDocument(BaseModelInnerDocument):
             method=data['method'],
             http_version=data['http_version'],
             body=data['body'],
-            mockau_traceparent=data['mockau_traceparent'],
+            minow_traceparent=data['minow_traceparent'],
         )

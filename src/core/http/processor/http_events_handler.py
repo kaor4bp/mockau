@@ -3,6 +3,7 @@ import time
 from asyncio import create_task
 
 from fastapi import BackgroundTasks
+from minow_fastapi import MockauFastAPI
 
 from core.http.actions.common import ActionReference
 from core.http.actions.types import t_HttpActionModel
@@ -27,7 +28,6 @@ from core.http.events.models import (
 from core.http.events.models.http_request_response_view_event_model import HttpRequestResponseViewEventModel
 from core.http.interaction.schemas import HttpRequest
 from core.http.interaction.schemas.http_response import HttpResponse
-from mockau_fastapi import MockauFastAPI
 
 
 class HttpEventsHandler:
@@ -56,7 +56,7 @@ class HttpEventsHandler:
                 else HttpEventType.HTTP_TRANSIT_REQUEST
             ),
             http_request=self.inbound_http_request,
-            mockau_traceparent=self.inbound_http_request.mockau_traceparent,
+            minow_traceparent=self.inbound_http_request.minow_traceparent,
             traceparent=self.inbound_http_request.traceparent,
         )
         self.tasks.append(
@@ -71,7 +71,7 @@ class HttpEventsHandler:
     ):
         event = HttpRequestErrorEventModel(
             event=HttpEventType.HTTP_REQUEST_TOO_MANY_REDIRECTS.value,
-            mockau_traceparent=http_request.mockau_traceparent,
+            minow_traceparent=http_request.minow_traceparent,
             traceparent=http_request.traceparent,
         )
         self.tasks.append(
@@ -85,7 +85,7 @@ class HttpEventsHandler:
     async def on_action_is_matched(self, action: t_HttpActionModel):
         event = HttpRequestActionEventModel(
             event=HttpEventType.HTTP_REQUEST_ACTION_MATCHED.value,
-            mockau_traceparent=self.inbound_http_request.mockau_traceparent,
+            minow_traceparent=self.inbound_http_request.minow_traceparent,
             action_reference=ActionReference(
                 action_id=action.id,
                 action_revision=action.revision,
@@ -103,7 +103,7 @@ class HttpEventsHandler:
     async def on_actions_mismatched(self):
         event = HttpRequestErrorEventModel(
             event=HttpEventType.HTTP_REQUEST_NO_ACTION_FOUND.value,
-            mockau_traceparent=self.inbound_http_request.mockau_traceparent,
+            minow_traceparent=self.inbound_http_request.minow_traceparent,
             traceparent=self.inbound_http_request.traceparent,
         )
         self.tasks.append(
@@ -120,7 +120,7 @@ class HttpEventsHandler:
     ):
         event = HttpRequestEventModel(
             event=HttpEventType.HTTP_SEND_REQUEST,
-            mockau_traceparent=http_request.mockau_traceparent,
+            minow_traceparent=http_request.minow_traceparent,
             http_request=http_request,
             traceparent=self.inbound_http_request.traceparent,
         )
@@ -132,12 +132,12 @@ class HttpEventsHandler:
 
     async def on_response_received(
         self,
-        mockau_traceparent: str,
+        minow_traceparent: str,
         http_response: HttpResponse,
     ):
         event = HttpResponseEventModel(
             event=HttpEventType.HTTP_RECEIVED_RESPONSE,
-            mockau_traceparent=mockau_traceparent,
+            minow_traceparent=minow_traceparent,
             http_response=http_response,
             traceparent=self.inbound_http_request.traceparent,
         )
@@ -156,7 +156,7 @@ class HttpEventsHandler:
             ),
             http_request=http_request,
             http_response=http_response,
-            mockau_traceparent=http_request.mockau_traceparent,
+            minow_traceparent=http_request.minow_traceparent,
             traceparent=http_request.traceparent,
             elapsed=time.monotonic() - self.time_start,
             processing_time=time.monotonic() - self.time_start - (http_response.elapsed if http_response else 0),
@@ -172,7 +172,7 @@ class HttpEventsHandler:
     async def on_action_mismatched_event(self, action: t_HttpActionModel, description: str):
         lazy_event = HttpRequestActionNotMatchedViewEventModel(
             event=HttpEventType.HTTP_ACTION_NOT_MATCHED_VIEW.value,
-            mockau_traceparent=self.inbound_http_request.mockau_traceparent,
+            minow_traceparent=self.inbound_http_request.minow_traceparent,
             action_reference=ActionReference(
                 action_id=action.id,
                 action_revision=action.revision,
@@ -192,7 +192,7 @@ class HttpEventsHandler:
     ):
         event = HttpRequestErrorEventModel(
             event=HttpEventType.HTTP_SEND_REQUEST_READ_TIMEOUT.value,
-            mockau_traceparent=http_request.mockau_traceparent,
+            minow_traceparent=http_request.minow_traceparent,
             traceparent=http_request.traceparent,
         )
         self.tasks.append(
@@ -209,7 +209,7 @@ class HttpEventsHandler:
     ):
         event = HttpRequestErrorEventModel(
             event=HttpEventType.HTTP_SEND_REQUEST_CONNECT_TIMEOUT.value,
-            mockau_traceparent=http_request.mockau_traceparent,
+            minow_traceparent=http_request.minow_traceparent,
             traceparent=http_request.traceparent,
         )
         self.tasks.append(
@@ -226,7 +226,7 @@ class HttpEventsHandler:
     ):
         event = HttpRequestErrorEventModel(
             event=HttpEventType.HTTP_SEND_REQUEST_POOL_TIMEOUT.value,
-            mockau_traceparent=http_request.mockau_traceparent,
+            minow_traceparent=http_request.minow_traceparent,
             traceparent=http_request.traceparent,
         )
         self.tasks.append(
@@ -243,7 +243,7 @@ class HttpEventsHandler:
     ):
         event = HttpRequestErrorEventModel(
             event=HttpEventType.HTTP_SEND_REQUEST_WRITE_TIMEOUT.value,
-            mockau_traceparent=http_request.mockau_traceparent,
+            minow_traceparent=http_request.minow_traceparent,
             traceparent=http_request.traceparent,
         )
         self.tasks.append(

@@ -28,7 +28,7 @@ class HttpResponse(BaseSchema):
     http_version: str = 'HTTP/1.1'
 
     @property
-    def mockau_traceparent(self) -> str | None:
+    def minow_traceparent(self) -> str | None:
         return getattr(self.headers, X_MOCKAU_TRACEPARENT_HEADER, None)
 
     @property

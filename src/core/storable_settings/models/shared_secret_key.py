@@ -6,12 +6,12 @@ import cryptography.exceptions
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from minow_fastapi import MockauSharedClients
 
 from core.bases.base_schema import BaseSchema
 from core.storable_settings.common import StorableSettingsType
 from core.storable_settings.exceptions import SharedSecretKeyInvalidTag
 from core.storable_settings.models.base_storable_settings import BaseStorableSettings
-from mockau_fastapi import MockauSharedClients
 
 
 class CipherData(BaseSchema):

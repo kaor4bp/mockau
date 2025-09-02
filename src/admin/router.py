@@ -3,6 +3,7 @@ from uuid import UUID
 
 import pytz
 from fastapi import APIRouter, Request, Response
+from minow_fastapi import MockauFastAPI
 from starlette.responses import JSONResponse
 
 from admin.queries import find_event_chains_by_timestamp, get_http_requests_by_timestamp
@@ -14,12 +15,11 @@ from admin.schemas import (
 from core.http.actions.types import t_HttpAction
 from core.http.interaction.schemas.http_content import get_data_file_path_by_id
 from core.http.matchers.http_request_matcher import HttpRequestMatcher
-from mockau_fastapi import MockauFastAPI
 from schemas.variables import VariablesContext, VariablesGroup
 from utils.compression import detect_and_decompress
 
-admin_router = APIRouter(prefix='/mockau/admin', tags=['Admin'])
-admin_debug_router = APIRouter(prefix='/mockau/admin', tags=['Admin Debug'])
+admin_router = APIRouter(prefix='/minow/admin', tags=['Admin'])
+admin_debug_router = APIRouter(prefix='/minow/admin', tags=['Admin Debug'])
 
 
 @admin_router.post(

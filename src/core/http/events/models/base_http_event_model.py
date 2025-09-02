@@ -10,7 +10,7 @@ from core.http.events.common import HttpEventType
 class BaseHttpEventModel(BaseModel):
     event: HttpEventType
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=pytz.UTC))
-    mockau_traceparent: str
+    minow_traceparent: str
     traceparent: str | None = None
     level: str
 
@@ -19,6 +19,6 @@ class BaseHttpEventModel(BaseModel):
         return int(self.created_at.timestamp() * 1000000)
 
     @property
-    def mockau_trace_id(self) -> str:
-        _, trace_id, _, _ = self.mockau_traceparent.split('-')
+    def minow_trace_id(self) -> str:
+        _, trace_id, _, _ = self.minow_traceparent.split('-')
         return trace_id

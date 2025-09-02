@@ -17,8 +17,8 @@ class HttpResponseEventDocument(BaseHttpEventDocument):
         return cls(
             event=model.event.value,
             created_at=model.created_at,
-            mockau_traceparent=model.mockau_traceparent,
-            mockau_trace_id=model.mockau_trace_id,
+            minow_traceparent=model.minow_traceparent,
+            minow_trace_id=model.minow_trace_id,
             timestamp=model.timestamp,
             http_response=HttpResponseInnerDocument.from_model(model.http_response),
             traceparent=model.traceparent,
@@ -29,7 +29,7 @@ class HttpResponseEventDocument(BaseHttpEventDocument):
         return HttpResponseEventModel(
             event=self.event,
             created_at=self.created_at,
-            mockau_traceparent=self.mockau_traceparent,
+            minow_traceparent=self.minow_traceparent,
             http_response=self.http_response.to_model(),
             traceparent=self.traceparent,
             level=self.level,

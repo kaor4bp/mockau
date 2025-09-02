@@ -5,6 +5,6 @@ from core.http.interaction.schemas import HttpRequest
 
 
 class HttpRequestEventModel(BaseHttpEventModel):
-    parent_mockau_traceparent: str | None = None
+    parent_minow_traceparent: str | None = None
     http_request: HttpRequest
     level: Literal['INFO'] = 'INFO'

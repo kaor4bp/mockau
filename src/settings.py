@@ -6,8 +6,9 @@ from functools import cached_property
 from dotenv import load_dotenv
 
 if typing.TYPE_CHECKING:
+    from minow_fastapi import MockauSharedClients
+
     from core.storable_settings.models import SharedSecretKey
-    from mockau_fastapi import MockauSharedClients
 
 
 load_dotenv(
@@ -46,7 +47,7 @@ class _MongoSettings:
 
 class _ELKSettings:
     uri: str = StringConfigItem(env='ELASTICSEARCH_URI')
-    index_prefix: str = StringConfigItem(env='ELASTICSEARCH_INDEX_PREFIX', default='mockau')
+    index_prefix: str = StringConfigItem(env='ELASTICSEARCH_INDEX_PREFIX', default='minow')
 
 
 class _RedisSettings:

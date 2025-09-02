@@ -20,7 +20,7 @@ class StubHttpResponseActionModel(BaseHttpActionModel):
         events_handler: 'HttpEventsHandler',
     ):
         await events_handler.on_response_received(
-            events_handler.inbound_http_request.mockau_traceparent,
+            events_handler.inbound_http_request.minow_traceparent,
             self.http_response,
         )
         return self.http_response

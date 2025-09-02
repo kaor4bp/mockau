@@ -6,7 +6,7 @@ def serialize_to_json_predicate_format(value):
         for k, v in value.items():
             value[k] = serialize_to_json_predicate_format(v)
 
-        if '$type_of' in value.keys() and '$-mockau-' in value['$type_of']:
+        if '$type_of' in value.keys() and '$-minow-' in value['$type_of']:
             type_of = value.pop('$type_of')
             value = {type_of: value}
     elif isinstance(value, list):
@@ -20,7 +20,7 @@ def deserialize_json_predicate_format(value):
         isinstance(value, dict)
         and len(value.keys()) == 1
         and isinstance(list(value.keys())[0], str)
-        and list(value.keys())[0].startswith('$-mockau-')
+        and list(value.keys())[0].startswith('$-minow-')
     ):
         new_data = list(value.values())[0]
         new_data['$type_of'] = list(value.keys())[0]
@@ -66,7 +66,7 @@ def py_value_to_predicate(value):
     elif isinstance(value, list):
         return ArrayEqualTo(value=value)
     elif isinstance(value, dict):
-        if value.get('type_of', '').startswith('$-mockau-'):
+        if value.get('type_of', '').startswith('$-minow-'):
             return value
         else:
             return ObjectEqualTo(value=value)

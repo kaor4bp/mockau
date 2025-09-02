@@ -170,7 +170,7 @@ class TestStringTemplate:
         template = StringTemplate(template=AvailableTemplate.UUID_V4, var='test')
 
         # Should have correct type_of
-        assert template.type_of == '$-mockau-str-template'
+        assert template.type_of == '$-minow-str-template'
 
         # Should have template property
         assert template.template == AvailableTemplate.UUID_V4
@@ -184,7 +184,7 @@ class TestStringTemplate:
 
         # Test model_dump
         data = template.model_dump()
-        assert data['type_of'] == '$-mockau-str-template'
+        assert data['type_of'] == '$-minow-str-template'
         # Enum is serialized as enum object, not string
         assert data['template'] == AvailableTemplate.UUID_V4
         assert data['var'] == 'test'

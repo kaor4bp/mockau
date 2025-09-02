@@ -6,13 +6,13 @@ from uuid import UUID, uuid4
 import httpx
 import pytz
 from fastapi import Response
+from minow_fastapi import MockauSharedClients
 from pydantic import Field
 
 from core.bases.base_model import BaseModel
 from core.http.actions.common import Times, TimeToLive
 from core.http.matchers.http_request_matcher import HttpRequestMatcher
 from core.storable_settings.models.dynamic_entrypoint import HttpClientSettings
-from mockau_fastapi import MockauSharedClients
 from schemas.variables import VariablesGroup
 
 if typing.TYPE_CHECKING:

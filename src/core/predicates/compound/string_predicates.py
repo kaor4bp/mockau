@@ -19,7 +19,7 @@ class AvailableTemplate(Enum):
 
 
 class StringTemplate(BaseCompoundPredicate):
-    type_of: Literal['$-mockau-str-template'] = '$-mockau-str-template'
+    type_of: Literal['$-minow-str-template'] = '$-minow-str-template'
     template: AvailableTemplate
 
     @property

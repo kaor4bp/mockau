@@ -8,6 +8,7 @@ import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import BackgroundTasks, FastAPI, Request
+from minow_fastapi import MockauFastAPI
 from starlette.responses import JSONResponse
 
 from admin.router import admin_debug_router, admin_router
@@ -16,7 +17,6 @@ from core.http.processor.http_processor_pipeline import HttpProcessorPipeline
 from core.http.tasks.task_cleanup_content_files import task_cleanup_content_files
 from core.init_elasticsearch_documents import init_elasticsearch_documents
 from core.storable_settings.models import DynamicEntrypoint
-from mockau_fastapi import MockauFastAPI
 from settings import MockauSettings
 
 
@@ -107,11 +107,11 @@ def generate_dynamic_router_processor(name: str):
     return dynamic_router_processor
 
 
-@app.post("/mockau/admin/create_entrypoint", tags=['Admin'])
+@app.post("/minow/admin/create_entrypoint", tags=['Admin'])
 async def create_entrypoint(name: str, request: Request):
     local_app: MockauFastAPI = request.app
 
-    if name in ['default', 'mockau']:
+    if name in ['default', 'minow']:
         return JSONResponse(
             content={'status': 'name is forbidden'},
             status_code=403,

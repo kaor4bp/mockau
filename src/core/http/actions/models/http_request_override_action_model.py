@@ -31,7 +31,7 @@ class HttpRequestOverrideActionModel(BaseHttpActionModel):
             except httpx.WriteError:
                 await events_handler.on_send_request_write_error(new_request)
 
-            await events_handler.on_response_received(new_request.mockau_traceparent, response)
+            await events_handler.on_response_received(new_request.minow_traceparent, response)
             await events_handler.on_request_response_view_event(new_request, response)
 
             if (

@@ -27,7 +27,7 @@ class HttpRequest(BaseSchema):
     headers: HttpHeaders
     body: t_Content = Field(discriminator='type_of')
     http_version: str = 'HTTP/1.1'
-    mockau_traceparent: str
+    minow_traceparent: str
 
     @property
     def traceparent(self) -> str | None:
@@ -36,8 +36,8 @@ class HttpRequest(BaseSchema):
             return traceparent[0]
 
     @property
-    def mockau_trace_id(self) -> str:
-        _, trace_id, _, _ = self.mockau_traceparent.split('-')
+    def minow_trace_id(self) -> str:
+        _, trace_id, _, _ = self.minow_traceparent.split('-')
         return trace_id
 
     @property
@@ -60,7 +60,7 @@ class HttpRequest(BaseSchema):
 
     @classmethod
     def from_httpx_request(cls, request: httpx.Request) -> 'HttpRequest':
-        mockau_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, generate_traceparent_token())
+        minow_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, generate_traceparent_token())
 
         return cls(
             socket_address=HttpSocketAddress.from_httpx_url(request.url),
@@ -72,12 +72,12 @@ class HttpRequest(BaseSchema):
                 content=request.content,
                 content_type=request.headers.get('content-type', ''),
             ),
-            mockau_traceparent=mockau_traceparent,
+            minow_traceparent=minow_traceparent,
         )
 
     @classmethod
     async def from_fastapi_request(cls, request: Request) -> 'HttpRequest':
-        mockau_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, generate_traceparent_token())
+        minow_traceparent = request.headers.get(X_MOCKAU_TRACEPARENT_HEADER, generate_traceparent_token())
 
         httpx_url = httpx.URL(str(request.url))
         return cls(
@@ -90,7 +90,7 @@ class HttpRequest(BaseSchema):
                 content=request.state.body,
                 content_type=request.headers.get('content-type', ''),
             ),
-            mockau_traceparent=mockau_traceparent,
+            minow_traceparent=minow_traceparent,
         )
 
     async def send(self, client: httpx.AsyncClient) -> HttpResponse:
@@ -111,9 +111,9 @@ class HttpRequest(BaseSchema):
         location = httpx.URL(getattr(http_response.headers, 'location')[0])
         http_request = deepcopy(self)
 
-        mockau_traceparent_token = generate_traceparent_token(http_response.mockau_traceparent)
+        minow_traceparent_token = generate_traceparent_token(http_response.minow_traceparent)
 
-        setattr(http_request.headers, X_MOCKAU_TRACEPARENT_HEADER, [mockau_traceparent_token])
+        setattr(http_request.headers, X_MOCKAU_TRACEPARENT_HEADER, [minow_traceparent_token])
 
         http_request.socket_address = HttpSocketAddress.from_httpx_url(location)
         http_request.path = location.path

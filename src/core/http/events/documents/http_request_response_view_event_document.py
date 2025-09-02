@@ -22,8 +22,8 @@ class HttpRequestResponseViewEventDocument(BaseHttpEventDocument):
         return cls(
             event=model.event.value,
             created_at=model.created_at,
-            mockau_traceparent=model.mockau_traceparent,
-            mockau_trace_id=model.mockau_trace_id,
+            minow_traceparent=model.minow_traceparent,
+            minow_trace_id=model.minow_trace_id,
             timestamp=model.timestamp,
             http_request=HttpRequestInnerDocument.from_model(model.http_request),
             http_response=HttpResponseInnerDocument.from_model(model.http_response) if model.http_response else None,
@@ -37,7 +37,7 @@ class HttpRequestResponseViewEventDocument(BaseHttpEventDocument):
         return HttpRequestResponseViewEventModel(
             event=self.event,
             created_at=self.created_at,
-            mockau_traceparent=self.mockau_traceparent,
+            minow_traceparent=self.minow_traceparent,
             http_request=self.http_request.to_http_request(),
             http_response=self.http_response.to_http_response() if self.http_response else None,
             traceparent=self.traceparent,

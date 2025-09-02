@@ -12,8 +12,8 @@ class HttpRequestErrorEventDocument(BaseHttpEventDocument):
         return cls(
             event=model.event.value,
             created_at=model.created_at,
-            mockau_traceparent=model.mockau_traceparent,
-            mockau_trace_id=model.mockau_trace_id,
+            minow_traceparent=model.minow_traceparent,
+            minow_trace_id=model.minow_trace_id,
             timestamp=model.timestamp,
             traceparent=model.traceparent,
             level=model.level,
@@ -23,7 +23,7 @@ class HttpRequestErrorEventDocument(BaseHttpEventDocument):
         return HttpRequestErrorEventModel(
             event=self.event,
             created_at=self.created_at,
-            mockau_traceparent=self.mockau_traceparent,
+            minow_traceparent=self.minow_traceparent,
             traceparent=self.traceparent,
             level=self.level,
         )

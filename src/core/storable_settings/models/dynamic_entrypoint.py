@@ -1,10 +1,10 @@
 from typing import Literal
 
+from minow_fastapi import MockauSharedClients
 from pydantic import Field
 
 from core.storable_settings.common import HttpClientSettings, StorableSettingsType
 from core.storable_settings.models.base_storable_settings import BaseStorableSettings
-from mockau_fastapi import MockauSharedClients
 
 
 class DynamicEntrypoint(BaseStorableSettings):

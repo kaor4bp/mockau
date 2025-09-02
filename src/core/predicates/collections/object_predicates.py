@@ -84,7 +84,7 @@ class BaseObjectPredicate(
 class ObjectEqualTo(
     BaseObjectPredicate,
 ):
-    type_of: Literal['$-mockau-object-equal-to'] = '$-mockau-object-equal-to'
+    type_of: Literal['$-minow-object-equal-to'] = '$-minow-object-equal-to'
 
     def compile_predicate(self):
         from core.predicates import DynamicKeyMatch, ObjectEqualTo
@@ -161,7 +161,7 @@ class ObjectEqualTo(
 class ObjectNotEqualTo(
     BaseObjectPredicate,
 ):
-    type_of: Literal['$-mockau-object-not-equal-to'] = '$-mockau-object-not-equal-to'
+    type_of: Literal['$-minow-object-not-equal-to'] = '$-minow-object-not-equal-to'
 
     def compile_predicate(self):
         from core.predicates import DynamicKeyMatch, ObjectNotEqualTo
@@ -260,7 +260,7 @@ class ObjectNotEqualTo(
 class ObjectContainsSubset(
     BaseObjectPredicate,
 ):
-    type_of: Literal['$-mockau-object-contains'] = '$-mockau-object-contains'
+    type_of: Literal['$-minow-object-contains'] = '$-minow-object-contains'
 
     def compile_predicate(self):
         from core.predicates import DynamicKeyMatch, ObjectContainsSubset
@@ -328,7 +328,7 @@ class ObjectContainsSubset(
 class ObjectNotContainsSubset(
     BaseObjectPredicate,
 ):
-    type_of: Literal['$-mockau-object-not-contains'] = '$-mockau-object-not-contains'
+    type_of: Literal['$-minow-object-not-contains'] = '$-minow-object-not-contains'
 
     def compile_predicate(self):
         from core.predicates import DynamicKeyMatch, ObjectNotContainsSubset
@@ -404,7 +404,7 @@ class ObjectNotContainsSubset(
 class ObjectHasValue(
     BaseCollectionPredicate,
 ):
-    type_of: Literal['$-mockau-object-has-value'] = '$-mockau-object-has-value'
+    type_of: Literal['$-minow-object-has-value'] = '$-minow-object-has-value'
     predicate: 't_DefaultPredicateType'
 
     def get_all_predicates(self):
@@ -466,7 +466,7 @@ class ObjectHasValue(
 class ObjectHasNoValue(
     BaseCollectionPredicate,
 ):
-    type_of: Literal['$-mockau-object-has-no-value'] = '$-mockau-object-has-no-value'
+    type_of: Literal['$-minow-object-has-no-value'] = '$-minow-object-has-no-value'
     predicate: 't_DefaultPredicateType'
 
     def get_all_predicates(self):

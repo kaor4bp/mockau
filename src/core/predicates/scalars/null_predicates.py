@@ -18,7 +18,7 @@ class BaseNullPredicate(BaseScalarPredicate):
 
 
 class IsNull(BaseNullPredicate):
-    type_of: Literal['$-mockau-is-null'] = '$-mockau-is-null'
+    type_of: Literal['$-minow-is-null'] = '$-minow-is-null'
 
     def get_all_predicates(self):
         yield self
@@ -38,7 +38,7 @@ class IsNull(BaseNullPredicate):
 
 
 class OptionalPredicate(BaseNullPredicate):
-    type_of: Literal['$-mockau-optional'] = '$-mockau-optional'
+    type_of: Literal['$-minow-optional'] = '$-minow-optional'
 
     predicate: Union['t_Predicate', 't_Py2PredicateType']
 

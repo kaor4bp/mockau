@@ -32,7 +32,7 @@ class NumberEqualTo(BaseNumberPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['$-mockau-float-eq'] = '$-mockau-float-eq'
+    type_of: Literal['$-minow-float-eq'] = '$-minow-float-eq'
     value: float
 
     def verify(self, value):
@@ -57,7 +57,7 @@ class NumberEqualTo(BaseNumberPredicate):
 
 
 class NumberNotEqualTo(BaseNumberPredicate):
-    type_of: Literal['$-mockau-float-neq'] = '$-mockau-float-neq'
+    type_of: Literal['$-minow-float-neq'] = '$-minow-float-neq'
     value: float
 
     def normalize_to_canonical_form(self):
@@ -85,7 +85,7 @@ class NumberGreaterThan(BaseNumberPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['$-mockau-float-gt'] = '$-mockau-float-gt'
+    type_of: Literal['$-minow-float-gt'] = '$-minow-float-gt'
     value: float
 
     def verify(self, value):
@@ -115,7 +115,7 @@ class NumberGreaterOrEqualThan(BaseNumberPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['$-mockau-float-gte'] = '$-mockau-float-gte'
+    type_of: Literal['$-minow-float-gte'] = '$-minow-float-gte'
     value: float
 
     def normalize_to_canonical_form(self):
@@ -152,7 +152,7 @@ class NumberLessThan(BaseNumberPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['$-mockau-float-lt'] = '$-mockau-float-lt'
+    type_of: Literal['$-minow-float-lt'] = '$-minow-float-lt'
     value: float
 
     def verify(self, value):
@@ -182,7 +182,7 @@ class NumberLessOrEqualThan(BaseNumberPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['$-mockau-float-lte'] = '$-mockau-float-lte'
+    type_of: Literal['$-minow-float-lte'] = '$-minow-float-lte'
     value: float
 
     def normalize_to_canonical_form(self):

@@ -6,7 +6,7 @@
         equal_to: foo
     socket_address:
       host:
-        equal_to: mockau.mynetwork.domain
+        equal_to: minow.mynetwork.domain
     method:
       any_of:
       - GET

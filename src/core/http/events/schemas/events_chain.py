@@ -1,6 +1,7 @@
 from typing import Self
 
 from elasticsearch_dsl import Q
+from minow_fastapi import MockauFastAPI, MockauSharedClients
 from pydantic import model_validator
 
 from core.bases.base_schema import BaseSchema
@@ -15,7 +16,6 @@ from core.http.events.documents import (
 )
 from core.http.events.models import HttpRequestEventModel
 from core.http.events.types import t_EventModel
-from mockau_fastapi import MockauFastAPI, MockauSharedClients
 from schemas.http_request_response_view import HttpRequestResponseView
 
 
@@ -43,12 +43,12 @@ class EventsChain(BaseSchema):
         response_events = (event for event in self.events if event.event is HttpEventType.HTTP_RECEIVED_RESPONSE)
 
         for response_event in response_events:
-            if http_request_event.mockau_traceparent == response_event.mockau_traceparent:
+            if http_request_event.minow_traceparent == response_event.minow_traceparent:
                 return response_event
 
         child_event = None
         for sub_request_event in all_request_events:
-            if sub_request_event.parent_mockau_traceparent == http_request_event.mockau_traceparent:
+            if sub_request_event.parent_minow_traceparent == http_request_event.minow_traceparent:
                 child_event = sub_request_event
                 break
         if child_event:
@@ -59,7 +59,7 @@ class EventsChain(BaseSchema):
             event for event in self.events if event.event is HttpEventType.HTTP_REQUEST_ACTION_MATCHED
         )
         for action_matched_event in all_action_matched_events:
-            if http_request_event.mockau_traceparent == action_matched_event.mockau_traceparent:
+            if http_request_event.minow_traceparent == action_matched_event.minow_traceparent:
                 return action_matched_event
 
     def get_http_request_response_views(self) -> list[HttpRequestResponseView]:
@@ -100,7 +100,7 @@ class EventsChain(BaseSchema):
         for document_type in document_types:
             query = Q(
                 "bool",
-                must=[Q("term", mockau_trace_id=trace_id)],
+                must=[Q("term", minow_trace_id=trace_id)],
                 must_not=[Q("term", event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value)],
             )
 
@@ -124,14 +124,14 @@ class EventsChain(BaseSchema):
         for document_type in document_types:
             query = Q(
                 "bool",
-                should=[Q("term", mockau_trace_id=trace_id) for trace_id in trace_ids],
+                should=[Q("term", minow_trace_id=trace_id) for trace_id in trace_ids],
                 must_not=[Q("term", event=HttpEventType.HTTP_REQUEST_RESPONSE_VIEW.value)],
             )
 
             response = await document_type.search(using=clients.elasticsearch_client).query(query).execute()
 
             for hit in response.hits:
-                event_models.setdefault(hit.mockau_trace_id, []).append(hit.to_model())
+                event_models.setdefault(hit.minow_trace_id, []).append(hit.to_model())
         chains = []
         for events in event_models.values():
             events.sort(key=lambda event: event.created_at)

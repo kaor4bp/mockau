@@ -3,6 +3,7 @@ from typing import AsyncGenerator
 import httpx
 from fastapi import BackgroundTasks
 from httpx import Limits, Timeout
+from minow_fastapi import MockauFastAPI
 from pydantic import TypeAdapter
 
 from core.http.actions.types import t_HttpActionModel
@@ -10,7 +11,6 @@ from core.http.interaction.schemas import HttpRequest, HttpResponse
 from core.http.processor.http_events_handler import HttpEventsHandler
 from core.storable_settings.common import FollowRedirectsMode
 from core.storable_settings.models import DynamicEntrypoint
-from mockau_fastapi import MockauFastAPI
 from schemas.variables import VariablesContext
 
 

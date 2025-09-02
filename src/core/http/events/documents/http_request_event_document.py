@@ -12,7 +12,7 @@ class HttpRequestEventDocument(BaseHttpEventDocument):
     class Index:
         name = f'{MockauSettings.elk.index_prefix}_http_request'
 
-    parent_mockau_traceparent: Optional[str] = Keyword(required=False)
+    parent_minow_traceparent: Optional[str] = Keyword(required=False)
     http_request: HttpRequestInnerDocument = Object(doc_class=HttpRequestInnerDocument, required=True)
 
     @classmethod
@@ -20,10 +20,10 @@ class HttpRequestEventDocument(BaseHttpEventDocument):
         return cls(
             event=model.event.value,
             created_at=model.created_at,
-            mockau_traceparent=model.mockau_traceparent,
-            mockau_trace_id=model.mockau_trace_id,
+            minow_traceparent=model.minow_traceparent,
+            minow_trace_id=model.minow_trace_id,
             timestamp=model.timestamp,
-            parent_mockau_traceparent=model.parent_mockau_traceparent,
+            parent_minow_traceparent=model.parent_minow_traceparent,
             http_request=HttpRequestInnerDocument.from_model(model.http_request),
             traceparent=model.traceparent,
             level=model.level,
@@ -33,8 +33,8 @@ class HttpRequestEventDocument(BaseHttpEventDocument):
         return HttpRequestEventModel(
             event=self.event,
             created_at=self.created_at,
-            mockau_traceparent=self.mockau_traceparent,
-            parent_mockau_traceparent=self.parent_mockau_traceparent,
+            minow_traceparent=self.minow_traceparent,
+            parent_minow_traceparent=self.parent_minow_traceparent,
             http_request=self.http_request.to_model(),
             traceparent=self.traceparent,
             level=self.level,

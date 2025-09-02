@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from elasticsearch_dsl import A
+from minow_fastapi import MockauSharedClients
 
 from admin.schemas import EventsChainTimestampPaginatedResponse, HttpRequestResponseViewTimestampPaginatedResponse
 from core.http.actions.common import ActionReference
@@ -9,7 +10,6 @@ from core.http.events.documents import HttpRequestActionEventDocument
 from core.http.events.documents.http_request_event_document import HttpRequestEventDocument
 from core.http.events.models import HttpRequestEventModel
 from core.http.events.schemas.events_chain import EventsChain
-from mockau_fastapi import MockauSharedClients
 from schemas.http_request_response_view import HttpRequestResponseView
 
 
@@ -58,28 +58,28 @@ async def get_http_requests_by_timestamp(
     response = await search.execute()
 
     request_events_list: list[HttpRequestEventModel] = []
-    mockau_trace_ids_list = []
+    minow_trace_ids_list = []
     for document in response.hits:
-        mockau_trace_ids_list.append(document.mockau_trace_id)
+        minow_trace_ids_list.append(document.minow_trace_id)
         request_events_list.append(document.to_model())
 
     events_chains_list = await EventsChain.bulk_create_by_trace_ids(
         clients=clients,
-        trace_ids=list(set(mockau_trace_ids_list)),
+        trace_ids=list(set(minow_trace_ids_list)),
     )
     results = []
 
     for events_chain in events_chains_list:
         for request_response_view in events_chain.get_http_request_response_views():
             for request_event_index, request_event in enumerate(request_events_list):
-                if request_event.mockau_traceparent == request_response_view.http_request.mockau_traceparent:
+                if request_event.minow_traceparent == request_response_view.http_request.minow_traceparent:
                     results.append(request_response_view)
                     request_events_list.pop(request_event_index)
                     break
 
     search = HttpRequestActionEventDocument.search(using=clients.elasticsearch_client).filter(
         "terms",
-        mockau_traceparent=[request_event.mockau_traceparent for request_event in request_events_list],
+        minow_traceparent=[request_event.minow_traceparent for request_event in request_events_list],
     )
     response = await search.execute()
 
@@ -88,7 +88,7 @@ async def get_http_requests_by_timestamp(
     for request_event in request_events_list:
         found_action_event = None
         for missed_action_event in missed_action_events:
-            if missed_action_event.mockau_traceparent == request_event.mockau_traceparent:
+            if missed_action_event.minow_traceparent == request_event.minow_traceparent:
                 found_action_event = missed_action_event
                 break
         results.append(
@@ -156,12 +156,12 @@ async def find_event_chains_by_timestamp(
         )
     )
 
-    agg = A("terms", field="mockau_trace_id", size=limit)
-    search.aggs.bucket("unique_mockau_trace_ids", agg)
+    agg = A("terms", field="minow_trace_id", size=limit)
+    search.aggs.bucket("unique_minow_trace_ids", agg)
     response = await search.execute()
-    unique_mockau_trace_ids = [bucket.key for bucket in response.aggregations.unique_mockau_trace_ids.buckets]
+    unique_minow_trace_ids = [bucket.key for bucket in response.aggregations.unique_minow_trace_ids.buckets]
 
-    events_chains = await EventsChain.bulk_create_by_trace_ids(clients=clients, trace_ids=unique_mockau_trace_ids)
+    events_chains = await EventsChain.bulk_create_by_trace_ids(clients=clients, trace_ids=unique_minow_trace_ids)
 
     return EventsChainTimestampPaginatedResponse(
         items=events_chains,

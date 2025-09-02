@@ -32,7 +32,7 @@ class BooleanEqualTo(BaseBooleanPredicate):
     .. Docstring created by Gemini 2.5 Flash
     """
 
-    type_of: Literal['$-mockau-boolean-is'] = '$-mockau-boolean-is'
+    type_of: Literal['$-minow-boolean-is'] = '$-minow-boolean-is'
     value: bool
 
     def __invert__(self):
@@ -60,7 +60,7 @@ class BooleanEqualTo(BaseBooleanPredicate):
 
 
 class BooleanNotEqualTo(BaseBooleanPredicate):
-    type_of: Literal['$-mockau-boolean-is-not'] = '$-mockau-boolean-is-not'
+    type_of: Literal['$-minow-boolean-is-not'] = '$-minow-boolean-is-not'
     value: bool
 
     def __invert__(self):

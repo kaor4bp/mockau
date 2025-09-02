@@ -20,10 +20,10 @@ class MockauSharedClients:
     def __init__(self) -> None:
         from core.storable_settings.models.dynamic_entrypoint import HttpClientSettings
 
-        self.mongo_events_client = MongoClient(collection='mockau_events')
-        self.mongo_actions_client = MongoClient(collection='mockau_actions')
-        self.mongo_settings_client = MongoClient(collection='mockau_settings')
-        self.mongo_tasks_client = MongoClient(collection='mockau_tasks')
+        self.mongo_events_client = MongoClient(collection='minow_events')
+        self.mongo_actions_client = MongoClient(collection='minow_actions')
+        self.mongo_settings_client = MongoClient(collection='minow_settings')
+        self.mongo_tasks_client = MongoClient(collection='minow_tasks')
         self.elasticsearch_client = elasticsearch.AsyncElasticsearch(
             hosts=MockauSettings.elk.uri,
             max_retries=3,

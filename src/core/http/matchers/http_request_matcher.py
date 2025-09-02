@@ -20,7 +20,7 @@ class HttpRequestMatcher(AbstractMatcher):
     ]
     socket_address: Annotated[
         Optional[SocketAddressMatcher],
-        Field(default=None, examples=[{'socket_address': {'equal_to': 'mockau.mynetwork.domain'}}]),
+        Field(default=None, examples=[{'socket_address': {'equal_to': 'minow.mynetwork.domain'}}]),
     ]
     method: Annotated[Optional[t_MethodMatcher], Field(default=None, examples=[{"any_of": ["GET"]}])]
     headers: Annotated[Optional[t_HeaderMatcherContainer], Field(default=None)]

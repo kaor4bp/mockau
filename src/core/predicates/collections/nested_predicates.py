@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class NestedAnyOf(BaseCollectionPredicate, ABC):
-    type_of: Literal['$-mockau-nested-any-of'] = '$-mockau-nested-any-of'
+    type_of: Literal['$-minow-nested-any-of'] = '$-minow-nested-any-of'
 
     predicate: 't_DefaultPredicateType'
 
@@ -105,7 +105,7 @@ class NestedAnyOf(BaseCollectionPredicate, ABC):
 
 
 class NestedAllOf(NestedAnyOf, ParityPredicateMixin, ABC):
-    type_of: Literal['$-mockau-nested-all-of'] = '$-mockau-nested-all-of'
+    type_of: Literal['$-minow-nested-all-of'] = '$-minow-nested-all-of'
 
     def __invert__(self):
         return NestedAnyOf(predicate=~self.predicate, var=self.var)
@@ -256,7 +256,7 @@ class NestedAllOf(NestedAnyOf, ParityPredicateMixin, ABC):
 
 
 class NestedNoneOf(NestedAllOf):
-    type_of: Literal['$-mockau-nested-none-of'] = '$-mockau-nested-none-of'
+    type_of: Literal['$-minow-nested-none-of'] = '$-minow-nested-none-of'
 
     @property
     def compiled_value(self):

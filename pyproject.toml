@@ -13,7 +13,7 @@ target-version = "py313"
 quote-style = "preserve"
 
 [tool.poetry]
-name = "mockau"
+name = "minow"
 version = "0.2.0"
 description = ""
 authors = ["Timofey Dolganov <kaor.bp@gmail.com>"]

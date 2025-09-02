@@ -15,7 +15,7 @@ class HttpResponseInnerDocument(BaseModelInnerDocument):
 
     url: str = Text(required=True)
     path: str = Keyword(required=True)
-    mockau_traceparent: Optional[str] = Keyword(required=False)
+    minow_traceparent: Optional[str] = Keyword(required=False)
     text: Optional[str] = Keyword(required=False, store=True)
     status_code: int = Integer(required=True)
     charset_encoding: Optional[str] = Keyword(required=False)
@@ -34,7 +34,7 @@ class HttpResponseInnerDocument(BaseModelInnerDocument):
             cookies=data['cookies'],
             url=str(model.full_url),
             path=model.path,
-            mockau_traceparent=model.mockau_traceparent,
+            minow_traceparent=model.minow_traceparent,
             preview=model.content.preview,
             status_code=model.status_code,
             http_version=model.http_version,
